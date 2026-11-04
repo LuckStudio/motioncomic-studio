@@ -1445,11 +1445,12 @@
         h('div', { class: 'sim-prog' }, el.simBar), h('p', { class: 'sim-note' }, t('Simulación aproximada: cada app cambia sus zonas', 'Approximate simulation: each app changes its zones')));
       positionSim(); updateTime();
     }
+    /* El simulador de redes va exactamente encima del lienzo. Se usan medidas de diseño (no del pantallazo), así no se descuadra con el tamaño de la interfaz ni con el zoom del visor. */
     function positionSim() {
       if (!el.sim || el.sim.hidden) return;
-      const c = el.canvas, st = el.stage.getBoundingClientRect(), r = c.getBoundingClientRect();
-      Object.assign(el.sim.style, { left: r.left - st.left + 'px', top: r.top - st.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-      el.sim.style.setProperty('--u', r.width / 100 + 'px');
+      const c = el.canvas;
+      Object.assign(el.sim.style, { left: c.offsetLeft + 'px', top: c.offsetTop + 'px', width: c.offsetWidth + 'px', height: c.offsetHeight + 'px', transformOrigin: '50% 50%', transform: c.style.transform || '' });
+      el.sim.style.setProperty('--u', c.offsetWidth / 100 + 'px');
     }
     function updateTransport() {
       MC.put(MC.clear(el.play), MC.icon(S.playing ? 'pause' : 'play', 14));
@@ -1493,7 +1494,7 @@
     }
     const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverStart(kind, apply); }); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
     /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
-    function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); }
+    function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); positionSim(); }
     function setViewZoom(z, cx, cy) {
       const v = S.vz, nz = clamp(z, 0.25, 8), r = el.stage.getBoundingClientRect(), mx = (cx == null ? r.left + r.width / 2 : cx) - (r.left + r.width / 2), my = (cy == null ? r.top + r.height / 2 : cy) - (r.top + r.height / 2), k = nz / v.z;
       v.x = mx - (mx - v.x) * k; v.y = my - (my - v.y) * k; v.z = nz; if (nz === 1) { v.x = 0; v.y = 0; } applyViewXf(); S.dirty = true;
