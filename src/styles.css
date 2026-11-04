@@ -494,3 +494,28 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .clip.sb .sbw { position: absolute; top: 13px; bottom: 3px; width: 1px; background: rgba(255,255,255,.75); pointer-events: none; z-index: 1; }
 .clip.sb .sbw.est { opacity: .35; }
 .clip.sb .rz { z-index: 3; }
+
+/* ---------- capas como en Photoshop ---------- */
+.lctl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 8px 2px; }
+.lctl .input { padding: 4px 6px; font-size: 13px; }
+.lop { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.lop input { min-width: 0; }
+.ltools { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 6px 6px; border-bottom: 1px solid var(--line); }
+.lhint { padding: 4px 10px 0; font-size: 11px; }
+.lrow2 { position: relative; padding-left: 2px; }
+.lrow2 .grip { color: var(--muted); cursor: grab; font-size: 12px; letter-spacing: -2px; padding: 0 2px; }
+.lrow2 .lacts { display: none; gap: 0; } .lrow2:hover .lacts, .lrow2.on .lacts { display: inline-flex; }
+.lrow2 .lz { display: none; } .lrow2:not(:hover):not(.on) .lz { display: inline; }
+.lrow2.lk .ln { font-style: italic; }
+.lrow2 .lkb[aria-pressed="false"] { opacity: .35; } .lrow2:hover .lkb { opacity: 1; }
+.lrow2.dragging { opacity: .4; }
+.lrow2.ins::before, .lrow2.insb::after { content: ""; position: absolute; left: 4px; right: 4px; height: 3px; background: var(--accent); z-index: 4; }
+.lrow2.ins::before { top: -2px; } .lrow2.insb::after { bottom: -2px; }
+.pbody.dropping { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.lrow2 .ln + .input, .lrow2 > .input { flex: 1; min-width: 0; padding: 2px 6px; font-size: 14px; }
+.picker { max-height: 60vh; overflow: auto; display: grid; gap: 8px; align-content: start; }
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.pickcard { display: grid; gap: 2px; justify-items: center; padding: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; cursor: pointer; font-size: 11px; text-align: center; }
+.pickcard img, .pickcard .ph0 { width: 100%; height: 72px; object-fit: contain; background: var(--raised); }
+.pickcard b { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pickcard small { color: var(--muted); }
+.pickcard[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }

@@ -487,26 +487,116 @@
     async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); try { await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
+    /* ---------- capas: como en Photoshop, arriba = más cerca y tapa lo de abajo ---------- */
+    const MIME_ASSET = 'application/x-mc-asset', MIME_LAYER = 'application/x-mc-layer';
+    const r2 = (v) => Math.round(v * 100) / 100;
+    /* z (profundidad) entre dos vecinas de la lista, para que el orden y la profundidad coincidan */
+    const zBetween = (list, idx) => { const lo = idx > 0 ? list[idx - 1].z : 0, hi = idx < list.length ? list[idx].z : 1; return clamp(r2(lo <= hi ? (lo + hi) / 2 : lo), 0.01, 0.99); };
+    const evenZ = (sh) => { const n = sh.layers.length; sh.layers.forEach((l, i) => { l.z = n === 1 ? 0.5 : r2(0.04 + (0.92 * i) / (n - 1)); }); };
+    function reorderLayer(sh, from, to) { /* to = posición final dentro de la lista nueva */
+      const l = sh.layers.splice(from, 1)[0]; to = clamp(to, 0, sh.layers.length);
+      const lo = to > 0 ? sh.layers[to - 1].z : 0, hi = to < sh.layers.length ? sh.layers[to].z : 1;
+      sh.layers.splice(to, 0, l);
+      if (lo > hi) evenZ(sh); else l.z = clamp(r2((lo + hi) / 2), 0, 1);
+      return to;
+    }
+    /* si cambias la profundidad (z) de una capa, sube o baja en la lista hasta su sitio */
+    function placeByZ(sh, l) { const others = sh.layers.filter((x) => x !== l), idx = others.filter((x) => x.z <= l.z).length; others.splice(idx, 0, l); sh.layers = others; return idx; }
+    async function assetsToLayers(ids, idx) {
+      const sh = shot(); if (!sh || sh.page || sh.webtoon) { MC.toast(t('Este plano se monta con su página: usa «Planos» para añadir páginas.', 'This shot is built from its page: use “Shots” to add pages.')); return; }
+      let at = idx == null ? sh.layers.length : clamp(idx, 0, sh.layers.length), last = -1;
+      for (const id of ids) {
+        const a = await MC.assets.load(id); if (!a) continue;
+        const L = MC.newLayer(a, { z: 0.5, role: '' }); L.z = sh.layers.length ? zBetween(sh.layers, at) : 0.1; if (!sh.layers.length) L.role = 'fondo'; if (a.video) L.vloop = true;
+        sh.layers.splice(at, 0, L); last = at; at++;
+      }
+      if (last >= 0) { S.li = last; S.tx = null; S.ov = null; commit(); checkMemory(); }
+    }
+    /* ¿qué se ha soltado? recursos del proyecto o de la biblioteca, una capa que se reordena, o archivos del equipo */
+    async function dropOnLayers(dt, idx) {
+      const sh = shot(); if (!sh) return;
+      const lay = dt.getData(MIME_LAYER);
+      if (lay !== '' && lay != null && dt.types.includes(MIME_LAYER)) { const from = +lay, to0 = idx > from ? idx - 1 : idx; if (from !== to0 && sh.layers[from]) { S.li = reorderLayer(sh, from, to0); commit(); } return; }
+      if (dt.types.includes(MIME_ASSET)) { try { const items = JSON.parse(dt.getData(MIME_ASSET)); const ids = items.filter((q) => q.kind !== 'audio').map((q) => q.id); if (ids.length) await assetsToLayers(ids, idx); } catch (e) { /* nada */ } return; }
+      if (dt.files && dt.files.length) { const n0 = sh.layers.length, fs = await MC.collectDropped(dt); await importFiles(fs, 'layers'); const sh2 = shot(); if (sh2 === sh && sh.layers.length > n0 && idx < n0) { const blk = sh.layers.splice(n0, sh.layers.length - n0); sh.layers.splice(idx, 0, ...blk); blk.forEach((l, k) => { l.z = zBetween(sh.layers.slice(0, idx).concat(sh.layers.slice(idx + blk.length)), idx); }); S.li = idx + blk.length - 1; commit(); } }
+    }
+    /* selector: recursos del proyecto, de la biblioteca o del equipo */
+    async function openAssetPicker(opts) {
+      const p = S.project; await loadLib(false);
+      const ids = new Set(); p.shots.forEach((sh) => sh.layers.forEach((l) => ids.add(l.assetId))); (p.overlays || []).forEach((o) => ids.add(o.assetId));
+      const proj = [...ids].map((id) => MC.assets.get(id)).filter(Boolean), lib = (S.libItems || []).filter((x) => x.kind !== 'audio'), chosen = new Set();
+      const btnAdd = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Añadir', 'Add'));
+      const card = (id, thumb, name, meta) => { const b2 = h('button', { type: 'button', class: 'pickcard', 'aria-pressed': 'false', draggable: 'true', title: name, onClick: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); b2.setAttribute('aria-pressed', String(chosen.has(id))); btnAdd.disabled = !chosen.size; btnAdd.textContent = chosen.size ? t('Añadir ', 'Add ') + chosen.size : t('Añadir', 'Add'); } }, thumb ? h('img', { src: thumb, alt: '' }) : h('span', { class: 'ph0' }), h('b', null, name), h('small', null, meta || ''));
+        b2.addEventListener('dragstart', (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([{ id, kind: 'image' }])); }); return b2; };
+      const body = h('div', { class: 'picker' },
+        h('div', { class: 'eyebrow' }, t('En este proyecto · ', 'In this project · ') + proj.length), proj.length ? h('div', { class: 'pickgrid' }, proj.map((a) => card(a.id, a.thumb, a.name, a.video ? t('vídeo', 'video') : a.w + '×' + a.h))) : h('p', { class: 'cap' }, t('Aún no hay imágenes en el proyecto.', 'There are no images in the project yet.')),
+        h('div', { class: 'eyebrow', style: { marginTop: '10px' } }, t('En la biblioteca · ', 'In the library · ') + lib.length), lib.length ? h('div', { class: 'pickgrid' }, lib.map((x) => card(x.id, x.thumb, x.name, x.kind === 'video' ? t('vídeo', 'video') : t('imagen', 'image')))) : h('p', { class: 'cap' }, t('La biblioteca está vacía.', 'The library is empty.')));
+      MC.modal(opts.title || t('Elegir imágenes', 'Choose images'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { close(); fileLayers.click(); } }, MC.icon('upload', 14), t('Desde el equipo…', 'From this device…')), h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
+        (() => { btnAdd.addEventListener('click', () => { const sel = [...chosen]; close(); opts.onPick(sel); }); return btnAdd; })()], { wide: true });
+    }
+    const BLENDS = [['', t('Normal', 'Normal')], ['multiply', t('Multiplicar', 'Multiply')], ['screen', t('Pantalla', 'Screen')], ['overlay', t('Superponer', 'Overlay')], ['soft-light', t('Luz suave', 'Soft light')], ['hard-light', t('Luz fuerte', 'Hard light')], ['lighten', t('Aclarar', 'Lighten')], ['darken', t('Oscurecer', 'Darken')], ['color-dodge', t('Sobreexponer color', 'Colour dodge')], ['color-burn', t('Subexponer color', 'Colour burn')], ['difference', t('Diferencia', 'Difference')], ['exclusion', t('Exclusión', 'Exclusion')]];
+    function renderImpMenu() {
+      if (el.impMenu) { el.impMenu.remove(); el.impMenu = null; }
+      if (!S.impOpen || !el.impBtn) return;
+      const item = (ic, label, fn) => h('button', { type: 'button', onClick: () => { S.impOpen = false; renderImpMenu(); fn(); } }, MC.icon(ic, 15), label);
+      el.impMenu = h('div', { class: 'tmenu vmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.impOpen = false; renderImpMenu(); el.impBtn.focus(); } } },
+        item('upload', t('Desde el equipo…', 'From this device…'), () => fileLayers.click()), item('image', t('Del proyecto o la biblioteca…', 'From the project or library…'), () => openAssetPicker({ onPick: (ids) => assetsToLayers(ids, S.li >= 0 ? S.li + 1 : null) })),
+        item('plus', t('Capa de color liso', 'Solid colour layer'), addSolidLayer), item('folder', t('Carpeta o ZIP…', 'Folder or ZIP…'), () => document.querySelector('.leftpanel input[webkitdirectory]') ? document.querySelector('.leftpanel input[webkitdirectory]').click() : fileLayers.click()));
+      el.impBtn.parentNode.append(el.impMenu);
+    }
+    async function addSolidLayer() {
+      const sh = shot(); if (!sh || sh.page || sh.webtoon) return; const col = prompt(t('Color (por ejemplo #ffffff)', 'Colour (for example #ffffff)'), '#ffffff'); if (!col) return;
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 64, 64);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/png')), a = await MC.assets.add(blob, t('Color ', 'Colour ') + col + '.png'); await assetsToLayers([a.id], S.li >= 0 ? S.li + 1 : null);
+    }
     function renderLayers() {
-      const b = el.layersBody, sh = shot();
-      MC.clear(b);
+      const b = el.layersBody, sh = shot(); MC.clear(b);
       if (!sh) return;
-      if (!sh.layers.length) b.append(h('p', { class: 'cap', style: { padding: '8px' } }, t('Este plano aún no tiene capas. Importa una ilustración.', 'This shot has no layers yet. Import an illustration.')));
+      const sel = sh.layers[S.li], free = !(sh.page || sh.webtoon);
+      const ctlWrap = h('div', { class: 'ctlwrap' }); b.append(ctlWrap);
+      const fillCtl = () => {
+        MC.clear(ctlWrap); const sel = sh.layers[S.li];
+        if (!(sel && free)) return;
+        ctlWrap.append(h('div', { class: 'lctl' },
+          h('select', { class: 'input', 'aria-label': t('Modo de mezcla', 'Blend mode'), onChange: (e) => { sel.blend = e.target.value; commit(); } }, BLENDS.map((q) => h('option', { value: q[0], selected: q[0] === (sel.blend || '') }, q[1]))),
+          (() => { const v = h('span', null, Math.round((sel.opacity == null ? 1 : sel.opacity) * 100) + ' %'); return h('label', { class: 'lop' }, t('Opacidad', 'Opacity'), h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: sel.opacity == null ? 1 : sel.opacity, 'aria-label': t('Opacidad de la capa', 'Layer opacity'), onInput: (e) => { sel.opacity = +e.target.value; v.textContent = Math.round(sel.opacity * 100) + ' %'; S.dirty = true; touch(); }, onChange: commit }), v); })()));
+        const tb = (ic, title, fn, dis) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, disabled: !!dis, onClick: fn }, MC.icon(ic, 15));
+        const n = sh.layers.length, mv = (to) => { S.li = reorderLayer(sh, S.li, to); commit(); };
+        ctlWrap.append(h('div', { class: 'ltools' }, tb('up', t('Traer adelante', 'Bring forward'), () => mv(S.li + 1), S.li >= n - 1), tb('down', t('Enviar atrás', 'Send backward'), () => mv(S.li - 1), S.li <= 0),
+          tb('tofront', t('Al frente de todo', 'Bring to front'), () => mv(n - 1), S.li >= n - 1), tb('toback', t('Al fondo de todo', 'Send to back'), () => mv(0), S.li <= 0),
+          tb('copy', t('Duplicar capa (Ctrl+J)', 'Duplicate layer (Ctrl+J)'), dupLayer), tb('bookmark', t('Guardar en la biblioteca', 'Save to the library'), () => toLibrary(sel.assetId, sel.name)),
+          tb('trash', t('Eliminar capa', 'Delete layer'), () => delLayer(S.li), sel.locked)));
+      };
+      fillCtl();
+      if (!sh.layers.length) b.append(h('p', { class: 'cap', style: { padding: '8px' } }, free ? t('Este plano aún no tiene capas. Arrastra aquí imágenes o vídeos, o usa «Importar».', 'This shot has no layers yet. Drag images or videos here, or use “Import”.') : t('Este plano es una página: sus viñetas se editan en la vista «Página».', 'This shot is a page: edit its panels in the “Page” view.')));
+      if (free && sh.layers.length) b.append(h('p', { class: 'cap lhint' }, t('Arriba = más cerca (tapa lo de abajo). Arrastra para ordenar.', 'Top = nearer (covers what is below). Drag to reorder.')));
       for (let i = sh.layers.length - 1; i >= 0; i--) {
         const l = sh.layers[i], a = MC.assets.get(l.assetId), idx = i;
-        b.append(h('div', { class: 'layer' + (i === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), onClick: () => { S.li = idx; S.tx = null; S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); } },
-          h('button', { class: 'btn btn-g', type: 'button', title: t('Mostrar u ocultar', 'Show or hide'), 'aria-label': t('Mostrar u ocultar', 'Show or hide'), onClick: (e) => { e.stopPropagation(); l.visible = l.visible === false; commit(); } }, MC.icon(l.visible === false ? 'eyeoff' : 'eye')),
-          a ? h('img', { class: 'lt', src: a.thumb, alt: '' }) : h('span', { class: 'lt' }),
-          h('span', { class: 'ln' }, l.name), h('span', { class: 'lz' }, 'z ' + l.z.toFixed(2))));
-        if (i === S.li) {
-          const mv = (d) => { const j = idx + d; if (j < 0 || j >= sh.layers.length) return; sh.layers.splice(j, 0, sh.layers.splice(idx, 1)[0]); S.li = j; commit(); };
-          const b2 = (ic, title, fn) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, onClick: fn }, MC.icon(ic));
-          b.append(h('div', { class: 'lrow' }, b2('up', t('Traer adelante', 'Bring forward'), () => mv(1)), b2('down', t('Enviar atrás', 'Send back'), () => mv(-1)),
-            b2('bookmark', t('Guardar en la biblioteca', 'Save to the library'), () => toLibrary(l.assetId, l.name)),
-            b2('copy', t('Duplicar capa', 'Duplicate layer'), () => { const c = JSON.parse(JSON.stringify(l)); c.id = MC.uid(); c.name += ' 2'; sh.layers.splice(idx + 1, 0, c); S.li = idx + 1; commit(); }),
-            b2('trash', t('Eliminar capa', 'Delete layer'), () => { sh.layers.splice(idx, 1); S.li = -1; commit(); })));
-        }
+        const nameEl = h('span', { class: 'ln', title: t('Doble clic para renombrar', 'Double-click to rename') }, l.name);
+        const row = h('div', { class: 'layer lrow2' + (i === S.li ? ' on' : '') + (l.visible === false ? ' off' : '') + (l.locked ? ' lk' : ''), 'data-idx': idx, draggable: free ? 'true' : 'false', role: 'button', tabindex: '0', 'aria-label': l.name + ', ' + t('posición ', 'position ') + (sh.layers.length - i) + ' ' + t('de ', 'of ') + sh.layers.length,
+          onClick: () => { if (S.li === idx && S.selKind === 'layer') return; S.li = idx; S.tx = null; S.ov = null; S.multi = []; S.dirty = true; b.querySelectorAll('.lrow2').forEach((n) => n.classList.toggle('on', +n.dataset.idx === idx)); fillCtl(); renderInspector(); renderTimeline(); },
+          onKeydown: (e) => { if (e.key === 'Enter') e.currentTarget.click(); else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); S.li = reorderLayer(sh, idx, idx + (e.key === 'ArrowUp' ? 1 : -1)); commit(); setTimeout(() => { const n = el.layersBody.querySelector('.layer[data-idx="' + S.li + '"]'); if (n) n.focus(); }, 0); } } },
+          h('span', { class: 'grip', 'aria-hidden': 'true' }, '⋮⋮'),
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Mostrar u ocultar', 'Show or hide'), 'aria-label': t('Mostrar u ocultar', 'Show or hide'), onClick: (e) => { e.stopPropagation(); l.visible = l.visible === false; commit(); } }, MC.icon(l.visible === false ? 'eyeoff' : 'eye', 16)),
+          h('button', { class: 'btn btn-g lkb', type: 'button', 'aria-pressed': String(!!l.locked), title: l.locked ? t('Desbloquear', 'Unlock') : t('Bloquear (no se mueve en el visor)', 'Lock (does not move in the viewer)'), 'aria-label': t('Bloquear o desbloquear', 'Lock or unlock'), onClick: (e) => { e.stopPropagation(); l.locked = !l.locked; commit(); } }, MC.icon(l.locked ? 'lock' : 'unlock', 14)),
+          a ? h('img', { class: 'lt', src: a.thumb, alt: '' }) : h('span', { class: 'lt' }), nameEl, h('span', { class: 'lz' }, 'z ' + l.z.toFixed(2)),
+          h('span', { class: 'lacts' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Duplicar', 'Duplicate'), 'aria-label': t('Duplicar capa', 'Duplicate layer'), onClick: (e) => { e.stopPropagation(); S.li = idx; dupLayer(); } }, MC.icon('copy', 14)),
+            h('button', { class: 'btn btn-g', type: 'button', title: t('Eliminar', 'Delete'), 'aria-label': t('Eliminar capa', 'Delete layer'), disabled: !!l.locked, onClick: (e) => { e.stopPropagation(); delLayer(idx); } }, MC.icon('trash', 14))));
+        row.addEventListener('dragstart', (e) => { e.dataTransfer.setData(MIME_LAYER, String(idx)); e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); });
+        row.addEventListener('dragend', () => { row.classList.remove('dragging'); b.querySelectorAll('.ins').forEach((n) => n.classList.remove('ins')); });
+        b.append(row);
       }
+      /* soltar: se calcula entre qué capas cae */
+      const slot = (e) => { const rows = [...b.querySelectorAll('.lrow2')]; for (const r of rows) { const q = r.getBoundingClientRect(); if (e.clientY < q.top + q.height / 2) return { idx: +r.dataset.idx + 1, row: r, above: true }; } return { idx: 0, row: rows[rows.length - 1] || null, above: false }; };
+      b.ondblclick = (e) => {
+        const ln = e.target.closest && e.target.closest('.lrow2 .ln'); if (!ln) return; const l = sh.layers[+ln.closest('.lrow2').dataset.idx]; if (!l) return;
+        let fin = false; const inp = h('input', { class: 'input', value: l.name, 'aria-label': t('Nombre de la capa', 'Layer name') }), done = (ok) => { if (fin) return; fin = true; if (ok && inp.value.trim()) l.name = inp.value.trim(); commit(); };
+        inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); ev.stopPropagation(); }); inp.addEventListener('blur', () => done(true)); inp.addEventListener('click', (ev) => ev.stopPropagation());
+        ln.replaceWith(inp); inp.focus(); inp.select();
+      };
+      b.ondragover = (e) => { if (!free) return; const dt = e.dataTransfer, ok = dt.types.includes(MIME_LAYER) || dt.types.includes(MIME_ASSET) || dt.types.includes('Files'); if (!ok) return; e.preventDefault(); dt.dropEffect = dt.types.includes(MIME_LAYER) ? 'move' : 'copy'; b.querySelectorAll('.ins, .insb').forEach((n) => n.classList.remove('ins', 'insb')); const sl = slot(e); if (sl.row) sl.row.classList.add(sl.above ? 'ins' : 'insb'); b.classList.add('dropping'); };
+      b.ondragleave = (e) => { if (e.target === b) { b.classList.remove('dropping'); b.querySelectorAll('.ins, .insb').forEach((n) => n.classList.remove('ins', 'insb')); } };
+      b.ondrop = (e) => { e.preventDefault(); e.stopPropagation(); const sl = slot(e); b.classList.remove('dropping'); b.querySelectorAll('.ins, .insb').forEach((n) => n.classList.remove('ins', 'insb')); dropOnLayers(e.dataTransfer, sl.idx); };
       const ovs = S.project.overlays || [];
       if (ovs.length) {
         b.append(h('div', { class: 'eyebrow lgrp' }, t('Superposiciones · fijas sobre la ilustración', 'Overlays · fixed above the artwork')));
@@ -519,6 +609,8 @@
         });
       }
     }
+    function dupLayer() { const sh = shot(), l = sh && sh.layers[S.li]; if (!l) return; const c = JSON.parse(JSON.stringify(l)); c.id = MC.uid(); c.name += ' 2'; const at = S.li + 1; sh.layers.splice(at, 0, c); c.z = zBetween(sh.layers, at); S.li = at; commit(); }
+    function delLayer(i) { const sh = shot(), l = sh && sh.layers[i]; if (!l || l.locked) return; sh.layers.splice(i, 1); S.li = clamp(S.li >= i ? S.li - 1 : S.li, -1, sh.layers.length - 1); if (S.li < 0 && sh.layers.length) S.li = -1; commit(); }
 
     /* ---------- inspector ---------- */
     const secDom = (d) => { const open = S.open[d.id] !== false; return h('div', { class: 'sec', 'data-id': d.id, 'data-open': String(open) },
@@ -662,9 +754,9 @@
         capaNodes = [
           nameIn(t('Nombre de la capa', 'Layer name'), l.name, (v) => { if (v) { l.name = v; commit(); } }),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Profundidad', 'Depth')),
-            MC.ui.chips(DEPTHS.map((d) => ({ v: d.z, l: t(d.es, d.en), title: 'z ' + d.z })), DEPTHS.find((d) => Math.abs(d.z - l.z) < 0.001) ? l.z : null, (v) => { l.z = v; commit(); }),
+            MC.ui.chips(DEPTHS.map((d) => ({ v: d.z, l: t(d.es, d.en), title: 'z ' + d.z })), DEPTHS.find((d) => Math.abs(d.z - l.z) < 0.001) ? l.z : null, (v) => { l.z = v; S.li = placeByZ(sh, l); commit(); }),
             h('span', { class: 'cap' }, t('Las capas cercanas se mueven más que las lejanas.', 'Near layers move more than far ones.'))),
-          MC.ui.slider({ label: t('Profundidad (z)', 'Depth (z)'), min: 0, max: 1, step: 0.01, value: l.z, fmt: (v) => v.toFixed(2), onInput: (v) => set('z', v), onChange: commit }),
+          MC.ui.slider({ label: t('Profundidad (z)', 'Depth (z)'), min: 0, max: 1, step: 0.01, value: l.z, fmt: (v) => v.toFixed(2), onInput: (v) => set('z', v), onChange: () => { S.li = placeByZ(sh, l); commit(); } }),
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: l.role === 'fondo', onChange: (e) => { l.role = e.target.checked ? 'fondo' : ''; commit(); } }),
             h('span', null, t('Es el fondo', 'This is the background'), h('small', null, t('Se sobreescala para no dejar huecos al mover la cámara.', 'Scaled up so no gaps show when the camera moves.')))),
           MC.ui.slider({ label: t('Desenfoque de profundidad', 'Depth blur'), min: 0, max: 30, step: 0.5, value: l.blur || 0, fmt: (v) => v.toFixed(1) + ' px', onInput: (v) => set('blur', v), onChange: commit }),
@@ -1910,7 +2002,7 @@
               if (Math.abs(lx) <= b.w / 2 && Math.abs(ly) <= b.h / 2) { S.ov = it.id; S.tx = null; S.cl = null; S.li = -1; drag = { m: 'ovmove', it, p0: p, x0: it.x || 0, y0: it.y || 0 }; renderInspector(); renderLayers(); renderTimeline(); S.dirty = true; break; }
             }
           }
-          if (!drag && layer()) {
+          if (!drag && layer() && !layer().locked) {
           const l = layer(), img = MC.assets.get(l.assetId);
           if (!img) return;
           const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration);
@@ -1979,6 +2071,7 @@
           pg.manual = true;
         }
         if (drag.m === 'vpan') { drag = null; S.dragging = false; return; }
+        if (drag.m === 'depthz') { const sh0 = shot(); if (sh0) S.li = placeByZ(sh0, drag.l); }
         drag = null; S.dragging = false; commit();
       };
       c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
@@ -2472,7 +2565,7 @@
     el.propsTitle = h('h3', null, '');
     el.exportHost = h('div', { class: 'exp-panel' });
     const layersPanel = h('div', { class: 'panel-col p-layers' },
-      h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))),
+      h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('span', { class: 'vwrap' }, el.impBtn = h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => { S.impOpen = !S.impOpen; el.impBtn.setAttribute('aria-expanded', String(S.impOpen)); renderImpMenu(); } }, MC.icon('plus', 14), t('Importar', 'Import'), MC.icon('down', 12)))),
       h('div', { style: { display: 'contents' }, onClick: (e) => { if (e.target === e.currentTarget || e.target === el.layersBody) { S.selKind = 'shot'; S.li = -1; renderLayers(); renderPanels(); S.dirty = true; } } }, el.layersBody));
     const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle), el.inspBody);
     el.rightEl = h('div', { class: 'rightcol' }, layersPanel, propsPanel, handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
@@ -2504,7 +2597,8 @@
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
     const verTimer = setInterval(() => { if (S.alive && S.dirtySinceVer) { S.dirtySinceVer = false; MC.versions.save(S.project, '', true).catch(() => {}); } }, 300000);
-    const onDocDown = (e) => { if (S.fileOpen && el.fileMenu && !el.fileMenu.contains(e.target) && !(el.fileBtn && el.fileBtn.contains(e.target))) { S.fileOpen = false; renderFileMenu(); if (el.fileBtn) el.fileBtn.setAttribute('aria-expanded', 'false'); }
+    const onDocDown = (e) => { if (S.impOpen && el.impMenu && !el.impMenu.contains(e.target) && !(el.impBtn && el.impBtn.contains(e.target))) { S.impOpen = false; renderImpMenu(); if (el.impBtn) el.impBtn.setAttribute('aria-expanded', 'false'); }
+      if (S.fileOpen && el.fileMenu && !el.fileMenu.contains(e.target) && !(el.fileBtn && el.fileBtn.contains(e.target))) { S.fileOpen = false; renderFileMenu(); if (el.fileBtn) el.fileBtn.setAttribute('aria-expanded', 'false'); }
       if (S.viewOpen && el.viewMenu && !el.viewMenu.contains(e.target) && !(el.viewBtn && el.viewBtn.contains(e.target))) { S.viewOpen = false; renderViewMenu(); if (el.viewBtn) el.viewBtn.setAttribute('aria-expanded', 'false'); } };
     document.addEventListener('pointerdown', onDocDown);
     MC.ensureFonts().then(() => { S.dirty = true; });
@@ -2552,7 +2646,7 @@
       start: () => setTime(0), end: () => setTime(total() - 0.001),
       prevShot: () => selectShot(S.si - 1, true), nextShot: () => selectShot(S.si + 1, true),
       split: () => { if (S.cl) splitClip(); else return false; },
-      duplicate: () => dupSelection(), marker: () => { addMarker('note'); }, tapBeat: () => { addMarker('beat'); },
+      duplicate: () => { if (S.selKind === 'layer' && layer()) { dupLayer(); return; } return dupSelection(); }, marker: () => { addMarker('note'); }, tapBeat: () => { addMarker('beat'); },
       selectAll: () => { setMulti(allKeys()); },
       undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
       addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
@@ -2570,7 +2664,8 @@
         else if (S.ov && ovById(S.ov) && !layer() && S.selKind === 'overlay') { removeOverlay(ovById(S.ov)); commit(); MC.announce(t('Superposición eliminada', 'Overlay deleted')); }
         else if (S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); MC.announce(t('Texto eliminado', 'Text deleted')); }
         else if (S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); MC.announce(t('Clip eliminado', 'Clip deleted')); }
-        else if (layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); MC.announce(t('Capa eliminada', 'Layer deleted')); }
+        else if (layer() && layer().locked) { MC.toast(t('La capa está bloqueada. Desbloquéala para borrarla.', 'The layer is locked. Unlock it to delete it.')); }
+        else if (layer()) { delLayer(S.li); MC.announce(t('Capa eliminada', 'Layer deleted')); }
         else return false;
       },
     };

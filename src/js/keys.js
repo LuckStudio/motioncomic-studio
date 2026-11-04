@@ -40,7 +40,7 @@
     motioncomic: {
       play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'],
       start: ['Home'], end: ['End'], prevShot: ['['], nextShot: [']'], split: ['S'], delete: ['Delete', 'Backspace'], undo: ['Ctrl+Z'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'],
-      addBubble: ['T'], save: ['Ctrl+S'], duplicate: ['Ctrl+D'], selectAll: ['Ctrl+A'], marker: ['M'], tapBeat: ['B'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
+      addBubble: ['T'], save: ['Ctrl+S'], duplicate: ['Ctrl+D', 'Ctrl+J'], selectAll: ['Ctrl+A'], marker: ['M'], tapBeat: ['B'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
     },
   };
   /* Premiere: J K L, Ctrl+K para cortar, flechas arriba y abajo entre cortes, Ctrl+M para exportar. */
