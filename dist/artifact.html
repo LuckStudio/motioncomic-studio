@@ -602,6 +602,30 @@ body.pop { margin: 0; height: 100vh; overflow: hidden; background: var(--bg); }
 .studio.popped .tl-body { display: grid !important; }
 .vmenu { max-height: calc(100vh - 90px); overflow-y: auto; }
 
+/* ---------- favoritos ---------- */
+.favwrap { position: relative; min-width: 0; } .favwrap > .fav { position: absolute; top: 3px; right: 3px; z-index: 2; width: 26px; height: 26px; background: rgba(0,0,0,.45); color: #fff; opacity: 0; }
+.favwrap:hover > .fav, .favwrap > .fav:focus-visible, .favwrap > .fav[aria-pressed="true"] { opacity: 1; }
+.fav[aria-pressed="true"] { color: #F5B50A; } .fav[aria-pressed="true"] svg { fill: currentColor; }
+.sndrow .fav { width: 26px; height: 26px; flex: none; }
+
+/* ---------- barra de herramientas de la línea de tiempo y curvas ---------- */
+.tl-head { gap: 2px; padding: 4px 8px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.tl-head > * { flex: none; }
+.tlb { width: 34px; height: 34px; } .tlb:disabled { opacity: .35; }
+.tlb[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.tlsep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+.tlfill { flex: 1 1 auto !important; min-width: 8px; }
+.tlzoom { width: 96px; accent-color: var(--accent); }
+.tl-content.blade, .tl-content.blade .clip { cursor: crosshair; }
+.grsvg { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+.grbg { fill: var(--bg); stroke: var(--line); } .grgrid { stroke: var(--line); stroke-width: 1; opacity: .6; }
+.grlab { fill: var(--muted); font-size: 9px; } .grcurve { fill: none; stroke-width: 2.4; } .grplay { stroke: var(--accent); stroke-width: 1.4; }
+.grkey { fill: var(--fg); stroke: var(--bg); stroke-width: 1.5; cursor: grab; } .grkey.on { fill: var(--accent); }
+.grhandle { fill: var(--accent); stroke: var(--fg); stroke-width: 1.5; cursor: grab; } .grhl { stroke: var(--accent); stroke-width: 1.2; opacity: .8; }
+.grchips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.grchip { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 3px 8px; font-size: 12px; cursor: pointer; border-left: 3px solid var(--c); }
+.grchip[aria-pressed="true"] { background: var(--raised); color: var(--fg); font-weight: 700; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -26811,6 +26835,17 @@ module.exports = ZStream;
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
+    magnet: '<path d="M5 3h4v9a3 3 0 006 0V3h4v9a7 7 0 01-14 0z"/><path d="M5 7h4M15 7h4"/>',
+    flipH: '<path d="M12 3v18" stroke-dasharray="2.5 2.5"/><path d="M9 7L3 18h6z"/><path d="M15 7l6 11h-6z"/>',
+    flipV: '<path d="M3 12h18" stroke-dasharray="2.5 2.5"/><path d="M7 9V3l11 6z"/><path d="M7 15v6l11-6z"/>',
+    crop: '<path d="M6 2v14a2 2 0 002 2h14"/><path d="M2 6h14a2 2 0 012 2v14"/>',
+    trimL: '<path d="M4 4v16"/><rect x="9" y="7" width="11" height="10" rx="1"/>',
+    trimR: '<path d="M20 4v16"/><rect x="4" y="7" width="11" height="10" rx="1"/>',
+    diamond: '<path d="M12 3l8 9-8 9-8-9z"/>',
+    select: '<path d="M5 3l14 7-6 2-2 6z"/>',
+    blade: '<path d="M5 19l14-14"/><path d="M13 5h6v6"/><path d="M5 19h4"/>',
+    fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    ripple: '<path d="M4 8h10M4 16h10"/><path d="M17 5l4 3-4 3M17 13l4 3-4 3"/>',
     play: '<path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none"/>',
     pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>',
     undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
@@ -26905,6 +26940,19 @@ module.exports = ZStream;
     return h('div', { class: 'slider' }, h('label', { for: id }, o.label, val), inp);
   };
   ui.field = (label, input, id) => h('div', { class: 'field' }, h('label', { for: id }, label), input);
+
+  /* favoritos: marca con una estrella lo que más usas (sonidos, transiciones, estilos, efectos…) y fíltralo después */
+  MC.fav = {
+    all() { try { return JSON.parse(MC.store.get('favs', '{}')) || {}; } catch (e) { return {}; } },
+    has(kind, id) { return (this.all()[kind] || []).includes(id); },
+    list(kind) { return this.all()[kind] || []; },
+    toggle(kind, id) { const a = this.all(), l = a[kind] || []; a[kind] = l.includes(id) ? l.filter((x) => x !== id) : l.concat(id); MC.store.set('favs', JSON.stringify(a)); return a[kind].includes(id); },
+    btn(kind, id, onChange) {
+      const b = h('button', { class: 'btn btn-g btn-ic fav', type: 'button', 'aria-pressed': String(this.has(kind, id)), title: MC.t('Favorito', 'Favourite'), 'aria-label': MC.t('Marcar como favorito', 'Mark as favourite'),
+        onClick: (e) => { e.stopPropagation(); const on = MC.fav.toggle(kind, id); b.setAttribute('aria-pressed', String(on)); if (onChange) onChange(on); } }, MC.icon('star', 14));
+      return b;
+    },
+  };
 
   let toastT = 0;
   /* documento que tiene el foco: la ventana principal o una ventana separada del estudio */
@@ -27715,8 +27763,10 @@ module.exports = ZStream;
       if (ia) {
         /* movimiento propio de la capa, alrededor de su pivote (por defecto el centro) */
         const pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
-        ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1) ctx.scale(ia.sc, ia.sc); ctx.translate(-pxx, -pyy);
+        ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1 || ia.sx !== 1 || ia.sy !== 1) ctx.scale(ia.sc * (ia.sx || 1), ia.sc * (ia.sy || 1)); ctx.translate(-pxx, -pyy);
       }
+      if (layer.flipX || layer.flipY) { const fcx = ix + iw / 2, fcy = iy + ih / 2; ctx.translate(fcx, fcy); ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1); ctx.translate(-fcx, -fcy); }
+      if (layer.crop) { const cr = layer.crop; ctx.beginPath(); ctx.rect(ix + iw * (cr.l || 0), iy + ih * (cr.t || 0), iw * (1 - (cr.l || 0) - (cr.r || 0)), ih * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       let src = img.bitmap;
       if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
       const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);
@@ -28581,7 +28631,7 @@ module.exports = ZStream;
   MC.overlayBox = (it, asset, o, time) => {
     const an = MC.itemAnim && time != null ? MC.itemAnim(it, time - it.start, it.dur) : null;
     const base = Math.min(o.W / asset.w, o.H / asset.h) * (it.scale == null ? 1 : it.scale) * (an ? an.sc : 1);
-    return { cx: o.W / 2 + ((it.x || 0) + (an ? an.dx : 0)) * o.W, cy: o.H / 2 + ((it.y || 0) + (an ? an.dy : 0)) * o.H, w: asset.w * base, h: asset.h * base, rot: (it.rot || 0) + (an ? an.rot : 0), op: (it.opacity == null ? 1 : it.opacity) * (an ? an.op : 1), an };
+    return { cx: o.W / 2 + ((it.x || 0) + (an ? an.dx : 0)) * o.W, cy: o.H / 2 + ((it.y || 0) + (an ? an.dy : 0)) * o.H, w: asset.w * base * (an ? an.sx || 1 : 1), h: asset.h * base * (an ? an.sy || 1 : 1), rot: (it.rot || 0) + (an ? an.rot : 0), op: (it.opacity == null ? 1 : it.opacity) * (an ? an.op : 1), an };
   };
   MC.overlaysAt = (p, time) => {
     const tr = p.otracks || [];
@@ -28602,7 +28652,8 @@ module.exports = ZStream;
       ctx.globalAlpha = clamp(b.op, 0, 1);
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
       const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
-      ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip) ctx.scale(-1, 1);
+      ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip || it.flipY) ctx.scale(it.flip ? -1 : 1, it.flipY ? -1 : 1);
+      if (it.crop) { const cr = it.crop; ctx.beginPath(); ctx.rect(-b.w / 2 + b.w * (cr.l || 0), -b.h / 2 + b.h * (cr.t || 0), b.w * (1 - (cr.l || 0) - (cr.r || 0)), b.h * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       const rx3 = ((it.r3 && it.r3.x) || 0) + (b.an ? b.an.rx : 0), ry3 = ((it.r3 && it.r3.y) || 0) + (b.an ? b.an.ry : 0), pv = (b.an && b.an.pv) || { x: 0.5, y: 0.5 };
       if (MC.draw3D && MC.has3D(rx3, ry3)) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, it.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
@@ -28865,8 +28916,8 @@ module.exports = ZStream;
   const bounce = (x) => { const n1 = 7.5625, d1 = 2.75; if (x < 1 / d1) return n1 * x * x; if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75; if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375; return n1 * (x -= 2.625 / d1) * x + 0.984375; };
 
   /* Interpolación de los fotogramas clave de un elemento: ángulos y desplazamientos relativos a su posición base. */
-  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry'];
-  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
+  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry', 'sx', 'sy'];
+  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
   MC.kfValues = (kfs, local) => {
     if (!kfs || !kfs.length) return null;
     const a = kfs.slice().sort((p, q) => p.t - q.t);
@@ -28881,8 +28932,8 @@ module.exports = ZStream;
   /* Estado de movimiento de un elemento en el instante local (0 = inicio). Devuelve { dx, dy, sc, rot, op } o null si no se mueve. */
   MC.itemAnim = (item, local, dur) => {
     const A = item.anim, kf = item.kf; if (!A && !(kf && kf.length)) return null;
-    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
-    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; }
+    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
+    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; st.sx *= v.sx; st.sy *= v.sy; }
     if (A) {
       const din = A.in && A.in.type ? clamp(A.in.dur || 0.5, 0.05, dur) : 0, dout = A.out && A.out.type ? clamp(A.out.dur || 0.5, 0.05, dur) : 0;
       if (din && local < din) { const u = clamp(local / din, 0, 1); let e = MC.ease(easeFor(A.in.type), u); if (A.in.type === 'drop') e = bounce(u); rise(A.in.type, e, st, A.in.dist == null ? 1 : A.in.dist); }
@@ -28910,7 +28961,7 @@ module.exports = ZStream;
     return st;
   };
   /* Combina el movimiento de un elemento con otro ya calculado (por ejemplo, los efectos de impacto de la viñeta). */
-  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op, rx: (a.rx || 0) + (b.rx || 0), ry: (a.ry || 0) + (b.ry || 0) });
+  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op, rx: (a.rx || 0) + (b.rx || 0), ry: (a.ry || 0) + (b.ry || 0), sx: (a.sx || 1) * (b.sx || 1), sy: (a.sy || 1) * (b.sy || 1) });
 
   /* ---------- personaje por capas: parpadeo y boca con la voz ---------- */
   /* Amplitud (0 a 1) de la locución en un instante de la línea de tiempo, a partir de las ondas ya calculadas. */
@@ -29490,16 +29541,17 @@ module.exports = ZStream;
     }
 
     /* entrada y bucle */
-    let dx = 0, dy = 0, sc = 1, alpha = 1, rock = 0;
+    let dx = 0, dy = 0, sc = 1, alpha = 1, rock = 0, kx = 1, ky = 1;
     if (it.anim === 'pop') { const k = clamp(a / 0.3, 0, 1); sc = 0.3 + 0.7 * easeOutBack(k); alpha = clamp(a / 0.08, 0, 1); }
     else if (it.anim === 'bounce') { dy = -H * 0.14 * Math.exp(-a * 6) * Math.cos(a * 16); alpha = clamp(a / 0.08, 0, 1); }
     else if (it.anim === 'shake') { dx = Math.sin(a * 95) * W * 0.014 * Math.exp(-a * 5); rock = Math.sin(a * 70) * 2.2 * Math.exp(-a * 5); sc = 1 + 0.22 * Math.exp(-a * 9); }
     else if (it.anim === 'slide') { dy = (1 - easeOut(clamp(a / 0.3, 0, 1))) * H * 0.08; alpha = clamp(a / 0.2, 0, 1); }
     if (it.loop === 'float') dy += Math.sin(a * 2.4) * H * 0.006;
     if (it.loop === 'pulse') sc *= 1 + 0.03 * Math.sin(a * 6);
+    if (it.kf && it.kf.length && MC.kfValues) { const kv = MC.kfValues(it.kf, a); dx += kv.x * W; dy += kv.y * H; sc *= kv.sc; rock += kv.rot; alpha *= clamp(kv.op, 0, 1); kx = kv.sx; ky = kv.sy; }
     const left = sp.dur - a; if (left < 0.15) alpha *= Math.max(0, left / 0.15);
     ctx.globalAlpha = alpha;
-    ctx.translate(cx + dx, cy + dy); ctx.rotate(((it.rot || 0) + rock) * Math.PI / 180); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+    ctx.translate(cx + dx, cy + dy); ctx.rotate(((it.rot || 0) + rock) * Math.PI / 180); ctx.scale(sc * kx, sc * ky); ctx.translate(-cx, -cy);
 
     const ink = it.stroke || '#14141c', ow = Math.max(2, H * 0.0042);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -31341,7 +31393,7 @@ module.exports = ZStream;
     function commit() {
       S.project.shots.concat(S.project.xshots || []).forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
       MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
-    function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
+    function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } if (typeof refreshTlBar === 'function' && el.tlBar) refreshTlBar(); }
     function restore(i) {
       S.hpos = i; S.project = JSON.parse(S.hist[i]); MC.finalizePages(S.project);
       S.si = clamp(S.si, 0, S.project.shots.length - 1); S.li = clamp(S.li, -1, shot().layers.length - 1);
@@ -31364,7 +31416,7 @@ module.exports = ZStream;
     }
     function selectShot(i, seek) {
       S.xs = null; S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null; S.fxsel = null;
-      if (S.ws === 'camara') S.view = editView(); else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
+      if (S.ws === 'montaje' && curTab() === 'camara') S.view = editView(); else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
       S.selKind = 'shot';
       if (seek) S.time = curStart();
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
@@ -31551,6 +31603,7 @@ module.exports = ZStream;
       const sel = S.selKind;
       if (sel === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { it, start: it.start, dur: it.dur, kind: 'overlay' }; }
       if (sel === 'layer' && layer()) { const sh = shot(); return { it: layer(), start: curStart(), dur: sh.duration, kind: 'layer' }; }
+      if (sel === 'text' && S.tx && txById(S.tx) && !txById(S.tx).link) { const it = txById(S.tx), sp = MC.textSpan(it, S.project); return { it, start: sp.start, dur: sp.dur, kind: 'text' }; }
       return null;
     };
     const subById = (id) => (S.project.subs || []).find((x) => x.id === id);
@@ -31641,21 +31694,24 @@ module.exports = ZStream;
     /* ---------- barra superior ---------- */
     /* ---------- espacios de trabajo ---------- */
     const WS = {
-      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'transiciones', 'recursos', 'biblioteca', 'proyecto', 'aspecto', 'estilo'] },
-      camara: { icon: 'camera', es: 'Cámara', en: 'Camera', tl: 'strip', tabs: ['planos', 'camara'] },
-      capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'biblioteca', 'rack', 'aspecto'] },
-      creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'subtitulos', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
+      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'camara', 'curvas', 'rack', 'recursos', 'biblioteca', 'proyecto', 'aspecto', 'estilo', 'favs'] },
+      creativo: { icon: 'sparkle', es: 'Efectos y audio', en: 'Effects and audio', tl: 'big', tabs: ['texto', 'subtitulos', 'efectos', 'transiciones', 'sfx', 'musica', 'mezclador', 'idiomas', 'favs'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
     const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
-      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sonidos: ['note', 'Sonidos', 'Sounds'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
+      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['sliders', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
     const editView = () => { const sh = shot(); return sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam'; };
+    /* la pestaña de Cámara abre la vista de edición de cámara; la de Capas y profundidad, la vista 3D */
+    function tabView(tab) {
+      if (tab === 'camara') S.view = editView(); else if (tab === 'rack' && editView() === 'cam') S.view = 'depth';
+      else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
+    }
     function setWs(v) {
       if (S.ws === v || !WS[v]) return;
       S.ws = v; studio.dataset.ws = v; studio.dataset.tl = WS[v].tl;
-      if (v === 'camara') S.view = editView(); else if (v === 'capas' && editView() === 'cam') S.view = 'depth'; else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
+      tabView(v === 'montaje' ? curTab() : null);
       if (v === 'exportar') { togglePlay(false); S.view = 'out'; if (!S.sim && opts().W / opts().H < 0.8) S.sim = 'tiktok'; buildExportPanel(); }
       S.fmtOpen = false; S.ovMenu = false; S.viewOpen = false; applyLayout();
       renderTop(); renderRail(); renderPanels(); renderVbar(); buildSim(); renderTimeline(); fit();
@@ -32114,6 +32170,8 @@ module.exports = ZStream;
     /* ---------- transiciones ---------- */
     const reducedMotion = () => document.documentElement.getAttribute('data-motion') === 'reduce' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     let trAnim = 0;
+    /* envuelve un elemento con una estrella de favoritos en la esquina */
+    const favWrap = (kind, id, node, again) => h('div', { class: 'favwrap' }, node, MC.fav.btn(kind, id, () => { if (again && again()) renderPanels(); }));
     const trTiles = new Set();
     function trLoop() {
       if (trAnim) return;
@@ -32165,18 +32223,21 @@ module.exports = ZStream;
         h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.shots.length < 3, onClick: () => { p.shots.forEach((x, i) => { if (i > 0 && x !== sh) x.transition = JSON.parse(JSON.stringify(tr)); }); commit(); MC.toast(t('Transición aplicada a todos los planos', 'Transition applied to every shot')); } }, t('Aplicar a todos', 'Apply to all'))));
       return nodes;
     }
-    function transPanel() {
+    function transPanel(onlyFav) {
       const p = S.project, sh = shot(), can = S.si > 0;
       const cur = can ? sh.transition : null;
       const out = [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, can ? t('Entrada del plano ', 'Entry of shot ') + (S.si + 1) + ' · ' + sh.name : t('Transiciones', 'Transitions')),
         h('p', { class: 'cap' }, can ? t('Elige cómo entra este plano. Pasa el ratón por encima para verlas moverse.', 'Choose how this shot comes in. Hover to see them move.') : t('El primer plano no tiene transición de entrada: selecciona otro plano en la línea de tiempo.', 'The first shot has no entry transition: pick another shot on the timeline.')),
         p.shots.length > 1 && !can ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => selectShot(1, true) }, t('Ir al plano 2', 'Go to shot 2')) : null)];
-      MC.TRANSITION_GROUPS.forEach((g) => {
-        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t(g.es, g.en)), h('div', { class: 'trgrid' },
-          MC.TRANSITIONS.filter((x) => x.g === g.v).map((x) => trTile({ type: x.v, dir: cur && cur.type === x.v ? cur.dir : 'l', color: cur && cur.type === x.v ? cur.color : undefined, gap: cur && cur.type === x.v ? cur.gap : undefined, ease: cur && cur.type === x.v ? cur.ease : undefined }, cur && cur.type === x.v, () => {
+      const favTr = MC.TRANSITIONS.filter((x) => MC.fav.has('tr', x.v));
+      const trMk = (x) => favWrap('tr', x.v, trTile({ type: x.v, dir: cur && cur.type === x.v ? cur.dir : 'l', color: cur && cur.type === x.v ? cur.color : undefined, gap: cur && cur.type === x.v ? cur.gap : undefined, ease: cur && cur.type === x.v ? cur.ease : undefined }, cur && cur.type === x.v, () => {
             if (!can) { MC.toast(t('Selecciona un plano a partir del segundo.', 'Select a shot from the second one on.')); return; }
             sh.transition.type = x.v; if (!x.color) delete sh.transition.color; commit(); renderPanels();
-          })))));
+          }), () => true);
+      if (onlyFav) return favTr.length ? [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Transiciones favoritas', '★ Favourite transitions')), h('div', { class: 'trgrid' }, favTr.map(trMk)))] : [];
+      if (favTr.length) out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Favoritas', '★ Favourites')), h('div', { class: 'trgrid' }, favTr.map(trMk))));
+      MC.TRANSITION_GROUPS.forEach((g) => {
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t(g.es, g.en)), h('div', { class: 'trgrid' }, MC.TRANSITIONS.filter((x) => x.g === g.v).map(trMk))));
       });
       if (can) out.splice(1, 0, h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Ajustes', 'Settings')), transEditor(sh, true)));
       return out;
@@ -32198,7 +32259,7 @@ module.exports = ZStream;
       if (!isX && S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
       planoNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); if (isX) { c.start = r2(sh.start + 0.5); p.xshots.push(c); commit(); selectXs(c.id, true); return; } if (S.ripple) rippleApply(rippleBegin(curStart() + sh.duration), sh.duration); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
-        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: !isX && p.shots.length < 2, onClick: () => { if (isX) { p.xshots = p.xshots.filter((x) => x.id !== S.xs); S.xs = null; S.li = -1; S.selKind = 'shot'; commit(); return; } if (S.ripple) { const rp = rippleBegin(curStart() + sh.duration); rippleApply(rp, -sh.duration); } p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot')),
+        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: false, onClick: () => { if (isX) { p.xshots = p.xshots.filter((x) => x.id !== S.xs); S.xs = null; S.li = -1; S.selKind = 'shot'; commit(); return; } delShot(); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot')),
         isX ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const x = sh, starts = MC.shotStarts(p); let at = p.shots.length; for (let i = 0; i < p.shots.length; i++) if (x.start < starts[i] + p.shots[i].duration / 2) { at = i; break; } p.xshots = p.xshots.filter((q) => q !== x); delete x.start; delete x.xtrack; x.transition = x.transition || { type: 'cut', dur: 0.6 }; p.shots.splice(at, 0, x); S.xs = null; commit(); selectShot(at, true); } }, t('Pasar a la pista principal', 'Move to the main track'))
           : h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.shots.length < 2 || !!(sh.page || sh.webtoon), title: t('Lo saca de la secuencia y lo pone encima, a la vez que los demás', 'Takes it out of the sequence and puts it on top, playing at the same time'), onClick: () => { const st = curStart(), x = sh; p.shots.splice(S.si, 1); x.start = r2(st); x.xtrack = 0; x.transition = { type: 'cut', dur: 0.6 }; p.xshots.push(x); S.si = clamp(S.si, 0, p.shots.length - 1); commit(); selectXs(x.id, true); } }, t('Pasar a plano superpuesto', 'Make it an overlapping shot'))));
 
@@ -32721,7 +32782,7 @@ module.exports = ZStream;
         const sel = (q) => { S.kfid = q.id; setTime(start + clamp(q.t, 0, Math.max(0, dur - 0.001))); renderInspector(); renderTimeline(); };
         const add = () => {
           const local = clamp(S.time - start, 0, dur);
-          const v = MC.kfValues(it.kf, local) || { x: 0, y: 0, sc: 1, rot: 0, op: 1 }, q = { id: MC.uid(), t: Math.round(local * 100) / 100, x: v.x, y: v.y, sc: v.sc, rot: v.rot, op: v.op, ease: 'smooth' };
+          const q = newKf(it, local);
           it.kf = (it.kf || []).filter((z) => Math.abs(z.t - q.t) > 0.01).concat([q]); S.kfid = q.id; commit();
         };
         const nodes = [h('p', { class: 'cap' }, t('Mueve, escala, gira o desvanece el elemento entre momentos concretos. Se suman a la animación de arriba. En la línea de tiempo salen como rombos: arrástralos o pulsa dos veces para crear uno.', 'Move, scale, turn or fade the element between exact moments. They add to the animation above. On the timeline they show as diamonds: drag them or double-click to create one.')),
@@ -32734,6 +32795,8 @@ module.exports = ZStream;
             MC.ui.slider({ label: t('Desplazar X', 'Move X'), min: -1, max: 1, step: 0.005, value: cur.x || 0, fmt: (v) => v.toFixed(3), onInput: (v) => setK('x', v), onChange: commit }),
             MC.ui.slider({ label: t('Desplazar Y', 'Move Y'), min: -1, max: 1, step: 0.005, value: cur.y || 0, fmt: (v) => v.toFixed(3), onInput: (v) => setK('y', v), onChange: commit }),
             MC.ui.slider({ label: t('Escala', 'Scale'), min: 0.1, max: 3, step: 0.01, value: cur.sc == null ? 1 : cur.sc, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => setK('sc', v), onChange: commit }),
+            MC.ui.slider({ label: t('Ancho (estirar)', 'Width (stretch)'), min: 0.1, max: 3, step: 0.01, value: cur.sx == null ? 1 : cur.sx, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => setK('sx', v), onChange: commit }),
+            MC.ui.slider({ label: t('Alto (estirar)', 'Height (stretch)'), min: 0.1, max: 3, step: 0.01, value: cur.sy == null ? 1 : cur.sy, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => setK('sy', v), onChange: commit }),
             MC.ui.slider({ label: t('Giro', 'Rotation'), min: -360, max: 360, step: 1, value: cur.rot || 0, fmt: (v) => v + '°', onInput: (v) => setK('rot', v), onChange: commit }),
             MC.ui.slider({ label: t('Opacidad', 'Opacity'), min: 0, max: 1, step: 0.01, value: cur.op == null ? 1 : cur.op, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setK('op', v), onChange: commit }),
             MC.ui.slider({ label: t('Giro X (3D)', 'Turn X (3D)'), min: -180, max: 180, step: 1, value: cur.rx || 0, fmt: (v) => v + '°', onInput: (v) => setK('rx', v), onChange: commit }),
@@ -32743,8 +32806,22 @@ module.exports = ZStream;
         }
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart(), sh.duration))] : [];
-      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
+      const cropNodes = (it, isOv) => {
+        const cr = it.crop || {}, setC = (k, v) => { it.crop = Object.assign({ l: 0, t: 0, r: 0, b: 0 }, it.crop, { [k]: v }); S.dirty = true; touch(); };
+        const fx = isOv ? 'flip' : 'flipX';
+        return [h('p', { class: 'cap' }, t('Recorta los bordes de la imagen o del vídeo. No se borra nada: puedes devolverlos cuando quieras.', 'Crop the edges of the image or video. Nothing is deleted: you can bring them back any time.')),
+          MC.ui.slider({ label: t('Recortar izquierda', 'Crop left'), min: 0, max: 0.9, step: 0.005, value: cr.l || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('l', v), onChange: commit }),
+          MC.ui.slider({ label: t('Recortar arriba', 'Crop top'), min: 0, max: 0.9, step: 0.005, value: cr.t || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('t', v), onChange: commit }),
+          MC.ui.slider({ label: t('Recortar derecha', 'Crop right'), min: 0, max: 0.9, step: 0.005, value: cr.r || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('r', v), onChange: commit }),
+          MC.ui.slider({ label: t('Recortar abajo', 'Crop bottom'), min: 0, max: 0.9, step: 0.005, value: cr.b || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('b', v), onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it[fx]), onClick: () => { it[fx] = !it[fx]; commit(); } }, MC.icon('flipH', 14), t('Reflejar horizontal', 'Flip horizontal')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it.flipY), onClick: () => { it.flipY = !it.flipY; commit(); } }, MC.icon('flipV', 14), t('Reflejar vertical', 'Flip vertical')),
+            it.crop ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; commit(); } }, t('Quitar recorte', 'Remove crop')) : null)];
+      };
+      if (tx && !tx.link) { const tsp = MC.textSpan(tx, p); textSecs.push(sec('texto_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(tx, tsp.start, tsp.dur))); }
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart(), sh.duration))] : [];
+      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
       const mItems = multiItems(), mNodes = [], mSet = (fn) => { mItems.forEach((q) => fn(q.it, q.k)); commit(); };
@@ -32796,7 +32873,7 @@ module.exports = ZStream;
     /* ---------- carril y paneles ---------- */
     function renderRail() {
       MC.clear(el.rail);
-      MC.put(el.rail, WS[S.ws].tabs.map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
+      MC.put(el.rail, WS[S.ws].tabs.map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; if (S.ws === 'montaje') { tabView(id); renderVbar(); buildSim(); fit(); } renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
     }
     const thumbCache = new Map();
     const djb = (str) => { let hh = 5381; for (let i = 0; i < str.length; i++) hh = ((hh << 5) + hh + str.charCodeAt(i)) | 0; return hh; };
@@ -32975,7 +33052,7 @@ module.exports = ZStream;
     function subCountText(it) { const l = subWords(it).filter((e) => !e.sil); return l.length + t(' palabras · ', ' words · ') + l.filter((e) => e.s != null).length + t(' con su momento', ' timed'); }
     S.sbCat = 'todos';
     const subPresetGrid = (apply, current) => {
-      const list = MC.SUB_PRESETS.filter((pr) => S.sbCat === 'todos' || pr.c === S.sbCat);
+      const list = MC.SUB_PRESETS.filter((pr) => S.sbCat === 'todos' || (S.sbCat === 'favs' ? MC.fav.has('subpr', pr.v) : pr.c === S.sbCat));
       const grid = h('div', { class: 'subprs', role: 'group', 'aria-label': t('Estilos de subtítulos', 'Subtitle styles') }, list.map((pr) => {
         const cv = h('canvas', { width: 280, height: 118, 'aria-hidden': 'true' }), nW = 5, still = () => { try { MC.subPreview(cv, S.project, MC.subStyle(pr.s), null, nW * 0.4 * 0.5); } catch (e) { /* sin muestra */ } };
         still(); MC.ensureFonts().then(still);
@@ -32983,9 +33060,9 @@ module.exports = ZStream;
         const btn = h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
         btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
         btn.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); raf = 0; still(); });
-        return btn;
+        return favWrap('subpr', pr.v, btn, () => S.sbCat === 'favs');
       }));
-      return h('div', { class: 'subpresets' }, MC.ui.chips(MC.SUB_CATS.map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.sbCat, (v) => { S.sbCat = v; renderPanels(); }), grid);
+      return h('div', { class: 'subpresets' }, MC.ui.chips(MC.SUB_CATS.concat([['favs', '★ Favoritos', '★ Favourites']]).map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.sbCat, (v) => { S.sbCat = v; renderPanels(); }), grid);
     };
     function subsPanel() {
       const p = S.project, lang = p.lang, it = subById(S.sb), out = [];
@@ -33102,14 +33179,17 @@ module.exports = ZStream;
           : h('p', { class: 'cap' }, t('Aún no hay textos.', 'No texts yet.')))];
     }
     S.snd = { q: '', cat: 'todos' };
-    function soundsPanel() {
+    function soundsPanel(kind) {
       let cur = null; const stopPrev = () => { if (cur) { try { cur.stop(); } catch (e) { /* parado */ } cur = null; } };
-      const q = (S.snd.q || '').toLowerCase().trim(), all = MC.audio.LIBRARY, cats = MC.audio.CATS;
-      const shown = all.filter((it) => (S.snd.cat === 'todos' || it.cat === S.snd.cat) && (!q || (it.es + ' ' + it.en).toLowerCase().includes(q)));
+      const q = (S.snd.q || '').toLowerCase().trim(), fav = kind === 'fav', music = kind === 'music', all = MC.audio.LIBRARY.filter((it) => (fav ? MC.fav.has('snd', it.id) : (it.kind === 'music') === music));
+      const cats = MC.audio.CATS.filter((c) => c[0] === 'todos' || all.some((it) => it.cat === c[0])).concat([['favs', '★ Favoritos', '★ Favourites']]);
+      if (!cats.some((c) => c[0] === S.snd.cat)) S.snd.cat = 'todos';
+      const shown = all.filter((it) => (fav || S.snd.cat === 'todos' || (S.snd.cat === 'favs' ? MC.fav.has('snd', it.id) : it.cat === S.snd.cat)) && (!q || (it.es + ' ' + it.en).toLowerCase().includes(q)));
       const rows = shown.map((it) => h('div', { class: 'layer sndrow', draggable: 'true', title: t('Arrástralo a la línea de tiempo', 'Drag it to the timeline'), onDragstart: (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([{ lib: it.id, kind: 'audio' }])); e.dataTransfer.effectAllowed = 'copy'; } },
-        h('span', { class: 'lt au' }, MC.icon(it.kind === 'music' ? 'note' : 'speaker', 16)), h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
+        MC.fav.btn('snd', it.id, () => { if (fav || S.snd.cat === 'favs') renderPanels(); }), h('span', { class: 'lt au' }, MC.icon(it.kind === 'music' ? 'note' : 'speaker', 16)), h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-label': t('Oír ', 'Play ') + t(it.es, it.en), onClick: async () => { stopPrev(); cur = await MC.audio.preview(await MC.audio.renderLibrary(it)); } }, MC.icon('play', 12)),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', 'aria-label': t('Añadir ', 'Add ') + t(it.es, it.en), onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(it, S.time); S.cl = c.id; commit(); b2.disabled = false; } }, MC.icon('plus', 12))));
+      if (fav) return shown.length ? [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Sonidos favoritos', '★ Favourite sounds')), h('div', { style: { display: 'grid', gap: '2px' } }, rows))] : [];
       return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('upload', 20), t('Importar audio', 'Import audio')),
         h('button', { class: 'btn btn-s', type: 'button', onClick: recordVoice }, MC.icon('mic', 20), t('Grabar locución', 'Record voice-over')))),
@@ -33117,6 +33197,10 @@ module.exports = ZStream;
         h('input', { class: 'input', type: 'search', 'aria-label': t('Buscar un sonido', 'Search for a sound'), placeholder: t('Buscar: lluvia, golpe, láser…', 'Search: rain, hit, laser…'), value: S.snd.q, onInput: (e) => { S.snd.q = e.target.value; const pos = e.target.selectionStart; renderPanels(); const n = el.leftBody.querySelector('input[type=search]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } } }),
         MC.ui.chips(cats.map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.snd.cat, (v) => { S.snd.cat = v; renderPanels(); }),
         shown.length ? h('div', { style: { display: 'grid', gap: '2px' } }, rows) : h('p', { class: 'cap' }, t('No hay sonidos con ese nombre.', 'No sounds match.')))];
+    }
+    function favsPanel() {
+      const out = soundsPanel('fav').concat(transPanel(true));
+      return out.length ? out : [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Favoritos', 'Favourites')), h('p', { class: 'cap' }, t('Aquí aparece lo que marques con la estrella ★: sonidos, transiciones y estilos de subtítulos. Pasa el ratón por encima de un elemento y pulsa la estrella.', 'Whatever you mark with the star ★ shows up here: sounds, transitions and subtitle styles. Hover an item and press the star.')))];
     }
     function summaryPanel() {
       const p = S.project, total = MC.totalTime(p), me = MC.memEstimate(p), size = MC.frameSize(p.ratio, p.res);
@@ -33154,15 +33238,15 @@ module.exports = ZStream;
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
-        subtitulos: subsPanel, planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
+        subtitulos: subsPanel, planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, curvas: graphPanel, favs: favsPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
-        rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sonidos: soundsPanel, mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
+        rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sfx: () => soundsPanel('sfx'), musica: () => soundsPanel('music'), mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
       if (tab) { const lt = el.leftBody.scrollTop; el.leftTitle.textContent = tabLabel(tab); MC.put(MC.clear(el.leftBody), L[tab] ? L[tab]() : null); el.leftBody.scrollTop = lt; }
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }
@@ -33232,6 +33316,7 @@ module.exports = ZStream;
       const total = MC.totalTime(S.project);
       el.time.textContent = MC.fmtTime(S.time) + ' ';
       el.time.append(h('span', null, '/ ' + MC.fmtTime(total)));
+      if (el.grDraw) el.grDraw();
       el.tlTime.textContent = MC.fmtTime(S.time) + ' / ' + MC.fmtTime(total);
       el.canvas.setAttribute('aria-label', t('Visor. Plano ' + (S.si + 1) + ' de ' + S.project.shots.length + ', ', 'Viewer. Shot ' + (S.si + 1) + ' of ' + S.project.shots.length + ', ') + MC.fmtTime(S.time));
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
@@ -33754,6 +33839,7 @@ module.exports = ZStream;
       });
     }
     function snapT(tm, ignore) {
+      if (!S.snapOn) return Math.max(0, Math.round(tm * 100) / 100);
       const pts = [0, S.time].concat(MC.shotStarts(S.project), (S.project.notes || []).map((n) => n.t), S.project.clips.filter((c) => c.id !== ignore).flatMap((c) => [c.start, c.start + c.dur]), S.project.overlays.flatMap((o) => [o.start, o.start + o.dur]));
       let best = tm; const thr = 8 / S.pps;
       pts.forEach((x) => { if (Math.abs(x - tm) < thr && Math.abs(x - tm) <= Math.abs(best - tm)) best = x; });
@@ -34095,13 +34181,12 @@ module.exports = ZStream;
       });
       if (kft && R.kf) R.kf.addEventListener('dblclick', (e) => {
         if (e.target.closest('.kfd')) return; const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps - kft.start, 0, kft.dur);
-        const v = MC.kfValues(kft.it.kf, local) || { x: 0, y: 0, sc: 1, rot: 0, op: 1 };
-        const q = { id: MC.uid(), t: Math.round(local * 100) / 100, x: v.x, y: v.y, sc: v.sc, rot: v.rot, op: v.op, ease: 'smooth' }; kft.it.kf = (kft.it.kf || []).concat([q]); S.kfid = q.id; commit();
+        const q = newKf(kft.it, local); kft.it.kf = (kft.it.kf || []).concat([q]); S.kfid = q.id; commit();
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
       layoutClips();
       el.tlContent.querySelectorAll('.clip[data-c], .clip[data-x], .clip[data-o]').forEach((n) => { const it = itemOfKey(keyEl(n)); n.classList.toggle('grp', !!(it && it.group)); });
-      markMulti(); stripPending();
+      markMulti(); stripPending(); refreshTlBar();
     }
     /* arrastrar recursos (o archivos) a la línea de tiempo: en el hueco crea un plano; sobre un plano lo añade como capa; en una pista de superposición o de audio, lo coloca ahí */
     const kindOfFile = (f) => (MC.video.isFile(f) ? 'video' : /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg)$/i.test(f.name) ? 'audio' : /^image\/(png|jpeg|webp|svg)/.test(f.type) || /\.(png|jpe?g|webp|svg)$/i.test(f.name) ? 'image' : 'other');
@@ -34265,17 +34350,7 @@ module.exports = ZStream;
         el.play, el.loop, el.time,
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame')), dockCtl('viewer')));
     const timeline = h('div', { class: 'p-timeline' }, el.hTl = handle('tl', 't', t('Alto de la línea de tiempo', 'Timeline height')),
-      h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track'), onClick: () => { fileOv.dataset.track = 0; fileOv.click(); } }, MC.icon('layersx', 14), t('Superposición', 'Overlay')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Plano superpuesto: otro plano a la vez que el principal, con su cámara y sus capas', 'Overlapping shot: another shot at the same time as the main one, with its own camera and layers'), onClick: () => { if (S.project.xtracks.length < 1) S.project.xtracks.push({ id: MC.uid(), name: t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }); addXShotFromPicker(); } }, MC.icon('film', 14), t('Plano encima', 'Shot on top')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)'), onClick: () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); } }, MC.icon('plus', 14), t('Pista', 'Track')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!S.ripple), title: t('Ripple: al cambiar la duración de un plano, todo lo que va detrás se mueve con él', 'Ripple: when a shot’s length changes, everything after it moves along'), onClick: (e) => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); e.currentTarget.setAttribute('aria-pressed', String(S.ripple)); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); } }, t('Ripple', 'Ripple')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)'), onClick: () => addMarker('note') }, MC.icon('bookmark', 14), t('Marcador', 'Marker')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)'), onClick: () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
-        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
-        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime, dockCtl('timeline')),
+      tlToolbar(),
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
     const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
@@ -34331,12 +34406,242 @@ module.exports = ZStream;
 
     /* atajos de teclado */
     const total = () => MC.totalTime(S.project);
+    /* elimina el plano seleccionado (con ripple si está activo); siempre queda al menos uno */
+    function delShot() {
+      const p = S.project, sh = p.shots[S.si]; if (!sh) return false;
+      if (p.shots.length < 2) { MC.toast(t('El proyecto necesita al menos un plano. Añade otro antes de eliminar este.', 'The project needs at least one shot. Add another before deleting this one.')); return true; }
+      if (S.ripple) { const rp = rippleBegin(curStart() + sh.duration); rippleApply(rp, -sh.duration); }
+      p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.xs = null; S.selKind = 'shot';
+      S.time = clamp(S.time, 0, Math.max(0, MC.totalTime(p) - 0.001)); commit(); setTime(S.time);
+      MC.announce(t('Plano eliminado. Ctrl+Z para deshacer.', 'Shot deleted. Ctrl+Z to undo.')); return true;
+    }
+    /* ---------- herramientas de edición de la línea de tiempo (estilo CapCut) ---------- */
+    S.snapOn = MC.store.get('snapon', '1') !== '0'; S.tool = 'sel';
+    const round2 = (v) => Math.round(v * 100) / 100;
+    /* sobre qué actúan las herramientas: el elemento seleccionado, o el plano actual si no hay otro */
+    function tgt() {
+      const p = S.project, k = S.selKind;
+      if (k === 'clip' && S.cl && clipById(S.cl)) { const it = clipById(S.cl); return { k: 'clip', it, start: it.start, dur: it.dur }; }
+      if (k === 'text' && S.tx && txById(S.tx)) { const it = txById(S.tx), sp = MC.textSpan(it, p); return { k: 'text', it, start: sp.start, dur: sp.dur, linked: !!it.link }; }
+      if (k === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { k: 'overlay', it, start: it.start, dur: it.dur }; }
+      if (k === 'layer' && layer()) return { k: 'layer', it: layer(), start: curStart(), dur: shot().duration };
+      const sh = shot(); return sh ? { k: 'shot', it: sh, start: curStart(), dur: sh.duration } : null;
+    }
+    const cloneShot = (sh) => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.layers.forEach((x) => { x.id = MC.uid(); }); return c; };
+    /* divide el elemento seleccionado en un instante (clip de audio, texto, superposición o plano) */
+    function splitAt(tm) {
+      let T = tgt(); if (!T) return false;
+      const p = S.project;
+      if (T.k === 'layer') { const sh = shot(); T = { k: 'shot', it: sh, start: curStart(), dur: sh.duration }; }
+      if (!(tm > T.start + 0.1 && tm < T.start + T.dur - 0.1)) { MC.toast(t('Coloca el cabezal dentro del elemento seleccionado para dividirlo.', 'Place the playhead inside the selected item to split it.')); return false; }
+      const it = T.it;
+      if (T.k === 'clip') { const b = Object.assign({}, it, { id: MC.uid(), start: tm, offset: it.offset + (tm - it.start), dur: it.start + it.dur - tm, fadeIn: 0 }); it.dur = tm - it.start; it.fadeOut = 0; p.clips.push(b); S.cl = b.id; }
+      else if (T.k === 'text') {
+        if (T.linked) { MC.toast(t('Este texto sigue a un clip de audio: divide el clip.', 'This text follows an audio clip: split the clip.')); return false; }
+        const b = JSON.parse(JSON.stringify(it)); b.id = MC.uid(); b.start = round2(tm); b.dur = round2(it.start + it.dur - tm); it.dur = round2(tm - it.start); p.texts.push(b); S.tx = b.id;
+      } else if (T.k === 'overlay') {
+        const b = Object.assign(JSON.parse(JSON.stringify(it)), { id: MC.uid(), start: round2(tm), dur: round2(it.start + it.dur - tm), offset: (it.offset || 0) + (tm - it.start) * (it.speed || 1), audioClip: null }); it.dur = round2(tm - it.start); p.overlays.push(b); S.ov = b.id;
+      } else {
+        if (it.page || it.webtoon) { MC.toast(t('Las páginas y tiras no se dividen aquí.', 'Pages and strips cannot be split here.')); return false; }
+        const loc = round2(tm - T.start), b = cloneShot(it); b.name = it.name + ' B'; b.transition = Object.assign({}, it.transition, { type: 'cut' }); b.duration = round2(it.duration - loc); it.duration = loc;
+        b.layers.forEach((l) => { if (l.kf) l.kf.forEach((q) => { q.t = round2(q.t - loc); }); });
+        p.shots.splice(S.si + 1, 0, b); S.si++; S.li = -1; S.selKind = 'shot';
+      }
+      commit(); MC.announce(t('Dividido', 'Split')); return true;
+    }
+    /* recorta el principio o el final del elemento seleccionado hasta el cabezal */
+    function trimEdge(side) {
+      let T = tgt(); if (!T) return;
+      const p = S.project, tm = S.time;
+      if (T.k === 'layer') { const sh = shot(); T = { k: 'shot', it: sh, start: curStart(), dur: sh.duration }; }
+      if (!(tm > T.start + 0.05 && tm < T.start + T.dur - 0.05)) { MC.toast(t('Coloca el cabezal dentro del elemento seleccionado.', 'Place the playhead inside the selected item.')); return; }
+      const it = T.it, d = tm - T.start;
+      if (T.linked) { MC.toast(t('Este texto sigue a un clip de audio: recorta el clip.', 'This text follows an audio clip: trim the clip.')); return; }
+      if (T.k === 'shot') {
+        if (it.page || it.webtoon) { MC.toast(t('Las páginas y tiras no se recortan aquí.', 'Pages and strips cannot be trimmed here.')); return; }
+        const nd = side === 'start' ? it.duration - d : d; if (nd < 0.3) return;
+        if (S.ripple) { const rp = rippleBegin(T.start + it.duration); rippleApply(rp, nd - it.duration); }
+        if (side === 'start') it.layers.forEach((l) => { if (l.kf) l.kf.forEach((q) => { q.t = round2(q.t - d); }); });
+        it.duration = round2(nd); S.time = clamp(S.time, T.start, T.start + it.duration - 0.001);
+      } else if (side === 'start') {
+        const nd = T.dur - d; it.start = round2(tm); it.dur = round2(nd);
+        if (T.k === 'clip') it.offset = (it.offset || 0) + d; else if (T.k === 'overlay') it.offset = (it.offset || 0) + d * (it.speed || 1);
+      } else it.dur = round2(d);
+      commit(); setTime(S.time); MC.announce(side === 'start' ? t('Principio recortado', 'Start trimmed') : t('Final recortado', 'End trimmed'));
+    }
+    /* reflejar en horizontal (x) o en vertical (y) */
+    function flipSel(axis) {
+      const T = tgt(); if (!T) return;
+      const key = axis === 'x' ? (T.k === 'overlay' ? 'flip' : 'flipX') : 'flipY';
+      if (T.k === 'layer' || T.k === 'overlay') T.it[key] = !T.it[key];
+      else if (T.k === 'shot' && T.it.layers.length) { const on = !T.it.layers.every((l) => l[key]); T.it.layers.forEach((l) => { l[key] = on; }); }
+      else { MC.toast(t('Selecciona una capa, una superposición o un plano con capas para reflejar.', 'Select a layer, an overlay or a shot with layers to flip.')); return; }
+      commit(); MC.announce(axis === 'x' ? t('Reflejado en horizontal', 'Flipped horizontally') : t('Reflejado en vertical', 'Flipped vertically'));
+    }
+    /* abre los controles de recorte de la capa o de la superposición seleccionada */
+    function openCrop() {
+      const T = tgt();
+      if (!T || (T.k !== 'layer' && T.k !== 'overlay')) { MC.toast(t('Selecciona una capa o una superposición para recortarla.', 'Select a layer or an overlay to crop it.')); return; }
+      S.open[T.k === 'layer' ? 'capa_crop' : 'overlay_crop'] = true; renderPanels();
+      const n = el.inspBody.querySelector('[data-id="' + (T.k === 'layer' ? 'capa_crop' : 'overlay_crop') + '"]'); if (n) { n.scrollIntoView({ block: 'nearest' }); const f = n.querySelector('input'); if (f) f.focus(); }
+    }
+    const newKf = (it, local) => { const v = MC.kfValues(it.kf, local) || {}, q = { id: MC.uid(), t: round2(local), ease: 'smooth' }; MC.KF_PROPS.forEach((k) => { q[k] = v[k] == null ? (k === 'sc' || k === 'op' || k === 'sx' || k === 'sy' ? 1 : 0) : v[k]; }); return q; };
+    function addKfHere() {
+      const kt = kfTarget(); if (!kt) { MC.toast(t('Selecciona una capa, un texto o una superposición para añadir un fotograma clave.', 'Select a layer, a text or an overlay to add a keyframe.')); return; }
+      const local = clamp(S.time - kt.start, 0, kt.dur), q = newKf(kt.it, local);
+      kt.it.kf = (kt.it.kf || []).filter((z) => Math.abs(z.t - q.t) > 0.01).concat([q]); S.kfid = q.id; commit(); MC.announce(t('Fotograma clave añadido', 'Keyframe added'));
+    }
+    function setTool(v) { S.tool = v; el.tlContent.classList.toggle('blade', v === 'blade'); refreshTlBar(); }
+    function toggleSnap() { S.snapOn = !S.snapOn; MC.store.set('snapon', S.snapOn ? '1' : '0'); refreshTlBar(); MC.toast(S.snapOn ? t('Imán activado: se pega a cortes, marcadores y cabezal', 'Magnet on: snaps to cuts, markers and playhead') : t('Imán desactivado', 'Magnet off')); }
+    function zoomTl(f) { const sc = el.tlContent.parentNode, mid = sc ? (sc.scrollLeft + sc.clientWidth / 2) / S.pps : 0; S.pps = clamp(S.pps * f, 6, 400); renderTimeline(); if (sc) sc.scrollLeft = mid * S.pps - sc.clientWidth / 2; refreshTlBar(); }
+    function fitTl() { const sc = el.tlContent.parentNode; if (!sc) return; S.pps = clamp((sc.clientWidth - 24) / Math.max(1, MC.totalTime(S.project)), 6, 400); renderTimeline(); sc.scrollLeft = 0; refreshTlBar(); }
+    function refreshTlBar() {
+      if (!el.tlBar) return;
+      const T = tgt(), has = (k) => T && (T.k === k), canFlip = T && (T.k === 'layer' || T.k === 'overlay' || (T.k === 'shot' && T.it.layers && T.it.layers.length)), canCrop = has('layer') || has('overlay'), canKf = !!kfTarget();
+      const set = (k, f) => { const b = el.tlBar.querySelector('[data-tb="' + k + '"]'); if (b) f(b); };
+      set('undo', (b) => { b.disabled = S.hpos <= 0; }); set('redo', (b) => { b.disabled = S.hpos >= S.hist.length - 1; });
+      set('sel', (b) => b.setAttribute('aria-pressed', String(S.tool === 'sel'))); set('blade', (b) => b.setAttribute('aria-pressed', String(S.tool === 'blade')));
+      set('snap', (b) => b.setAttribute('aria-pressed', String(!!S.snapOn))); set('ripple', (b) => b.setAttribute('aria-pressed', String(!!S.ripple)));
+      set('flipx', (b) => { b.disabled = !canFlip; }); set('flipy', (b) => { b.disabled = !canFlip; }); set('crop', (b) => { b.disabled = !canCrop; }); set('kf', (b) => { b.disabled = !canKf; });
+      set('zoom', (b) => { b.value = String(Math.round(Math.log(S.pps / 6) / Math.log(400 / 6) * 100)); });
+      const lab = el.tlBar.querySelector('[data-tb="target"]'); if (lab) lab.textContent = T ? ({ clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), layer: t('Capa', 'Layer'), shot: t('Plano', 'Shot') })[T.k] : '';
+    }
+    function tlToolbar() {
+      const B = (key, icon, es, en, fn, extra) => h('button', Object.assign({ class: 'btn btn-g btn-ic tlb', type: 'button', 'data-tb': key, title: t(es, en), 'aria-label': t(es, en), onClick: fn }, extra || {}), MC.icon(icon, 18));
+      const sep = () => h('span', { class: 'tlsep', 'aria-hidden': 'true' });
+      el.tlBar = h('div', { class: 'tl-head', role: 'toolbar', 'aria-label': t('Herramientas de la línea de tiempo', 'Timeline tools') },
+        B('undo', 'undo', 'Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)', () => undo()), B('redo', 'redo', 'Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)', () => redo()), sep(),
+        B('sel', 'select', 'Selección (V)', 'Select (V)', () => setTool('sel'), { 'aria-pressed': 'true' }), B('blade', 'blade', 'Cuchilla: pulsa sobre un clip para cortarlo ahí (X)', 'Blade: click a clip to cut it there (X)', () => setTool('blade'), { 'aria-pressed': 'false' }), sep(),
+        B('split', 'cut', 'Dividir en el cabezal (S)', 'Split at the playhead (S)', () => splitAt(S.time)), B('trimL', 'trimL', 'Recortar el principio hasta el cabezal (Q)', 'Trim the start to the playhead (Q)', () => trimEdge('start')), B('trimR', 'trimR', 'Recortar el final desde el cabezal (W)', 'Trim the end from the playhead (W)', () => trimEdge('end')),
+        B('del', 'trash', 'Eliminar lo seleccionado (Supr)', 'Delete selection (Del)', () => { if (ACT.delete() === false) MC.toast(t('No hay nada que eliminar.', 'Nothing to delete.')); }), sep(),
+        B('flipx', 'flipH', 'Reflejar en horizontal', 'Flip horizontally', () => flipSel('x')), B('flipy', 'flipV', 'Reflejar en vertical', 'Flip vertically', () => flipSel('y')), B('crop', 'crop', 'Recortar la imagen o el vídeo', 'Crop the image or video', openCrop),
+        B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'sliders', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
+        B('marker', 'bookmark', 'Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)', () => addMarker('note')), B('dup', 'copy', 'Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)', () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); }), sep(),
+        B('snap', 'magnet', 'Imán: se pega a cortes, marcadores y cabezal (N)', 'Magnet: snaps to cuts, markers and playhead (N)', toggleSnap, { 'aria-pressed': String(!!S.snapOn) }),
+        B('ripple', 'ripple', 'Ripple: al cambiar la duración de un plano, lo de detrás lo sigue', 'Ripple: when a shot’s length changes, everything after follows', () => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); refreshTlBar(); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); }, { 'aria-pressed': String(!!S.ripple) }), sep(),
+        B('addshot', 'plus', 'Planos desde imágenes', 'Shots from images', () => fileShots.click()),
+        B('addov', 'layersx', 'Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track', () => { fileOv.dataset.track = 0; fileOv.click(); }),
+        B('addx', 'film', 'Plano superpuesto: otro plano a la vez que el principal', 'Overlapping shot: another shot at the same time as the main one', () => { if (S.project.xtracks.length < 1) S.project.xtracks.push({ id: MC.uid(), name: t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }); addXShotFromPicker(); }),
+        B('addtrack', 'layers', 'Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)', () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); }),
+        h('span', { class: 'tlfill' }), h('span', { class: 'eyebrow', 'data-tb': 'target' }),
+        B('zout', 'minus', 'Alejar', 'Zoom out', () => zoomTl(1 / 1.3)),
+        h('input', { class: 'tlzoom', type: 'range', min: 0, max: 100, step: 1, 'data-tb': 'zoom', 'aria-label': t('Zoom de la línea de tiempo', 'Timeline zoom'), title: t('Zoom de la línea de tiempo (Ctrl + rueda)', 'Timeline zoom (Ctrl + wheel)'), onInput: (e) => { const sc = el.tlContent.parentNode, mid = sc ? (sc.scrollLeft + sc.clientWidth / 2) / S.pps : 0; S.pps = 6 * Math.pow(400 / 6, e.target.value / 100); renderTimeline(); if (sc) sc.scrollLeft = mid * S.pps - sc.clientWidth / 2; } }),
+        B('zin', 'plus', 'Acercar', 'Zoom in', () => zoomTl(1.3)), B('fit', 'fit', 'Ajustar toda la línea de tiempo a la pantalla', 'Fit the whole timeline to the screen', fitTl),
+        el.tlTime, dockCtl('timeline'));
+      /* cuchilla: pulsar sobre un clip lo corta justo ahí */
+      el.tlContent.addEventListener('pointerdown', (e) => {
+        if (S.tool !== 'blade' || e.button) return; const c = e.target.closest && e.target.closest('.clip'); if (!c) return;
+        const d = c.dataset; let tm = (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps; if (S.snapOn) tm = snapT(tm);
+        if (d.c) { S.cl = d.c; S.selKind = 'clip'; } else if (d.x) { S.tx = d.x; S.selKind = 'text'; } else if (d.o) { S.ov = d.o; S.selKind = 'overlay'; } else if (d.i != null) { S.si = +d.i; S.li = -1; S.selKind = 'shot'; } else return;
+        e.preventDefault(); e.stopPropagation(); splitAt(tm);
+      }, true);
+      el.tlContent.addEventListener('wheel', (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoomTl(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+      return el.tlBar;
+    }
+
+    /* ---------- editor de curvas de los fotogramas clave (estilo After Effects) ---------- */
+    const GR = [['x', 'Posición X', 'Move X', -1, 1, '#ff6b6b'], ['y', 'Posición Y', 'Move Y', -1, 1, '#51cf66'], ['sc', 'Escala', 'Scale', 0.1, 3, '#ffd43b'], ['sx', 'Ancho', 'Width', 0.1, 3, '#ffa94d'], ['sy', 'Alto', 'Height', 0.1, 3, '#f783ac'],
+      ['rot', 'Giro', 'Rotation', -360, 360, '#74c0fc'], ['op', 'Opacidad', 'Opacity', 0, 1, '#d0bfff'], ['rx', 'Giro X 3D', 'Turn X 3D', -180, 180, '#63e6be'], ['ry', 'Giro Y 3D', 'Turn Y 3D', -180, 180, '#a9e34b']];
+    S.gr = { prop: 'x' };
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const sv = (name, attrs, ...kids) => { const n = document.createElementNS(SVGNS, name); Object.keys(attrs || {}).forEach((k) => n.setAttribute(k, attrs[k])); kids.forEach((c) => c && n.append(c)); return n; };
+    function openGraph() {
+      if (S.ws !== 'montaje') setWs('montaje');
+      S.tab.montaje = 'curvas'; LY.hl = false; applyLayout(); renderRail(); renderPanels();
+    }
+    function graphPanel() {
+      const kt = kfTarget(), out = [];
+      el.grSvg = null;
+      if (!kt) return [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Curvas de animación', 'Animation curves')),
+        h('p', { class: 'cap' }, t('Selecciona una capa, un texto o una superposición en la línea de tiempo o en Capas, y añade fotogramas clave (el rombo de la barra de la línea de tiempo). Aquí verás sus curvas y podrás moverlas.', 'Select a layer, a text or an overlay in the timeline or in Layers and add keyframes (the diamond in the timeline toolbar). Here you will see its curves and can move them.')))];
+      const it = kt.it, list = () => (it.kf || []).slice().sort((a, b) => a.t - b.t), P = GR.find((g) => g[0] === S.gr.prop) || GR[0];
+      const key = P[0], defV = (k) => (k === 'sc' || k === 'op' || k === 'sx' || k === 'sy' ? 1 : 0);
+      const W = 320, Hh = 230, ML = 40, MR = 8, MT = 10, MB = 18, PW = W - ML - MR, PH = Hh - MT - MB;
+      const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + Hh, class: 'grsvg', role: 'img', 'aria-label': t('Gráfica de la curva de ', 'Curve graph of ') + t(P[1], P[2]) });
+      el.grSvg = svg;
+      let drag = false;
+      const range = () => {
+        const ks = list(), vals = ks.map((q) => (q[key] == null ? defV(key) : q[key])); let lo = Math.min.apply(null, vals.concat([defV(key)])), hi = Math.max.apply(null, vals.concat([defV(key)]));
+        if (ks.length > 1) for (let i = 0; i <= 60; i++) { const v = MC.kfValues(ks, ks[0].t + (ks[ks.length - 1].t - ks[0].t) * i / 60)[key]; lo = Math.min(lo, v); hi = Math.max(hi, v); }
+        const minSpan = { x: 0.2, y: 0.2, sc: 0.5, sx: 0.5, sy: 0.5, rot: 40, op: 1, rx: 40, ry: 40 }[key], span = Math.max(hi - lo, minSpan), mid = (hi + lo) / 2;
+        return [mid - span * 0.65, mid + span * 0.65];
+      };
+      const tx = (tm) => ML + (tm / Math.max(0.1, kt.dur)) * PW;
+      const draw = () => {
+        const [lo, hi] = range(), vy = (v) => MT + PH - ((v - lo) / (hi - lo)) * PH, ks = list();
+        while (svg.firstChild) svg.firstChild.remove();
+        svg.append(sv('rect', { x: ML, y: MT, width: PW, height: PH, class: 'grbg' }));
+        for (let i = 0; i <= 4; i++) { const v = lo + ((hi - lo) * i) / 4, y = vy(v); svg.append(sv('line', { x1: ML, x2: ML + PW, y1: y, y2: y, class: 'grgrid' })); const tl = sv('text', { x: ML - 4, y: y + 3, class: 'grlab', 'text-anchor': 'end' }); tl.textContent = (Math.abs(hi - lo) < 5 ? v.toFixed(2) : Math.round(v)); svg.append(tl); }
+        const nT = Math.min(8, Math.max(2, Math.floor(kt.dur))); for (let i = 0; i <= nT; i++) { const tm = (kt.dur * i) / nT, x = tx(tm); svg.append(sv('line', { x1: x, x2: x, y1: MT, y2: MT + PH, class: 'grgrid' })); const tl = sv('text', { x, y: Hh - 4, class: 'grlab', 'text-anchor': 'middle' }); tl.textContent = tm.toFixed(1) + 's'; svg.append(tl); }
+        if (ks.length) {
+          let d = ''; const t0 = 0, t1 = kt.dur;
+          for (let i = 0; i <= 120; i++) { const tm = t0 + ((t1 - t0) * i) / 120, v = MC.kfValues(ks, tm)[key]; d += (i ? 'L' : 'M') + tx(tm).toFixed(1) + ' ' + vy(v).toFixed(1); }
+          svg.append(sv('path', { d, class: 'grcurve', stroke: P[5] }));
+        }
+        const lt = clamp(S.time - kt.start, 0, kt.dur); svg.append(sv('line', { x1: tx(lt), x2: tx(lt), y1: MT, y2: MT + PH, class: 'grplay' }));
+        const sel = ks.findIndex((q) => q.id === S.kfid), nx = sel >= 0 ? ks[sel + 1] : null;
+        if (sel >= 0 && nx) {
+          const q = ks[sel], b = MC.curveBez(q.ease || 'smooth'), v0 = q[key] == null ? defV(key) : q[key], v1 = nx[key] == null ? defV(key) : nx[key], dv = Math.abs(v1 - v0) > 1e-4 ? v1 - v0 : (hi - lo) * 0.25;
+          const hp = (xx, yy) => [tx(q.t + xx * (nx.t - q.t)), vy(v0 + yy * dv)], h1 = hp(b[0], b[1]), h2 = hp(b[2], b[3]), p0 = [tx(q.t), vy(v0)], p1 = [tx(nx.t), vy(v1)];
+          svg.append(sv('line', { x1: p0[0], y1: p0[1], x2: h1[0], y2: h1[1], class: 'grhl' }), sv('line', { x1: p1[0], y1: p1[1], x2: h2[0], y2: h2[1], class: 'grhl' }));
+          [[h1, 0], [h2, 1]].forEach(([pt, idx]) => {
+            const c = sv('circle', { cx: pt[0], cy: pt[1], r: 5.5, class: 'grhandle', tabindex: '0', 'aria-label': t('Tirador de la curva ', 'Curve handle ') + (idx + 1) });
+            c.addEventListener('pointerdown', (e) => {
+              e.stopPropagation(); e.preventDefault(); c.setPointerCapture(e.pointerId); drag = true; const r = svg.getBoundingClientRect(), f = W / r.width;
+              const mv = (ev) => {
+                const px = (ev.clientX - r.left) * f, py = (ev.clientY - r.top) * f, bb = MC.curveBez(q.ease || 'smooth').slice();
+                const xx = clamp((px - tx(q.t)) / Math.max(1, tx(nx.t) - tx(q.t)), 0, 1), val = lo + ((MT + PH - py) / PH) * (hi - lo), yy = clamp((val - v0) / dv, -1.5, 2.5);
+                bb[idx * 2] = Math.round(xx * 100) / 100; bb[idx * 2 + 1] = Math.round(yy * 100) / 100; q.ease = { b: bb }; S.dirty = true; touch(); draw();
+              };
+              const up = () => { c.removeEventListener('pointermove', mv); c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', up); drag = false; commit(); };
+              c.addEventListener('pointermove', mv); c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+            });
+            svg.append(c);
+          });
+        }
+        ks.forEach((q) => {
+          const v = q[key] == null ? defV(key) : q[key], c = sv('rect', { x: tx(q.t) - 5, y: vy(v) - 5, width: 10, height: 10, class: 'grkey' + (q.id === S.kfid ? ' on' : ''), transform: 'rotate(45 ' + tx(q.t) + ' ' + vy(v) + ')', tabindex: '0', role: 'button', 'aria-label': t('Fotograma clave en ', 'Keyframe at ') + q.t.toFixed(2) + ' s' });
+          c.addEventListener('pointerdown', (e) => {
+            e.stopPropagation(); e.preventDefault(); c.setPointerCapture(e.pointerId); const sameSel = S.kfid === q.id; S.kfid = q.id; drag = true; const r = svg.getBoundingClientRect(), f = W / r.width; let moved = false;
+            const mv = (ev) => {
+              const px = (ev.clientX - r.left) * f, py = (ev.clientY - r.top) * f; moved = true;
+              q.t = round2(clamp(((px - ML) / PW) * kt.dur, 0, kt.dur));
+              const [l2, h2] = range(), val = l2 + ((MT + PH - py) / PH) * (h2 - l2), lim = P; q[key] = Math.round(clamp(val, lim[3], lim[4]) * 1000) / 1000;
+              S.dirty = true; touch(); draw(); layoutClips();
+            };
+            const up = () => { c.removeEventListener('pointermove', mv); c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', up); drag = false; if (moved) commit(); else { setTime(kt.start + clamp(q.t, 0, Math.max(0, kt.dur - 0.001))); renderPanels(); renderTimeline(); } };
+            c.addEventListener('pointermove', mv); c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+            if (!sameSel) draw();
+          });
+          svg.append(c);
+        });
+      };
+      svg.addEventListener('dblclick', (e) => {
+        const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * (W / r.width); if (px < ML || px > ML + PW) return;
+        const local = round2(clamp(((px - ML) / PW) * kt.dur, 0, kt.dur)), q = newKf(it, local); it.kf = (it.kf || []).concat([q]); S.kfid = q.id; commit();
+      });
+      svg.addEventListener('pointerdown', (e) => { if (drag || e.target !== svg.firstChild && e.target.tagName !== 'svg' && e.target.getAttribute('class') !== 'grbg') return; const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * (W / r.width); if (px < ML || px > ML + PW) return; setTime(kt.start + clamp(((px - ML) / PW) * kt.dur, 0, Math.max(0, kt.dur - 0.001))); });
+      draw(); el.grDraw = () => { if (!drag && svg.isConnected) draw(); };
+      out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Curvas de animación', 'Animation curves')),
+        h('p', { class: 'cap' }, t('Arrastra un rombo para cambiar su momento y su valor. Con uno seleccionado salen dos tiradores: tíralos para suavizar o endurecer el movimiento hasta el siguiente. Doble clic en la gráfica crea un fotograma clave.', 'Drag a diamond to change its time and value. With one selected, two handles appear: pull them to ease or sharpen the motion to the next one. Double-click the graph to create a keyframe.')),
+        h('div', { class: 'grchips', role: 'group', 'aria-label': t('Propiedad', 'Property') }, GR.map((g) => h('button', { type: 'button', class: 'grchip', style: { '--c': g[5] }, 'aria-pressed': String(g[0] === key), onClick: () => { S.gr.prop = g[0]; renderPanels(); } }, t(g[1], g[2])))),
+        svg,
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: addKfHere }, MC.icon('diamond', 14), t('Fotograma clave aquí', 'Keyframe here')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !(it.kf || []).length, onClick: () => { (it.kf || []).forEach((q) => { q.ease = 'smooth'; }); commit(); } }, t('Suavizar todas', 'Ease all')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !(it.kf || []).length, onClick: () => { (it.kf || []).forEach((q) => { q.ease = 'linear'; }); commit(); } }, t('Lineal', 'Linear')),
+          h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: !S.kfid || !(it.kf || []).some((q) => q.id === S.kfid), onClick: () => { it.kf = it.kf.filter((q) => q.id !== S.kfid); S.kfid = null; commit(); } }, MC.icon('trash', 14), t('Borrar el seleccionado', 'Delete selected')))));
+      const cur = (it.kf || []).find((q) => q.id === S.kfid);
+      if (cur) out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Curva hasta el siguiente fotograma clave', 'Curve to the next keyframe')), MC.ui.curveEditor(cur.ease || 'smooth', (v) => { cur.ease = v; S.dirty = true; touch(); if (el.grDraw) el.grDraw(); }, commit)));
+      return out;
+    }
+
     const ACT = {
       play: () => togglePlay(), pause: () => togglePlay(false), forward: () => togglePlay(true),
       back1: () => setTime(S.time - 1), stepBack: () => setTime(S.time - 1 / 30), stepFwd: () => setTime(S.time + 1 / 30), secBack: () => setTime(S.time - 1), secFwd: () => setTime(S.time + 1),
       start: () => setTime(0), end: () => setTime(total() - 0.001),
       prevShot: () => selectShot(S.si - 1, true), nextShot: () => selectShot(S.si + 1, true),
-      split: () => { if (S.cl) splitClip(); else return false; },
+      split: () => { splitAt(S.time); },
       duplicate: () => { if (S.selKind === 'layer' && layer()) { dupLayer(); return; } return dupSelection(); }, marker: () => { addMarker('note'); }, tapBeat: () => { addMarker('beat'); },
       selectAll: () => { setMulti(allKeys()); },
       undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
@@ -34358,6 +34663,7 @@ module.exports = ZStream;
         else if (layer() && layer().locked) { MC.toast(t('La capa está bloqueada. Desbloquéala para borrarla.', 'The layer is locked. Unlock it to delete it.')); }
         else if (layer()) { delLayer(S.li); MC.announce(t('Capa eliminada', 'Layer deleted')); }
         else if (S.xs && xById(S.xs) && S.selKind === 'shot') { S.project.xshots = S.project.xshots.filter((x) => x.id !== S.xs); S.xs = null; S.li = -1; commit(); MC.announce(t('Plano superpuesto eliminado', 'Overlapping shot deleted')); }
+        else if (S.selKind === 'shot' && !S.xs) { delShot(); }
         else return false;
       },
     };
@@ -34369,6 +34675,10 @@ module.exports = ZStream;
         if (e.key === 'Enter') { e.preventDefault(); markWord(); return; }
         if (e.key === '.') { e.preventDefault(); silenceHere(); return; }
         if (e.key === 'Backspace') { e.preventDefault(); unmarkWord(); return; }
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !(S.ws === 'creativo' && curTab() === 'subtitulos')) {
+        const kk = e.key.toLowerCase();
+        if (kk === 'v') { setTool('sel'); return; } if (kk === 'x') { setTool('blade'); return; } if (kk === 'q') { trimEdge('start'); return; } if (kk === 'w') { trimEdge('end'); return; } if (kk === 'n') { toggleSnap(); return; }
       }
       const id = MC.keys.match(e), c = MC.keys.combo(e);
       if (!id || !ACT[id]) return;

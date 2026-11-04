@@ -60,6 +60,17 @@
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
+    magnet: '<path d="M5 3h4v9a3 3 0 006 0V3h4v9a7 7 0 01-14 0z"/><path d="M5 7h4M15 7h4"/>',
+    flipH: '<path d="M12 3v18" stroke-dasharray="2.5 2.5"/><path d="M9 7L3 18h6z"/><path d="M15 7l6 11h-6z"/>',
+    flipV: '<path d="M3 12h18" stroke-dasharray="2.5 2.5"/><path d="M7 9V3l11 6z"/><path d="M7 15v6l11-6z"/>',
+    crop: '<path d="M6 2v14a2 2 0 002 2h14"/><path d="M2 6h14a2 2 0 012 2v14"/>',
+    trimL: '<path d="M4 4v16"/><rect x="9" y="7" width="11" height="10" rx="1"/>',
+    trimR: '<path d="M20 4v16"/><rect x="4" y="7" width="11" height="10" rx="1"/>',
+    diamond: '<path d="M12 3l8 9-8 9-8-9z"/>',
+    select: '<path d="M5 3l14 7-6 2-2 6z"/>',
+    blade: '<path d="M5 19l14-14"/><path d="M13 5h6v6"/><path d="M5 19h4"/>',
+    fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    ripple: '<path d="M4 8h10M4 16h10"/><path d="M17 5l4 3-4 3M17 13l4 3-4 3"/>',
     play: '<path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none"/>',
     pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>',
     undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
@@ -154,6 +165,19 @@
     return h('div', { class: 'slider' }, h('label', { for: id }, o.label, val), inp);
   };
   ui.field = (label, input, id) => h('div', { class: 'field' }, h('label', { for: id }, label), input);
+
+  /* favoritos: marca con una estrella lo que más usas (sonidos, transiciones, estilos, efectos…) y fíltralo después */
+  MC.fav = {
+    all() { try { return JSON.parse(MC.store.get('favs', '{}')) || {}; } catch (e) { return {}; } },
+    has(kind, id) { return (this.all()[kind] || []).includes(id); },
+    list(kind) { return this.all()[kind] || []; },
+    toggle(kind, id) { const a = this.all(), l = a[kind] || []; a[kind] = l.includes(id) ? l.filter((x) => x !== id) : l.concat(id); MC.store.set('favs', JSON.stringify(a)); return a[kind].includes(id); },
+    btn(kind, id, onChange) {
+      const b = h('button', { class: 'btn btn-g btn-ic fav', type: 'button', 'aria-pressed': String(this.has(kind, id)), title: MC.t('Favorito', 'Favourite'), 'aria-label': MC.t('Marcar como favorito', 'Mark as favourite'),
+        onClick: (e) => { e.stopPropagation(); const on = MC.fav.toggle(kind, id); b.setAttribute('aria-pressed', String(on)); if (onChange) onChange(on); } }, MC.icon('star', 14));
+      return b;
+    },
+  };
 
   let toastT = 0;
   /* documento que tiene el foco: la ventana principal o una ventana separada del estudio */

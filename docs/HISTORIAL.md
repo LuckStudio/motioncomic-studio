@@ -112,3 +112,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Cada panel (visor, línea de tiempo, herramientas, capas, propiedades) se puede mover de lado, ocultar o **sacar a otra ventana** (varias pantallas), con menú ⋮, asa ⠿ de arrastre (a un lado o fuera de la ventana) y disposiciones predefinidas en el menú de Vista.
 - La ventana separada recibe el propio panel (mismos controles, atajos y reproducción), copia los estilos y las fuentes, y devuelve el panel al cerrarse. Con la API de gestión de ventanas se elige el monitor y se recuerda la posición.
+
+## Espacios simplificados, barra de edición y curvas
+
+- Montaje reúne cámara y capas y profundidad; Efectos y audio incluye las transiciones y separa efectos de sonido y música.
+- Barra de iconos de la línea de tiempo (cuchilla, recortar principio y final, reflejar, recorte, imán, zoom, fotogramas clave), eliminación de planos arreglada, fotogramas clave en textos y con ancho y alto, editor de curvas con tiradores Bézier y favoritos.

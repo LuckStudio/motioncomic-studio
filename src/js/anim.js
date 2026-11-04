@@ -74,8 +74,8 @@
   const bounce = (x) => { const n1 = 7.5625, d1 = 2.75; if (x < 1 / d1) return n1 * x * x; if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75; if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375; return n1 * (x -= 2.625 / d1) * x + 0.984375; };
 
   /* Interpolación de los fotogramas clave de un elemento: ángulos y desplazamientos relativos a su posición base. */
-  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry'];
-  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
+  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry', 'sx', 'sy'];
+  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
   MC.kfValues = (kfs, local) => {
     if (!kfs || !kfs.length) return null;
     const a = kfs.slice().sort((p, q) => p.t - q.t);
@@ -90,8 +90,8 @@
   /* Estado de movimiento de un elemento en el instante local (0 = inicio). Devuelve { dx, dy, sc, rot, op } o null si no se mueve. */
   MC.itemAnim = (item, local, dur) => {
     const A = item.anim, kf = item.kf; if (!A && !(kf && kf.length)) return null;
-    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
-    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; }
+    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
+    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; st.sx *= v.sx; st.sy *= v.sy; }
     if (A) {
       const din = A.in && A.in.type ? clamp(A.in.dur || 0.5, 0.05, dur) : 0, dout = A.out && A.out.type ? clamp(A.out.dur || 0.5, 0.05, dur) : 0;
       if (din && local < din) { const u = clamp(local / din, 0, 1); let e = MC.ease(easeFor(A.in.type), u); if (A.in.type === 'drop') e = bounce(u); rise(A.in.type, e, st, A.in.dist == null ? 1 : A.in.dist); }
@@ -119,7 +119,7 @@
     return st;
   };
   /* Combina el movimiento de un elemento con otro ya calculado (por ejemplo, los efectos de impacto de la viñeta). */
-  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op, rx: (a.rx || 0) + (b.rx || 0), ry: (a.ry || 0) + (b.ry || 0) });
+  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op, rx: (a.rx || 0) + (b.rx || 0), ry: (a.ry || 0) + (b.ry || 0), sx: (a.sx || 1) * (b.sx || 1), sy: (a.sy || 1) * (b.sy || 1) });
 
   /* ---------- personaje por capas: parpadeo y boca con la voz ---------- */
   /* Amplitud (0 a 1) de la locución en un instante de la línea de tiempo, a partir de las ondas ya calculadas. */

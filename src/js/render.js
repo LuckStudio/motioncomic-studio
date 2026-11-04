@@ -157,8 +157,10 @@
       if (ia) {
         /* movimiento propio de la capa, alrededor de su pivote (por defecto el centro) */
         const pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
-        ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1) ctx.scale(ia.sc, ia.sc); ctx.translate(-pxx, -pyy);
+        ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1 || ia.sx !== 1 || ia.sy !== 1) ctx.scale(ia.sc * (ia.sx || 1), ia.sc * (ia.sy || 1)); ctx.translate(-pxx, -pyy);
       }
+      if (layer.flipX || layer.flipY) { const fcx = ix + iw / 2, fcy = iy + ih / 2; ctx.translate(fcx, fcy); ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1); ctx.translate(-fcx, -fcy); }
+      if (layer.crop) { const cr = layer.crop; ctx.beginPath(); ctx.rect(ix + iw * (cr.l || 0), iy + ih * (cr.t || 0), iw * (1 - (cr.l || 0) - (cr.r || 0)), ih * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       let src = img.bitmap;
       if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
       const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);

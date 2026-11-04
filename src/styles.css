@@ -572,3 +572,27 @@ body.pop { margin: 0; height: 100vh; overflow: hidden; background: var(--bg); }
 .studio.popped .pz, .studio.popped .grip-btn { display: none; }
 .studio.popped .tl-body { display: grid !important; }
 .vmenu { max-height: calc(100vh - 90px); overflow-y: auto; }
+
+/* ---------- favoritos ---------- */
+.favwrap { position: relative; min-width: 0; } .favwrap > .fav { position: absolute; top: 3px; right: 3px; z-index: 2; width: 26px; height: 26px; background: rgba(0,0,0,.45); color: #fff; opacity: 0; }
+.favwrap:hover > .fav, .favwrap > .fav:focus-visible, .favwrap > .fav[aria-pressed="true"] { opacity: 1; }
+.fav[aria-pressed="true"] { color: #F5B50A; } .fav[aria-pressed="true"] svg { fill: currentColor; }
+.sndrow .fav { width: 26px; height: 26px; flex: none; }
+
+/* ---------- barra de herramientas de la línea de tiempo y curvas ---------- */
+.tl-head { gap: 2px; padding: 4px 8px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.tl-head > * { flex: none; }
+.tlb { width: 34px; height: 34px; } .tlb:disabled { opacity: .35; }
+.tlb[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.tlsep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+.tlfill { flex: 1 1 auto !important; min-width: 8px; }
+.tlzoom { width: 96px; accent-color: var(--accent); }
+.tl-content.blade, .tl-content.blade .clip { cursor: crosshair; }
+.grsvg { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+.grbg { fill: var(--bg); stroke: var(--line); } .grgrid { stroke: var(--line); stroke-width: 1; opacity: .6; }
+.grlab { fill: var(--muted); font-size: 9px; } .grcurve { fill: none; stroke-width: 2.4; } .grplay { stroke: var(--accent); stroke-width: 1.4; }
+.grkey { fill: var(--fg); stroke: var(--bg); stroke-width: 1.5; cursor: grab; } .grkey.on { fill: var(--accent); }
+.grhandle { fill: var(--accent); stroke: var(--fg); stroke-width: 1.5; cursor: grab; } .grhl { stroke: var(--accent); stroke-width: 1.2; opacity: .8; }
+.grchips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.grchip { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 3px 8px; font-size: 12px; cursor: pointer; border-left: 3px solid var(--c); }
+.grchip[aria-pressed="true"] { background: var(--raised); color: var(--fg); font-weight: 700; }

@@ -131,16 +131,17 @@
     }
 
     /* entrada y bucle */
-    let dx = 0, dy = 0, sc = 1, alpha = 1, rock = 0;
+    let dx = 0, dy = 0, sc = 1, alpha = 1, rock = 0, kx = 1, ky = 1;
     if (it.anim === 'pop') { const k = clamp(a / 0.3, 0, 1); sc = 0.3 + 0.7 * easeOutBack(k); alpha = clamp(a / 0.08, 0, 1); }
     else if (it.anim === 'bounce') { dy = -H * 0.14 * Math.exp(-a * 6) * Math.cos(a * 16); alpha = clamp(a / 0.08, 0, 1); }
     else if (it.anim === 'shake') { dx = Math.sin(a * 95) * W * 0.014 * Math.exp(-a * 5); rock = Math.sin(a * 70) * 2.2 * Math.exp(-a * 5); sc = 1 + 0.22 * Math.exp(-a * 9); }
     else if (it.anim === 'slide') { dy = (1 - easeOut(clamp(a / 0.3, 0, 1))) * H * 0.08; alpha = clamp(a / 0.2, 0, 1); }
     if (it.loop === 'float') dy += Math.sin(a * 2.4) * H * 0.006;
     if (it.loop === 'pulse') sc *= 1 + 0.03 * Math.sin(a * 6);
+    if (it.kf && it.kf.length && MC.kfValues) { const kv = MC.kfValues(it.kf, a); dx += kv.x * W; dy += kv.y * H; sc *= kv.sc; rock += kv.rot; alpha *= clamp(kv.op, 0, 1); kx = kv.sx; ky = kv.sy; }
     const left = sp.dur - a; if (left < 0.15) alpha *= Math.max(0, left / 0.15);
     ctx.globalAlpha = alpha;
-    ctx.translate(cx + dx, cy + dy); ctx.rotate(((it.rot || 0) + rock) * Math.PI / 180); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+    ctx.translate(cx + dx, cy + dy); ctx.rotate(((it.rot || 0) + rock) * Math.PI / 180); ctx.scale(sc * kx, sc * ky); ctx.translate(-cx, -cy);
 
     const ink = it.stroke || '#14141c', ow = Math.max(2, H * 0.0042);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';

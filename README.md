@@ -290,6 +290,15 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Biblioteca** compartida entre proyectos, con carpetas y etiquetas: personajes, fondos, efectos de sonido… para usar como capa, superposición o audio.
 - Avisa si queda poco espacio en el navegador.
 
+### Espacios de trabajo y línea de tiempo al estilo CapCut
+
+- **Tres espacios**: **Montaje** (planos, viñetas, cámara, curvas, capas y profundidad, recursos, biblioteca, proyecto, aspecto y estilo), **Efectos y audio** (texto, subtítulos, efectos, **transiciones**, **efectos de sonido**, **música**, mezclador e idiomas) y **Exportar**.
+- **Barra de iconos de la línea de tiempo**: deshacer y rehacer, selección (V) y **cuchilla** (X, corta donde pulsas), dividir (S), **recortar principio (Q) y final (W)** hasta el cabezal, eliminar, **reflejar** en horizontal y vertical, **recortar** la imagen o el vídeo, **fotograma clave**, editor de curvas, marcador, duplicar, **imán** (N, se pega a cortes, marcadores y cabezal), ripple, añadir planos o superposiciones, y **zoom** con deslizador, botones, Ctrl + rueda y «ajustar todo». Muchas actúan sobre lo seleccionado (audio, texto, superposición, capa o plano).
+- **Eliminar planos** con la tecla Supr o el botón del plano, con Ctrl+Z para recuperarlo.
+- **Fotogramas clave en todo**: posición X e Y, escala, **ancho y alto** por separado, giro, opacidad y giro 3D, en capas, superposiciones y **textos**. Salen como rombos sobre el elemento en la línea de tiempo y se arrastran.
+- **Editor de curvas** (pestaña «Curvas», que además puedes sacar a otra pantalla): gráfica por propiedad, rombos que se arrastran en tiempo y valor, y **tiradores Bézier** para suavizar o endurecer cada tramo, como en After Effects.
+- **Favoritos** ★ en sonidos, transiciones y estilos de subtítulos, con filtro propio y una pestaña «Favoritos».
+
 ### Interfaz ajustable
 
 - **Arrastra los bordes** del panel izquierdo, de la columna derecha y de la línea de tiempo para cambiar su tamaño; **doble clic** en un borde para ocultarlo.

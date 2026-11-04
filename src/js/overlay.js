@@ -165,7 +165,7 @@
   MC.overlayBox = (it, asset, o, time) => {
     const an = MC.itemAnim && time != null ? MC.itemAnim(it, time - it.start, it.dur) : null;
     const base = Math.min(o.W / asset.w, o.H / asset.h) * (it.scale == null ? 1 : it.scale) * (an ? an.sc : 1);
-    return { cx: o.W / 2 + ((it.x || 0) + (an ? an.dx : 0)) * o.W, cy: o.H / 2 + ((it.y || 0) + (an ? an.dy : 0)) * o.H, w: asset.w * base, h: asset.h * base, rot: (it.rot || 0) + (an ? an.rot : 0), op: (it.opacity == null ? 1 : it.opacity) * (an ? an.op : 1), an };
+    return { cx: o.W / 2 + ((it.x || 0) + (an ? an.dx : 0)) * o.W, cy: o.H / 2 + ((it.y || 0) + (an ? an.dy : 0)) * o.H, w: asset.w * base * (an ? an.sx || 1 : 1), h: asset.h * base * (an ? an.sy || 1 : 1), rot: (it.rot || 0) + (an ? an.rot : 0), op: (it.opacity == null ? 1 : it.opacity) * (an ? an.op : 1), an };
   };
   MC.overlaysAt = (p, time) => {
     const tr = p.otracks || [];
@@ -186,7 +186,8 @@
       ctx.globalAlpha = clamp(b.op, 0, 1);
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
       const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
-      ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip) ctx.scale(-1, 1);
+      ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip || it.flipY) ctx.scale(it.flip ? -1 : 1, it.flipY ? -1 : 1);
+      if (it.crop) { const cr = it.crop; ctx.beginPath(); ctx.rect(-b.w / 2 + b.w * (cr.l || 0), -b.h / 2 + b.h * (cr.t || 0), b.w * (1 - (cr.l || 0) - (cr.r || 0)), b.h * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       const rx3 = ((it.r3 && it.r3.x) || 0) + (b.an ? b.an.rx : 0), ry3 = ((it.r3 && it.r3.y) || 0) + (b.an ? b.an.ry : 0), pv = (b.an && b.an.pv) || { x: 0.5, y: 0.5 };
       if (MC.draw3D && MC.has3D(rx3, ry3)) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, it.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
