@@ -1,6 +1,6 @@
 <title>MotionComic Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Bangers&family=Comic+Neue:wght@700&family=Permanent+Marker&display=swap">
 <style>
 /* MotionComic Studio · estilos. Concepto: sala de edición oscura; el violeta solo aparece donde hay acción o marca (brandbook v0.1). */
 :root {
@@ -243,6 +243,14 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 @media (prefers-reduced-motion: no-preference) {
   .btn, .seg button, .chip-b, .card { transition: background .15s, border-color .15s, color .15s; }
 }
+
+/* texto en la línea de tiempo y formularios */
+.clip.tx { background: var(--accent); color: var(--on-accent); padding: 0 12px 0 8px; }
+.clip.tx.sub { background: var(--raised); color: var(--fg); border-color: var(--line); }
+.clip.tx.on, .clip.tx.sub.on { border-color: var(--fg); box-shadow: 0 0 0 1px var(--accent); }
+.clip.fx.thin { top: auto; height: 6px; bottom: 1px; padding: 0; border-radius: 3px; border: 0; pointer-events: auto; }
+textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
+select.input { appearance: auto; }
 
 </style>
 <div id="app"></div>
@@ -26642,6 +26650,7 @@ module.exports = ZStream;
     const ids = new Set();
     p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
+    (p.fonts || []).forEach((f) => ids.add(f.id));
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
@@ -26651,6 +26660,8 @@ module.exports = ZStream;
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
+    p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
+    p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
     return p;
   };
@@ -26661,6 +26672,7 @@ module.exports = ZStream;
   MC.newProject = (o) => ({
     id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
+    texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
     clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
   });
 
@@ -27052,7 +27064,7 @@ module.exports = ZStream;
     { v: 'flash', es: 'Destello', en: 'Flash' }, { v: 'wipe', es: 'Barrido', en: 'Wipe' },
   ];
 
-  MC.renderFrame = (ctx, project, time, o) => {
+  const renderBase = (ctx, project, time, o) => {
     const { W, H } = o;
     const { i, tl } = MC.locate(project, time);
     const cur = project.shots[i];
@@ -27076,6 +27088,8 @@ module.exports = ZStream;
     }
     MC.renderShot(ctx, cur, tl, o);
   };
+
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
@@ -27148,6 +27162,220 @@ module.exports = ZStream;
   };
 })();
 
+/* Texto del cómic: bocadillos, cajas, onomatopeyas y subtítulos, con revelado y entrada animada (PRD 10).
+   Se dibuja encima del plano dentro de renderFrame, así que el visor y la exportación ven lo mismo. */
+(function () {
+  const MC = window.MC;
+  const { clamp } = MC;
+
+  MC.FONTS = [
+    { id: 'bric', css: '"Bricolage Grotesque", "Segoe UI", sans-serif', w: 700, es: 'Bricolage (marca)', en: 'Bricolage (brand)' },
+    { id: 'comic', css: '"Comic Neue", "Comic Sans MS", sans-serif', w: 700, es: 'Cómic', en: 'Comic' },
+    { id: 'bangers', css: 'Bangers, Impact, sans-serif', w: 400, es: 'Onomatopeya (Bangers)', en: 'Sound effect (Bangers)' },
+    { id: 'marker', css: '"Permanent Marker", cursive', w: 400, es: 'Rotulador', en: 'Marker' },
+  ];
+  MC.fontSpec = (p, id) => {
+    const b = MC.FONTS.find((f) => f.id === id);
+    if (b) return b;
+    const f = (p.fonts || []).find((x) => x.id === id);
+    return f ? { id, css: '"' + f.family + '", sans-serif', w: 400 } : MC.FONTS[0];
+  };
+  MC.ensureFonts = () => Promise.all(MC.FONTS.map((f) => document.fonts.load(f.w + ' 40px ' + f.css.split(',')[0]).catch(() => 0)));
+
+  /* Tipografías propias del autor: se guardan con el proyecto y avisa si falta alguna al abrirlo en otro equipo. */
+  MC.fonts = {
+    async add(file, id) {
+      const ab = await file.arrayBuffer(), aid = id || MC.uid(), family = 'MCF' + aid;
+      const ff = new FontFace(family, ab.slice(0));
+      await ff.load(); document.fonts.add(ff);
+      await MC.db.put('assets', { id: aid, name: file.name, blob: new Blob([ab], { type: file.type || 'font/ttf' }), kind: 'font', type: file.type || 'font/ttf' });
+      return { id: aid, family, name: file.name.replace(/\.[a-z0-9]+$/i, '') };
+    },
+    async loadFor(p) {
+      const missing = [];
+      for (const f of p.fonts || []) {
+        if ([...document.fonts].some((x) => x.family.replace(/"/g, '') === f.family)) continue;
+        const rec = await MC.db.get('assets', f.id);
+        if (!rec) { missing.push(f.name); continue; }
+        try { const ff = new FontFace(f.family, await rec.blob.arrayBuffer()); await ff.load(); document.fonts.add(ff); } catch (e) { missing.push(f.name); }
+      }
+      return missing;
+    },
+  };
+
+  MC.LANGS = [['es', 'Español'], ['en', 'English'], ['fr', 'Français'], ['pt', 'Português'], ['it', 'Italiano'], ['de', 'Deutsch'], ['ca', 'Català']];
+
+  MC.newText = (kind, start, p) => {
+    const lang = p.lang || 'es';
+    const it = { id: MC.uid(), kind, t: {}, start, dur: 2.5, x: 0, y: -0.28, w: 0.4, size: 0.05, font: 'comic', color: '#14141c', fill: '#ffffff', stroke: '#14141c',
+      align: 'center', shape: 'speech', tail: { x: -0.06, y: 0.17 }, rot: 0, reveal: 'all', speed: 30, fit: false, anim: 'pop', loop: 'none', link: null };
+    if (kind === 'box') Object.assign(it, { x: -0.18, y: -0.4, w: 0.5, size: 0.04, fill: '#FFE08A', align: 'left', anim: 'slide', shape: 'box' });
+    if (kind === 'sfx') Object.assign(it, { y: 0.08, w: 0.8, size: 0.17, font: 'bangers', color: '#E5333D', rot: -8, anim: 'shake', shape: 'sfx' });
+    if (kind === 'sub') Object.assign(it, { anim: 'none', shape: 'sub' });
+    it.t[lang] = kind === 'sfx' ? MC.t('¡BOOM!', 'BOOM!') : kind === 'sub' ? '' : kind === 'box' ? MC.t('Esa misma noche…', 'That same night…') : MC.t('Escribe aquí', 'Type here');
+    return it;
+  };
+  MC.textOf = (it, p, lang) => {
+    const l = lang || p.lang || 'es';
+    if (it.t[l] != null && it.t[l] !== '') return it.t[l];
+    const first = (p.langs || ['es']).find((x) => it.t[x]);
+    return it.t[l] === '' ? '' : first ? it.t[first] : '';
+  };
+  MC.textSpan = (it, p) => {
+    if (it.link) { const c = (p.clips || []).find((x) => x.id === it.link); if (c) return { start: c.start, dur: c.dur }; }
+    return { start: it.start, dur: it.dur };
+  };
+  MC.subY = (p, W, H) => (p.sub && p.sub.y != null ? p.sub.y : W / H < 0.8 ? 0.2 : 0.4); // desplazamiento desde el centro, fuera de las zonas de la interfaz
+
+  const wrap = (ctx, str, maxW) => {
+    const out = [];
+    String(str).split('\n').forEach((par) => {
+      let line = '';
+      par.split(/\s+/).filter(Boolean).forEach((w) => {
+        const test = line ? line + ' ' + w : w;
+        if (line && ctx.measureText(test).width > maxW) { out.push(line); line = w; } else line = test;
+      });
+      out.push(line);
+    });
+    return out;
+  };
+  const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  const easeOut = (x) => 1 - (1 - x) * (1 - x);
+
+  MC.renderTexts = (ctx, p, time, o) => {
+    const items = p.texts || [];
+    if (!items.length) return;
+    const { W, H } = o, lang = o.lang || p.lang || 'es';
+    for (const it of items) {
+      if (it.kind === 'sub' && o.subs === false) continue;
+      const sp = MC.textSpan(it, p), a = time - sp.start;
+      if (a < 0 || a >= sp.dur) continue;
+      const str = MC.textOf(it, p, lang);
+      if (!str) { if (o.collect) { /* sin texto: no se puede seleccionar en el visor */ } continue; }
+      drawText(ctx, p, it, str, a, sp, o, W, H);
+    }
+  };
+
+  function drawText(ctx, p, it, str, a, sp, o, W, H) {
+    const isSub = it.kind === 'sub', st = p.sub || {};
+    const font = MC.fontSpec(p, isSub ? st.font || 'bric' : it.font);
+    const sizePx = (isSub ? st.size || 0.045 : it.size) * H, lineH = sizePx * 1.14;
+    ctx.save();
+    ctx.font = font.w + ' ' + sizePx + 'px ' + font.css;
+    const maxW = (isSub ? 0.82 : it.w) * W, lines = wrap(ctx, str, maxW);
+    let blockW = 0; lines.forEach((l) => { blockW = Math.max(blockW, ctx.measureText(l).width); });
+    const blockH = lines.length * lineH;
+    const cx = W / 2 + (isSub ? 0 : it.x) * W, cy = H / 2 + (isSub ? MC.subY(p, W, H) * H : it.y * H);
+
+    /* revelado */
+    const flat = lines.join(' ');
+    let shown = flat.length;
+    if (it.reveal && it.reveal !== 'all') {
+      const speed = it.fit && it.link ? flat.length / Math.max(0.3, sp.dur * 0.85) : it.speed || 30;
+      let n = Math.floor(a * speed);
+      if (it.reveal === 'words') { const e = flat.indexOf(' ', Math.max(0, n)); n = e < 0 ? flat.length : e; }
+      shown = clamp(n, 0, flat.length);
+    }
+
+    /* entrada y bucle */
+    let dx = 0, dy = 0, sc = 1, alpha = 1, rock = 0;
+    if (it.anim === 'pop') { const k = clamp(a / 0.3, 0, 1); sc = 0.3 + 0.7 * easeOutBack(k); alpha = clamp(a / 0.08, 0, 1); }
+    else if (it.anim === 'bounce') { dy = -H * 0.14 * Math.exp(-a * 6) * Math.cos(a * 16); alpha = clamp(a / 0.08, 0, 1); }
+    else if (it.anim === 'shake') { dx = Math.sin(a * 95) * W * 0.014 * Math.exp(-a * 5); rock = Math.sin(a * 70) * 2.2 * Math.exp(-a * 5); sc = 1 + 0.22 * Math.exp(-a * 9); }
+    else if (it.anim === 'slide') { dy = (1 - easeOut(clamp(a / 0.3, 0, 1))) * H * 0.08; alpha = clamp(a / 0.2, 0, 1); }
+    if (it.loop === 'float') dy += Math.sin(a * 2.4) * H * 0.006;
+    if (it.loop === 'pulse') sc *= 1 + 0.03 * Math.sin(a * 6);
+    const left = sp.dur - a; if (left < 0.15) alpha *= Math.max(0, left / 0.15);
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx + dx, cy + dy); ctx.rotate(((it.rot || 0) + rock) * Math.PI / 180); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+
+    const ink = it.stroke || '#14141c', ow = Math.max(2, H * 0.0042);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    let bounds = { x0: cx - blockW / 2, y0: cy - blockH / 2, x1: cx + blockW / 2, y1: cy + blockH / 2 }, tip = null;
+
+    if (isSub) {
+      if (st.bg !== false) {
+        const pad = sizePx * 0.4; ctx.fillStyle = 'rgba(0,0,0,0.62)'; rr(ctx, cx - blockW / 2 - pad, cy - blockH / 2 - pad * 0.5, blockW + pad * 2, blockH + pad, sizePx * 0.28); ctx.fill();
+      }
+    } else if (it.kind === 'box') {
+      const pad = sizePx * 0.7; bounds = { x0: cx - blockW / 2 - pad, y0: cy - blockH / 2 - pad * 0.7, x1: cx + blockW / 2 + pad, y1: cy + blockH / 2 + pad * 0.7 };
+      ctx.fillStyle = it.fill || '#FFE08A'; ctx.strokeStyle = ink; ctx.lineWidth = ow;
+      rr(ctx, bounds.x0, bounds.y0, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0, sizePx * 0.25); ctx.fill(); ctx.stroke();
+    } else if (it.kind === 'bubble') {
+      const rx = (blockW / 2) * 1.32 + sizePx * 0.7, ry = (blockH / 2) * 1.32 + sizePx * 0.55;
+      bounds = { x0: cx - rx, y0: cy - ry, x1: cx + rx, y1: cy + ry };
+      const path = new Path2D(), tx = cx + it.tail.x * W, ty = cy + it.tail.y * H;
+      if (it.shape === 'shout') {
+        const n = 20;
+        for (let i = 0; i < n * 2; i++) { const ang = (i / (n * 2)) * 6.2832, k = i % 2 ? 0.82 : 1.12, j = 1 + 0.06 * Math.sin(i * 12.9); const x = cx + Math.cos(ang) * rx * k * j, y = cy + Math.sin(ang) * ry * k * j; i ? path.lineTo(x, y) : path.moveTo(x, y); }
+        path.closePath(); tip = null;
+      } else if (it.shape === 'thought') {
+        const n = 11, r = Math.min(rx, ry) * 0.5;
+        for (let i = 0; i < n; i++) { const ang = (i / n) * 6.2832; path.moveTo(cx + Math.cos(ang) * (rx - r * 0.55) + r, cy + Math.sin(ang) * (ry - r * 0.55)); path.arc(cx + Math.cos(ang) * (rx - r * 0.55), cy + Math.sin(ang) * (ry - r * 0.55), r, 0, 6.2832); }
+        path.moveTo(cx + rx * 0.8, cy); path.ellipse(cx, cy, rx * 0.8, ry * 0.8, 0, 0, 6.2832);
+        for (let i = 1; i <= 3; i++) { const f = 0.55 + i * 0.14, px = cx + (tx - cx) * f, py = cy + (ty - cy) * f, rr2 = sizePx * (0.5 - i * 0.1); path.moveTo(px + rr2, py); path.arc(px, py, rr2, 0, 6.2832); }
+        tip = { x: tx, y: ty };
+      } else {
+        path.ellipse(cx, cy, rx, ry, 0, 0, 6.2832);
+        const inside = ((tx - cx) / rx) ** 2 + ((ty - cy) / ry) ** 2 < 1.05;
+        if (!inside) {
+          const th = Math.atan2((ty - cy) / ry, (tx - cx) / rx), P = (q) => [cx + rx * Math.cos(q), cy + ry * Math.sin(q)];
+          const A = P(th - 0.32), B = P(th + 0.32);
+          path.moveTo(A[0], A[1]); path.lineTo(tx, ty); path.lineTo(B[0], B[1]); path.closePath();
+        }
+        tip = { x: tx, y: ty };
+      }
+      ctx.strokeStyle = ink; ctx.lineWidth = ow * 2; ctx.stroke(path);
+      ctx.fillStyle = it.fill || '#fff'; ctx.fill(path, 'nonzero');
+    }
+
+    /* texto, línea a línea, con revelado */
+    ctx.font = font.w + ' ' + sizePx + 'px ' + font.css; ctx.textBaseline = 'middle';
+    const al = isSub ? 'center' : it.align || 'center';
+    ctx.textAlign = al;
+    let left2 = shown;
+    const y0 = cy - blockH / 2 + lineH / 2;
+    lines.forEach((l, i) => {
+      if (left2 <= 0) return;
+      const part = l.slice(0, Math.min(l.length, left2)); left2 -= l.length + 1;
+      const x = al === 'left' ? cx - blockW / 2 : al === 'right' ? cx + blockW / 2 : cx, y = y0 + i * lineH;
+      if (it.kind === 'sfx') {
+        ctx.strokeStyle = ink; ctx.lineWidth = sizePx * 0.2; ctx.strokeText(part, x + sizePx * 0.05, y + sizePx * 0.06);
+        ctx.strokeStyle = it.fill && it.fill !== '#ffffff' ? it.fill : '#ECEEF0'; ctx.lineWidth = sizePx * 0.12; ctx.strokeText(part, x, y);
+        ctx.fillStyle = it.color; ctx.fillText(part, x, y);
+      } else {
+        if (isSub && st.bg === false) { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = sizePx * 0.16; ctx.strokeText(part, x, y); }
+        ctx.fillStyle = isSub ? st.color || '#ffffff' : it.color; ctx.fillText(part, x, y);
+      }
+    });
+    if (it.kind === 'sfx') bounds = { x0: cx - blockW / 2 - sizePx * 0.2, y0: cy - blockH / 2 - sizePx * 0.1, x1: cx + blockW / 2 + sizePx * 0.2, y1: cy + blockH / 2 + sizePx * 0.1 };
+    ctx.restore();
+    if (o.collect) o.collect.push({ id: it.id, cx, cy, bounds, tip, rot: it.rot || 0 });
+  }
+  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  /* Subtítulos SRT */
+  const ts = (s) => { const ms = Math.round(s * 1000), pad = (n, l) => String(n).padStart(l || 2, '0'); return pad(Math.floor(ms / 3600000)) + ':' + pad(Math.floor(ms / 60000) % 60) + ':' + pad(Math.floor(ms / 1000) % 60) + ',' + pad(ms % 1000, 3); };
+  MC.srt = (p, lang) => {
+    const list = (p.texts || []).filter((x) => x.kind === 'sub').map((x) => ({ x, sp: MC.textSpan(x, p), s: MC.textOf(x, p, lang) })).filter((e) => e.s).sort((a, b) => a.sp.start - b.sp.start);
+    return list.map((e, i) => (i + 1) + '\n' + ts(e.sp.start) + ' --> ' + ts(e.sp.start + e.sp.dur) + '\n' + e.s).join('\n\n') + (list.length ? '\n' : '');
+  };
+
+  /* Subtítulos desde la locución: un subtítulo por frase (entre pausas), sin texto para que lo escribas. No hay reconocimiento de voz. */
+  MC.subsFromVoice = (p) => {
+    const made = [], pauses = MC.audio.voicePauses(p);
+    (p.clips || []).filter((c) => c.track === 'voz').forEach((c) => {
+      const cuts = pauses.filter((x) => x.t > c.start + 0.2 && x.t < c.start + c.dur - 0.2).map((x) => x.t);
+      const edges = [c.start].concat(cuts, [c.start + c.dur]);
+      for (let i = 0; i < edges.length - 1; i++) {
+        const it = MC.newText('sub', edges[i], p); it.t[p.lang || 'es'] = ''; it.start = Math.round(edges[i] * 100) / 100; it.dur = Math.max(0.3, Math.round((edges[i + 1] - edges[i]) * 100) / 100);
+        made.push(it);
+      }
+    });
+    return made;
+  };
+})();
+
 /* Exportación de vídeo MP4 en el propio navegador (WebCodecs + muxer). Usa el mismo motor de dibujo que el visor. */
 (function () {
   const MC = window.MC;
@@ -27189,6 +27417,7 @@ module.exports = ZStream;
     const size = MC.frameSize(p.ratio, p.res), W = size.w, H = size.h, fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
     const total = MC.totalTime(p), from = opt.from || 0, to = Math.min(opt.to == null ? total : opt.to, total), dur = Math.max(0.1, to - from);
     const frames = Math.max(1, Math.round(dur * fps));
+    await MC.ensureFonts();
     const vid = await pickVideo(W, H, fps, bitrate);
     if (!vid) throw new Error(t('Este navegador no puede codificar vídeo a ' + W + '×' + H + '. Prueba con una resolución menor.', 'This browser cannot encode video at ' + W + '×' + H + '. Try a lower resolution.'));
     let mixBuf = null, aud = null;
@@ -27200,7 +27429,7 @@ module.exports = ZStream;
     const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } });
     venc.configure(vid.cfg);
 
-    const canvas = new OffscreenCanvas(W, H), ctx = canvas.getContext('2d'), o = MC.renderOpts(p, { W, H });
+    const canvas = new OffscreenCanvas(W, H), ctx = canvas.getContext('2d'), o = MC.renderOpts(p, { W, H, lang: opt.lang, subs: opt.subs });
     for (let i = 0; i < frames; i++) {
       if (signal.aborted) { venc.close(); throw new Error('cancelado'); }
       if (encErr) throw encErr;
@@ -27241,10 +27470,11 @@ module.exports = ZStream;
   /* Ventana de exportación. api: { project, time, shot, applyFormat(ratio,res) } */
   MC.openExport = (api) => {
     const p = api.project;
-    const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res };
+    const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
     const body = h('div', { style: { display: 'grid', gap: '16px' } });
     let ctl = null, resultUrl = null;
     const hasAudio = () => (p.clips || []).length > 0;
+    const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub');
     const plat = () => MC.PLATFORMS.find((x) => x.id === st.plat);
     const cur = () => {
       const pl = plat(), ratio = pl.ratio || p.ratio, res = pl.res || p.res;
@@ -27262,6 +27492,8 @@ module.exports = ZStream;
         c.mismatch ? h('div', { class: 'calc' }, h('span', { class: 'warn' }, t('Tu proyecto es ' + p.ratio + ' y esta plataforma pide ' + c.ratio + '.', 'Your project is ' + p.ratio + ' and this platform asks for ' + c.ratio + '.')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { api.applyFormat(c.ratio, c.res); st.plat = 'proj'; draw(); } }, t('Cambiar el proyecto a ' + c.ratio, 'Change the project to ' + c.ratio))) : null,
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Fotogramas por segundo', 'Frames per second')), MC.ui.seg([24, 30, 60].map((v) => ({ v, l: v + ' fps' })), st.fps, (v) => { st.fps = +v; draw(); })),
+        p.langs.length > 1 ? h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Idioma del texto', 'Text language')), MC.ui.seg(p.langs.map((l) => ({ v: l, l: l.toUpperCase() })), st.lang, (v) => { st.lang = v; })) : null,
+        hasSubs() ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.subs, onChange: (e) => { st.subs = e.target.checked; } }), h('span', null, t('Mostrar los subtítulos en el vídeo', 'Show subtitles in the video'), h('small', null, t('Desactívalo si los subirás aparte como archivo SRT.', 'Turn it off if you will upload them separately as an SRT file.')))) : null,
         MC.ui.slider({ label: t('Calidad (bitrate)', 'Quality (bitrate)'), min: 2, max: 60, step: 1, value: mbps, fmt: (v) => v + ' Mbps', onInput: (v) => { st.mbps = v; refreshSum(); }, onChange: draw }),
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Qué exportar', 'What to export')), MC.ui.seg([{ v: 'all', l: t('Todo el vídeo', 'Whole video') }, { v: 'shot', l: t('Solo el plano actual', 'Current shot only') }], st.range, (v) => { st.range = v; draw(); })),
         hasAudio() ? h('div', { style: { display: 'grid', gap: '8px' } },
@@ -27284,7 +27516,7 @@ module.exports = ZStream;
       const go = h('button', { class: 'btn btn-p', type: 'button', disabled: !E.supported() }, t('Exportar vídeo', 'Export video'));
       const still = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
         const sz = MC.frameSize(p.ratio, p.res), c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
-        MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p));
+        MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p, { lang: st.lang, subs: st.subs }));
         c.toBlob((b) => { download(b, p.name.replace(/[^\w\- ]+/g, '') + '-portada.png'); MC.toast(t('Portada exportada', 'Cover exported')); }, 'image/png');
       } }, t('Portada (PNG)', 'Cover (PNG)'));
       go.addEventListener('click', async () => {
@@ -27296,7 +27528,7 @@ module.exports = ZStream;
         MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', borderRadius: '99px', overflow: 'hidden' } }, bar), label,
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => ctl.abort() }, t('Cancelar exportación', 'Cancel export')));
         try {
-          const res = await E.run(p, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize },
+          const res = await E.run(p, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
             (f, msg) => { bar.style.width = Math.round(f * 100) + '%'; label.textContent = Math.round(f * 100) + ' % · ' + msg; }, ctl.signal);
           resultUrl = URL.createObjectURL(res.blob);
           const name = p.name.replace(/[^\w\- ]+/g, '') + '.mp4';
@@ -27314,7 +27546,12 @@ module.exports = ZStream;
             h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { progress.style.display = 'none'; body.style.display = 'grid'; go.disabled = !E.supported(); still.disabled = false; } }, t('Volver', 'Back')));
         }
       });
-      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { if (ctl) ctl.abort(); if (resultUrl) URL.revokeObjectURL(resultUrl); close(); } }, t('Cerrar', 'Close')), still, go];
+      const srt = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
+        const txt = MC.srt(p, st.lang);
+        if (!txt) { MC.toast(t('Aún no hay subtítulos con texto.', 'There are no subtitles with text yet.')); return; }
+        download(new Blob([txt], { type: 'text/plain' }), p.name.replace(/[^\w\- ]+/g, '') + '-' + st.lang + '.srt'); MC.toast(t('Subtítulos exportados (SRT)', 'Subtitles exported (SRT)'));
+      } }, t('Subtítulos (SRT)', 'Subtitles (SRT)'));
+      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { if (ctl) ctl.abort(); if (resultUrl) URL.revokeObjectURL(resultUrl); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
     });
     return modal;
   };
@@ -27457,13 +27694,6 @@ module.exports = ZStream;
     [[1000, 800, 90], [1200, 800, 100]].forEach((k) => { g.fillStyle = '#5A5470'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
     L.push({ name: 'Humo', c, z: 0.5, role: '' });
 
-    ({ c, g } = mk());
-    g.translate(SW / 2, 540); g.rotate(-0.1);
-    g.font = '800 420px ' + font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    g.lineWidth = 52; g.strokeStyle = INK; g.strokeText('¡BOOM!', 14, 18);
-    g.lineWidth = 34; g.strokeStyle = '#ECEEF0'; g.strokeText('¡BOOM!', 0, 0);
-    g.fillStyle = '#E5333D'; g.fillText('¡BOOM!', 0, 0);
-    L.push({ name: 'Onomatopeya', c, z: 0.85, role: '' });
     return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
   }
 
@@ -27495,8 +27725,15 @@ module.exports = ZStream;
     await put('noche', 'musica', 0, { dur: Math.min(total, 16), vol: 0.9, fadeIn: 0.8, fadeOut: 1.8 });
     await put('whoosh', 'sfx', Math.max(0, starts[1] - 0.15), { vol: 0.8 });
     await put('explosion', 'sfx', starts[2], { vol: 0.9 });
+    /* texto de ejemplo en dos idiomas */
+    p.langs = ['es', 'en']; p.lang = en ? 'en' : 'es';
+    const tx = (kind, start, dur, es, enT, o) => { const it = MC.newText(kind, start, p); it.t = { es, en: enT }; it.start = start; it.dur = dur; Object.assign(it, o || {}); p.texts.push(it); return it; };
+    tx('box', 0.3, 3.6, 'Esa misma noche…', 'That same night…', { reveal: 'chars', speed: 22 });
+    tx('bubble', 1.4, 3.4, 'Otra noche más\nsin dormir.', 'Another night\nwithout sleep.', { x: 0.18, y: -0.3, w: 0.3, size: 0.048, tail: { x: -0.06, y: 0.2 }, reveal: 'words', speed: 24, loop: 'float' });
+    tx('bubble', starts[1] + 0.5, 3, '¡Tenemos que irnos!', 'We have to go!', { shape: 'shout', x: -0.2, y: -0.28, w: 0.3, size: 0.06, anim: 'bounce', color: '#14141c', fill: '#FFE08A', tail: { x: 0, y: 0.2 } });
+    tx('sfx', starts[2] + 0.05, 2.2, '¡BOOM!', 'BOOM!', { y: 0.05 });
     p.thumb = MC.makeThumb(p);
-    p.sample = true; p.sampleV = 2;
+    p.sample = true; p.sampleV = 3;
     return p;
   };
 })();
@@ -27529,7 +27766,7 @@ module.exports = ZStream;
     const assets = [];
     for (const id of MC.projectAssetIds(p)) {
       const rec = await MC.db.get('assets', id);
-      if (rec) assets.push({ id, name: rec.name, type: rec.type, data: await blobToDataUrl(rec.blob) });
+      if (rec) assets.push({ id, name: rec.name, type: rec.type, kind: rec.kind || 'image', data: await blobToDataUrl(rec.blob) });
     }
     const file = new Blob([JSON.stringify({ app: 'motioncomic-studio', v: 1, project: p, assets })], { type: 'application/json' });
     const a = h('a', { href: URL.createObjectURL(file), download: p.name.replace(/[^\w\- ]+/g, '') + '.motioncomic.json' });
@@ -27539,7 +27776,7 @@ module.exports = ZStream;
   MC.importProject = async (file) => {
     const data = JSON.parse(await file.text());
     if (data.app !== 'motioncomic-studio') throw new Error('formato');
-    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); if (/^audio\//.test(a.type || blob.type)) await MC.audio.add(blob, a.name, a.id); else await MC.assets.add(blob, a.name, a.id); }
+    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); if (a.kind === 'font') await MC.fonts.add(new File([blob], a.name, { type: a.type }), a.id); else if (a.kind === 'audio' || /^audio\//.test(a.type || blob.type)) await MC.audio.add(blob, a.name, a.id); else await MC.assets.add(blob, a.name, a.id); }
     const p = data.project;
     if ((await MC.db.get('projects', p.id))) { p.id = MC.uid(); p.name += ' (importado)'; }
     p.updated = Date.now();
@@ -27667,13 +27904,13 @@ module.exports = ZStream;
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false },
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
     const layer = () => (shot() ? shot().layers[S.li] : null);
-    const opts = (extra) => MC.renderOpts(S.project, Object.assign({ holes: S.holes && S.view === 'out' }, extra));
+    const opts = (extra) => MC.renderOpts(S.project, Object.assign({ holes: S.holes && S.view === 'out', lang: S.project.lang }, extra));
 
     /* ---------- historial y guardado ---------- */
     const snap = () => JSON.stringify(S.project);
@@ -27711,7 +27948,7 @@ module.exports = ZStream;
 
     /* ---------- selección y tiempo ---------- */
     function selectShot(i, seek) {
-      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null;
+      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null;
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
     }
@@ -27833,6 +28070,17 @@ module.exports = ZStream;
       MC.modal(t('Sonidos', 'Sounds'), h('div', { style: { display: 'grid', gap: '10px' } }, h('p', { class: 'cap' }, t('Efectos y música ambiente generados por código, sin licencias. Se añaden donde está el cabezal.', 'Effects and ambient music generated by code, no licences. They are added at the playhead.')), h('div', { style: { display: 'grid', gap: '2px' } }, rows)),
         (c) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { stopPrev(); c(); } }, t('Cerrar', 'Close'))]);
     }
+    function addText(kind) {
+      const p = S.project, it = MC.newText(kind, Math.round(S.time * 100) / 100, p);
+      const vc = p.clips.find((c) => c.track === 'voz' && S.time >= c.start && S.time < c.start + c.dur - 0.05);
+      if (vc && kind !== 'sfx') { it.link = vc.id; MC.toast(t('Vinculado a la locución: aparece y se va con la voz.', 'Linked to the voice-over: it appears and leaves with the voice.')); }
+      if (kind === 'bubble' || kind === 'sfx') { const n = p.texts.filter((x) => { const sp = MC.textSpan(x, p); return S.time >= sp.start && S.time < sp.start + sp.dur; }).length; it.x += (n % 3) * 0.12 * (n % 2 ? -1 : 1); it.y += (n % 3) * 0.08; }
+      p.texts.push(it); S.tx = it.id; S.li = -1; S.cl = null; S.open.texto = true; commit();
+    }
+    async function addLibrarySound(item, start) {
+      const buf = await MC.audio.renderLibrary(item), a = await MC.audio.add(MC.audio.wav(buf), t(item.es, item.en) + '.wav'), c = MC.audio.newClip(item.kind === 'music' ? 'musica' : 'sfx', a, start);
+      S.project.clips.push(c); return c;
+    }
     const openExport = () => MC.openExport({ project: S.project, time: () => S.time, shotIndex: () => S.si, applyFormat: (r, res) => { S.project.ratio = r; S.project.res = res; fit(); commit(); } });
 
     /* ---------- calidad y huecos ---------- */
@@ -27884,7 +28132,7 @@ module.exports = ZStream;
       if (!sh.layers.length) b.append(h('p', { class: 'cap', style: { padding: '8px' } }, t('Este plano aún no tiene capas. Importa una ilustración.', 'This shot has no layers yet. Import an illustration.')));
       for (let i = sh.layers.length - 1; i >= 0; i--) {
         const l = sh.layers[i], a = MC.assets.get(l.assetId), idx = i;
-        b.append(h('div', { class: 'layer' + (i === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), onClick: () => { S.li = idx; S.dirty = true; renderLayers(); renderInspector(); } },
+        b.append(h('div', { class: 'layer' + (i === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), onClick: () => { S.li = idx; S.tx = null; S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); } },
           h('button', { class: 'btn btn-g', type: 'button', title: t('Mostrar u ocultar', 'Show or hide'), 'aria-label': t('Mostrar u ocultar', 'Show or hide'), onClick: (e) => { e.stopPropagation(); l.visible = l.visible === false; commit(); } }, MC.icon(l.visible === false ? 'eyeoff' : 'eye')),
           a ? h('img', { class: 'lt', src: a.thumb, alt: '' }) : h('span', { class: 'lt' }),
           h('span', { class: 'ln' }, l.name), h('span', { class: 'lz' }, 'z ' + l.z.toFixed(2))));
@@ -27991,6 +28239,73 @@ module.exports = ZStream;
           h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
       ];
 
+
+      /* texto */
+      const textSecs = [], tx = S.tx ? txById(S.tx) : null, lang = p.lang;
+      const colorRow = (label, key, def) => { const id = 'c-' + MC.uid(); return h('div', { class: 'field' }, h('label', { for: id }, label), h('input', { type: 'color', id, class: 'input', style: { padding: '2px', height: '34px' }, value: tx[key] || def, onInput: (e) => { tx[key] = e.target.value; touch(); }, onChange: commit })); };
+      if (tx) {
+        const isSub = tx.kind === 'sub', lib = MC.audio.LIBRARY.filter((x) => x.kind === 'sfx'), voz = p.clips.filter((c) => c.track === 'voz');
+        const fonts = MC.FONTS.map((f) => ({ id: f.id, n: t(f.es, f.en) })).concat(p.fonts.map((f) => ({ id: f.id, n: f.name })));
+        const taId = 'ta-' + MC.uid(), selFont = 'sf-' + MC.uid(), selLink = 'sl-' + MC.uid(), selSfx = 'ss-' + MC.uid();
+        const nodes = [
+          h('div', { class: 'field' }, h('label', { for: taId }, t('Texto', 'Text') + (p.langs.length > 1 ? ' · ' + lang.toUpperCase() : '')),
+            h('textarea', { id: taId, class: 'input', rows: 3, value: tx.t[lang] == null ? '' : tx.t[lang], placeholder: tx.t[lang] == null && MC.textOf(tx, p) ? MC.textOf(tx, p) : t('Escribe aquí', 'Type here'), onInput: (e) => { tx.t[lang] = e.target.value; S.dirty = true; touch(); }, onChange: () => { commit(); } }),
+            tx.t[lang] == null && p.langs.length > 1 ? h('span', { class: 'cap warn' }, t('Sin traducir: se muestra el texto de otro idioma.', 'Not translated: text from another language is shown.')) : null),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tipo', 'Type')), MC.ui.seg([{ v: 'bubble', l: t('Bocadillo', 'Bubble') }, { v: 'box', l: t('Caja', 'Box') }, { v: 'sfx', l: t('Onomat.', 'SFX word') }, { v: 'sub', l: t('Subt.', 'Sub') }], tx.kind, (v) => { tx.kind = v; if (v === 'bubble' && !['speech', 'shout', 'thought'].includes(tx.shape)) tx.shape = 'speech'; commit(); })),
+        ];
+        if (tx.kind === 'bubble') nodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma', 'Shape')), MC.ui.chips([{ v: 'speech', l: t('Habla', 'Speech') }, { v: 'shout', l: t('Grito', 'Shout') }, { v: 'thought', l: t('Pensamiento', 'Thought') }], tx.shape, (v) => { tx.shape = v; commit(); }), h('span', { class: 'cap' }, t('Arrastra el punto violeta del visor para mover la cola.', 'Drag the violet dot in the viewer to move the tail.'))));
+        if (!isSub) {
+          nodes.push(
+            h('div', { class: 'field' }, h('label', { for: selFont }, t('Tipografía', 'Font')), h('select', { id: selFont, class: 'input', onChange: (e) => { tx.font = e.target.value; commit(); } }, fonts.map((f) => h('option', { value: f.id, selected: f.id === tx.font }, f.n)))),
+            MC.ui.slider({ label: t('Tamaño', 'Size'), min: 0.02, max: 0.3, step: 0.005, value: tx.size, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { tx.size = v; touch(); }, onChange: commit }),
+            MC.ui.slider({ label: t('Ancho de la caja', 'Box width'), min: 0.15, max: 0.95, step: 0.01, value: tx.w, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { tx.w = v; touch(); }, onChange: commit }),
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' } }, colorRow(t('Texto', 'Text'), 'color', '#14141c'), tx.kind !== 'sfx' ? colorRow(t('Relleno', 'Fill'), 'fill', '#ffffff') : colorRow(t('Borde', 'Edge'), 'fill', '#ffffff'), colorRow(t('Contorno', 'Outline'), 'stroke', '#14141c')));
+          if (tx.kind !== 'sfx') nodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Alineación', 'Alignment')), MC.ui.seg([{ v: 'left', l: t('Izq.', 'Left') }, { v: 'center', l: t('Centro', 'Center') }, { v: 'right', l: t('Der.', 'Right') }], tx.align, (v) => { tx.align = v; commit(); })));
+          nodes.push(MC.ui.slider({ label: t('Giro', 'Rotation'), min: -30, max: 30, step: 0.5, value: tx.rot || 0, fmt: (v) => v.toFixed(1) + '°', onInput: (v) => { tx.rot = v; touch(); }, onChange: commit }));
+        } else nodes.push(h('p', { class: 'cap' }, t('El estilo de los subtítulos se cambia en «Idiomas y subtítulos». Arrastra el subtítulo en el visor para subirlo o bajarlo.', 'Subtitle style is changed in “Languages and subtitles”. Drag the subtitle in the viewer to move it up or down.')));
+        if (!isSub) {
+          nodes.push(
+            h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Revelado', 'Reveal')), MC.ui.seg([{ v: 'all', l: t('De golpe', 'At once') }, { v: 'words', l: t('Palabras', 'Words') }, { v: 'chars', l: t('Letras', 'Letters') }], tx.reveal, (v) => { tx.reveal = v; commit(); })),
+            tx.reveal !== 'all' ? MC.ui.slider({ label: t('Velocidad', 'Speed'), min: 5, max: 90, step: 1, value: tx.speed, fmt: (v) => v + ' ' + t('letras/s', 'letters/s'), onInput: (v) => { tx.speed = v; touch(); }, onChange: commit }) : null,
+            tx.reveal !== 'all' && tx.link ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!tx.fit, onChange: (e) => { tx.fit = e.target.checked; commit(); } }), h('span', null, t('Ajustar la velocidad a la locución', 'Fit speed to the voice-over'))) : null,
+            h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Entrada', 'Entrance')), MC.ui.chips([{ v: 'none', l: t('Ninguna', 'None') }, { v: 'pop', l: 'Pop' }, { v: 'bounce', l: t('Rebote', 'Bounce') }, { v: 'shake', l: t('Golpe', 'Hit') }, { v: 'slide', l: t('Deslizar', 'Slide') }], tx.anim, (v) => { tx.anim = v; commit(); })),
+            h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Movimiento continuo', 'Idle motion')), MC.ui.seg([{ v: 'none', l: t('Ninguno', 'None') }, { v: 'float', l: t('Flotar', 'Float') }, { v: 'pulse', l: t('Pulsar', 'Pulse') }], tx.loop || 'none', (v) => { tx.loop = v; commit(); })));
+        }
+        const sp = MC.textSpan(tx, p);
+        nodes.push(
+          h('div', { class: 'field' }, h('label', { for: selLink }, t('Sincronizar con la voz', 'Sync with voice')),
+            h('select', { id: selLink, class: 'input', disabled: !voz.length, onChange: (e) => { tx.link = e.target.value || null; if (!tx.link) { tx.start = sp.start; tx.dur = sp.dur; } commit(); } },
+              h('option', { value: '' }, voz.length ? t('Sin vincular', 'Not linked') : t('Añade una locución primero', 'Add a voice-over first')), voz.map((c) => h('option', { value: c.id, selected: c.id === tx.link }, c.name + ' · ' + MC.fmtTime(c.start)))),
+            h('span', { class: 'cap' }, t('Vinculado: aparece cuando suena su línea y se va cuando termina.', 'Linked: it appears when its line plays and leaves when it ends.'))),
+          tx.link ? null : MC.ui.slider({ label: t('Aparece en', 'Appears at'), min: 0, max: Math.max(1, MC.totalTime(p)), step: 0.05, value: clamp(tx.start, 0, Math.max(1, MC.totalTime(p))), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { tx.start = v; layoutClips(); touch(); }, onChange: commit }),
+          tx.link ? null : MC.ui.slider({ label: t('Dura', 'Lasts'), min: 0.2, max: 15, step: 0.05, value: clamp(tx.dur, 0.2, 15), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { tx.dur = v; layoutClips(); touch(); }, onChange: commit }));
+        if (tx.kind === 'sfx') nodes.push(h('div', { class: 'field' }, h('label', { for: selSfx }, t('Sonido de la onomatopeya', 'Sound for the word')),
+          h('div', { style: { display: 'flex', gap: '8px' } }, h('select', { id: selSfx, class: 'input' }, lib.map((x) => h('option', { value: x.id }, t(x.es, x.en)))),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(lib.find((x) => x.id === document.getElementById(selSfx).value), MC.textSpan(tx, p).start); S.cl = c.id; S.tx = null; commit(); MC.toast(t('Sonido añadido en la pista SFX', 'Sound added to the SFX track')); } }, t('Añadir', 'Add')))));
+        nodes.push(h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { p.texts = p.texts.filter((x) => x !== tx); S.tx = null; commit(); } }, MC.icon('trash', 14), t('Eliminar texto', 'Delete text')));
+        textSecs.push(sec('texto', t('Texto', 'Text') + ' · ' + ({ bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: t('onomatopeya', 'sound word'), sub: t('subtítulo', 'subtitle') })[tx.kind], nodes));
+      }
+      const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, id: 'f-font', onChange: async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { const rec = await MC.fonts.add(f); p.fonts.push(rec); commit(); MC.toast(t('Tipografía añadida: ', 'Font added: ') + rec.name); } catch (err) { MC.toast(t('No se pudo leer esa tipografía.', 'Could not read that font.')); }
+      } });
+      const sub = p.sub, subFont = 'sf2-' + MC.uid();
+      const idiomasSec = sec('idiomas', t('Idiomas y subtítulos', 'Languages and subtitles'), [
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idiomas del proyecto', 'Project languages')),
+          MC.ui.chips(MC.LANGS.map((l) => ({ v: l[0], l: l[1] })), null, (v) => {
+            if (p.langs.includes(v)) { if (p.langs.length < 2) return; p.langs = p.langs.filter((x) => x !== v); if (p.lang === v) p.lang = p.langs[0]; } else { p.langs.push(v); p.lang = v; }
+            commit();
+          }), h('span', { class: 'cap' }, t('Activos: ', 'Active: ') + p.langs.map((x) => x.toUpperCase()).join(', ') + t('. Cada idioma tiene su propio texto y se exporta por separado.', '. Each language has its own text and exports separately.'))),
+        h('div', { class: 'field' }, h('label', { for: subFont }, t('Tipografía de los subtítulos', 'Subtitle font')), h('select', { id: subFont, class: 'input', onChange: (e) => { sub.font = e.target.value; commit(); } }, MC.FONTS.map((f) => ({ id: f.id, n: t(f.es, f.en) })).concat(p.fonts.map((f) => ({ id: f.id, n: f.name }))).map((f) => h('option', { value: f.id, selected: f.id === sub.font }, f.n)))),
+        MC.ui.slider({ label: t('Tamaño de los subtítulos', 'Subtitle size'), min: 0.025, max: 0.09, step: 0.0025, value: sub.size, fmt: (v) => (v * 100).toFixed(1) + ' %', onInput: (v) => { sub.size = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Altura de los subtítulos', 'Subtitle position'), min: -0.3, max: 0.48, step: 0.01, value: MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => { sub.y = v; touch(); }, onChange: commit }),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: sub.bg !== false, onChange: (e) => { sub.bg = e.target.checked; commit(); } }), h('span', null, t('Fondo oscuro detrás del texto', 'Dark background behind the text'))),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.clips.some((c) => c.track === 'voz'), onClick: () => { const made = MC.subsFromVoice(p); p.texts.push(...made); if (made.length) { S.tx = made[0].id; S.open.texto = true; } commit(); MC.toast(t(made.length + ' subtítulos creados. Escribe el texto de cada uno.', made.length + ' subtitles created. Type the text of each one.')); } }, t('Crear subtítulos desde la locución', 'Create subtitles from the voice-over')),
+        h('p', { class: 'cap' }, t('Crea un subtítulo por frase, con su tiempo. El texto lo escribes tú: no hay reconocimiento de voz, tu voz no sale del equipo.', 'Creates one subtitle per phrase, with its timing. You type the text: there is no speech recognition, your voice never leaves the device.')),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tipografías propias', 'Your own fonts')),
+          p.fonts.length ? h('ul', { class: 'cap', style: { margin: 0, paddingLeft: '18px' } }, p.fonts.map((f) => h('li', null, f.name))) : null,
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => fontIn.click() }, MC.icon('plus', 14), t('Añadir TTF u OTF', 'Add TTF or OTF')), fontIn)]);
+
       const audioSecs = [], clip = S.cl ? clipById(S.cl) : null, mixv = p.mix;
       if (clip) {
         const a = MC.audio.get(clip.assetId), cs = (k, v) => { clip[k] = v; touch(); };
@@ -28017,7 +28332,7 @@ module.exports = ZStream;
         !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
-      MC.put(b, S.ws === 'audio' ? audioSecs.concat(ordered) : ordered.slice(0, 3).concat(audioSecs, ordered.slice(3)));
+      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, ordered.slice(0, 3), [idiomasSec], ordered.slice(3)) : textSecs.concat(ordered.slice(0, 3), audioSecs, [idiomasSec], ordered.slice(3)));
       b.scrollTop = top;
     }
 
@@ -28030,6 +28345,9 @@ module.exports = ZStream;
         S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')),
         portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
+        S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
+        S.view === 'out' ? [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja', 'Box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Añadir ', 'Add ') + k[1].toLowerCase() + t(' en el cabezal', ' at the playhead'), onClick: () => addText(k[0]) }, MC.icon('plus', 12), k[1])) : null,
+        S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
         h('span', { style: { flex: 1 } }),
         h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
     }
@@ -28060,7 +28378,8 @@ module.exports = ZStream;
 
     function draw() {
       const c = el.canvas; if (!c.width) return;
-      const ctx = c.getContext('2d'), o = opts(), sh = shot();
+      const hits = [], ctx = c.getContext('2d'), o = opts({ collect: hits }), sh = shot();
+      S.hits = hits;
       el.empty.hidden = !!(sh && sh.layers.length);
       if (S.view === 'cam' && sh) return drawCam(ctx, o, sh);
       const k = c.width / o.W;
@@ -28068,6 +28387,13 @@ module.exports = ZStream;
       MC.renderFrame(ctx, S.project, S.time, o);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (S.safe) drawSafe(ctx, c);
+      const hit = !S.playing && S.tx && hits.find((x) => x.id === S.tx);
+      if (hit) {
+        const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', b = hit.bounds;
+        ctx.save(); ctx.strokeStyle = acc; ctx.lineWidth = 1.5 * S.dpr; ctx.setLineDash([6, 4]); ctx.strokeRect(b.x0 * k, b.y0 * k, (b.x1 - b.x0) * k, (b.y1 - b.y0) * k);
+        if (hit.tip) { ctx.setLineDash([]); ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(hit.tip.x * k, hit.tip.y * k, 6 * S.dpr, 0, 6.283); ctx.fill(); }
+        ctx.restore();
+      }
     }
     function drawSafe(ctx, c) {
       const W = c.width, H = c.height;
@@ -28095,6 +28421,7 @@ module.exports = ZStream;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
+    const txById = (id) => S.project.texts.find((x) => x.id === id);
     /* interacción con el visor */
     let drag = null;
     function wire(c) {
@@ -28108,11 +28435,23 @@ module.exports = ZStream;
           const wx = (p.x - ox) / k, wy = (p.y - oy) / k;
           if (Math.hypot(p.x - hx, p.y - hy) < 26 * S.dpr) drag = { m: 'zoom', k, ox, oy, fr, o, kf };
           else if (Math.abs(wx - fr.cx) <= fr.hw && Math.abs(wy - fr.cy) <= fr.hh) drag = { m: 'move', p0: p, x0: kf.x, y0: kf.y, k, o, kf };
-        } else if (layer() && !S.playing) {
+        } else if (!S.playing) {
+          const k2 = c.width / o.W, fx = p.x / k2, fy = p.y / k2, cur = S.tx && txById(S.tx), chit = S.hits.find((x) => x.id === S.tx);
+          if (cur && chit && chit.tip && Math.hypot(fx - chit.tip.x, fy - chit.tip.y) < (22 * S.dpr) / k2) drag = { m: 'tail', it: cur, hit: chit, o };
+          else {
+            const h2 = S.hits.slice().reverse().find((x) => fx >= x.bounds.x0 && fx <= x.bounds.x1 && fy >= x.bounds.y0 && fy <= x.bounds.y1);
+            if (h2) {
+              const it = txById(h2.id); S.tx = it.id; S.li = -1; S.cl = null;
+              drag = it.kind === 'sub' ? { m: 'sub', p0: p, y0: MC.subY(S.project, o.W, o.H) } : { m: 'text', p0: p, x0: it.x, y0: it.y, it };
+              renderInspector(); renderLayers(); renderTimeline(); S.dirty = true;
+            } else if (S.tx) { S.tx = null; renderInspector(); renderTimeline(); S.dirty = true; }
+          }
+          if (!drag && layer()) {
           const l = layer(), img = MC.assets.get(l.assetId);
           if (!img) return;
           const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration);
           drag = { m: 'layer', p0: p, x0: l.x || 0, y0: l.y || 0, zl: MC.layerGeom(l, img, MC.camAt(sh, tl, false), o).zl, l };
+          }
         }
         if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
       });
@@ -28124,6 +28463,12 @@ module.exports = ZStream;
           sh.camera.preset = 'custom';
         } else if (drag.m === 'zoom') {
           const wx = (p.x - drag.ox) / drag.k; drag.kf.zoom = clamp(drag.o.W / (2 * Math.max(1, wx - drag.fr.cx)), 1, 4); sh.camera.preset = 'custom';
+        } else if (drag.m === 'text') {
+          drag.it.x = drag.x0 + (p.x - drag.p0.x) / c.width; drag.it.y = drag.y0 + (p.y - drag.p0.y) / c.height;
+        } else if (drag.m === 'sub') {
+          S.project.sub.y = clamp(drag.y0 + (p.y - drag.p0.y) / c.height, -0.3, 0.48);
+        } else if (drag.m === 'tail') {
+          const k2 = c.width / drag.o.W; drag.it.tail = { x: (p.x / k2 - drag.hit.cx) / drag.o.W, y: (p.y / k2 - drag.hit.cy) / drag.o.H };
         } else if (drag.m === 'layer') {
           drag.l.x = drag.x0 + (p.x - drag.p0.x) / c.width / drag.zl; drag.l.y = drag.y0 + (p.y - drag.p0.y) / c.height / drag.zl;
         }
@@ -28142,7 +28487,7 @@ module.exports = ZStream;
 
     /* ---------- línea de tiempo ---------- */
     const TRACKS = [
-      { es: '1 · Planos', en: '1 · Shots' }, { es: '2 · Texto y efectos', en: '2 · Text and effects' }, { es: '3 · Locución', en: '3 · Voice' },
+      { es: '1 · Planos', en: '1 · Shots' }, { es: '2 · Texto', en: '2 · Text' }, { es: '3 · Locución', en: '3 · Voice' },
       { es: '4 · SFX', en: '4 · SFX' }, { es: '5 · Música', en: '5 · Music' },
     ];
     const AU = ['voz', 'sfx', 'musica'];
@@ -28160,7 +28505,7 @@ module.exports = ZStream;
     }
     function layoutClips() {
       const p = S.project, starts = MC.shotStarts(p), total = MC.totalTime(p), pps = S.pps;
-      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur));
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
       el.tlContent.style.width = Math.max(end * pps + 120, 320) + 'px';
       el.tlContent.querySelectorAll('.clip[data-i]').forEach((c) => {
         const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
@@ -28169,6 +28514,10 @@ module.exports = ZStream;
       el.tlContent.querySelectorAll('.clip[data-tr]').forEach((c) => {
         const i = +c.dataset.tr, sh = p.shots[i]; if (!sh) return;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, Math.min(sh.transition.dur, sh.duration * 0.9) * pps - 2) + 'px';
+      });
+      el.tlContent.querySelectorAll('.clip[data-x]').forEach((el2) => {
+        const it = txById(el2.dataset.x); if (!it) return;
+        const sp = MC.textSpan(it, p); el2.style.left = sp.start * pps + 'px'; el2.style.width = Math.max(8, sp.dur * pps - 2) + 'px';
       });
       el.tlContent.querySelectorAll('.clip[data-c]').forEach((el2) => {
         const c = clipById(el2.dataset.c); if (!c) return;
@@ -28192,7 +28541,7 @@ module.exports = ZStream;
       MC.clear(el.tlContent);
       const ruler = h('div', { class: 'tl-ruler', 'aria-label': t('Regla de tiempo', 'Time ruler') });
       const step = pps >= 55 ? 1 : pps >= 28 ? 2 : 5;
-      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur));
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
       for (let s = 0; s <= end + 40; s += step) ruler.append(h('b', { style: { left: s * pps + 'px' } }, Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')));
       p.markers.forEach((m) => ruler.append(h('i', { class: 'mk', title: t('Pausa de la voz', 'Voice pause'), style: { left: m * pps + 'px' } })));
       el.tlContent.append(ruler);
@@ -28214,7 +28563,7 @@ module.exports = ZStream;
         rows[0].append(clip);
         if (i > 0 && sh.transition.type !== 'cut') {
           const tr = MC.TRANSITIONS.find((x) => x.v === sh.transition.type);
-          rows[1].append(h('div', { class: 'clip fx', 'data-tr': i, title: t('Transición de entrada', 'Entry transition') }, h('span', null, t(tr.es, tr.en))));
+          rows[0].append(h('div', { class: 'clip fx thin', 'data-tr': i, title: t('Transición de entrada: ', 'Entry transition: ') + t(tr.es, tr.en) }));
         }
       });
       p.clips.forEach((c) => {
@@ -28225,7 +28574,7 @@ module.exports = ZStream;
           if (e.target === rz) return;
           el2.setPointerCapture(e.pointerId);
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
-          el2.classList.add('on'); S.cl = c.id;
+          el2.classList.add('on'); S.cl = c.id; S.tx = null;
           const x0 = e.clientX, s0 = c.start; let moved = false;
           const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapT(s0 + (ev.clientX - x0) / S.pps, c.id); layoutClips(); touch(); } };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else renderInspector(); };
@@ -28239,6 +28588,35 @@ module.exports = ZStream;
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
         rows[2 + Math.max(0, AU.indexOf(c.track))].append(el2);
+      });
+      p.texts.forEach((it) => {
+        const sp = MC.textSpan(it, p), label = MC.textOf(it, p) || t('(sin texto)', '(no text)');
+        const el2 = h('div', { class: 'clip tx' + (it.kind === 'sub' ? ' sub' : '') + (it.id === S.tx ? ' on' : ''), 'data-x': it.id, role: 'button', tabindex: '0', title: label + (it.link ? t(' · vinculado a la voz', ' · linked to voice') : '') }, h('span', null, label.replace(/\n/g, ' ')), it.link ? null : h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const rz = el2.querySelector('.rz');
+        el2.addEventListener('pointerdown', (e) => {
+          if (e.target === rz) return;
+          el2.setPointerCapture(e.pointerId);
+          el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
+          el2.classList.add('on'); S.tx = it.id; S.cl = null; S.li = -1;
+          const x0 = e.clientX, s0 = it.start; let moved = false;
+          const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapT(s0 + (ev.clientX - x0) / S.pps, null); layoutClips(); touch(); } };
+          const up = () => {
+            el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up);
+            if (moved) { commit(); return; }
+            const s2 = MC.textSpan(it, p);
+            if (S.time < s2.start || S.time >= s2.start + s2.dur) setTime(s2.start + Math.min(0.5, s2.dur / 2));
+            renderLayers(); renderInspector(); S.dirty = true;
+          };
+          el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
+        });
+        if (rz) rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId);
+          const x0 = e.clientX, d0 = it.dur;
+          const mv = (ev) => { it.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.2, 60); layoutClips(); touch(); };
+          const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
+        });
+        rows[1].append(el2);
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
       layoutClips();
@@ -28298,6 +28676,8 @@ module.exports = ZStream;
     function renderAll() { renderTop(); renderLayers(); renderInspector(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline();
+    MC.ensureFonts().then(() => { S.dirty = true; });
+    MC.fonts.loadFor(S.project).then((miss) => { if (miss.length) MC.toast(t('Falta la tipografía: ', 'Missing font: ') + miss.join(', ') + t('. Se usa otra de reserva.', '. A fallback is used.')); S.dirty = true; });
 
     el.stage.addEventListener('dragover', (e) => { e.preventDefault(); el.stage.classList.add('over'); });
     el.stage.addEventListener('dragleave', () => el.stage.classList.remove('over'));
@@ -28339,6 +28719,7 @@ module.exports = ZStream;
       else if (k === 'home') setTime(0);
       else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
       else if (k === 's' && S.cl) splitClip();
+      else if ((k === 'delete' || k === 'backspace') && S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); }
       else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }
       else if ((k === 'delete' || k === 'backspace') && layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); }
     }
@@ -28374,12 +28755,12 @@ module.exports = ZStream;
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
-    if (!MC.store.get('seeded2', '')) {
+    if (!MC.store.get('seeded3', '')) {
       const existing = await MC.db.all('projects');
-      if (!existing.some((q) => q.sampleV === 2)) {
+      if (!existing.some((q) => q.sampleV === 3)) {
         try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
-      MC.store.set('seeded2', '1');
+      MC.store.set('seeded3', '1');
     }
     await MC.app.render();
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

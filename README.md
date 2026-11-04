@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 2 · exportar, PSD y audio
+## Estado: paso 3 · texto, bocadillos y subtítulos
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -15,9 +15,18 @@ Paso 2 (hecho):
 - **Audio**: pistas de locución, SFX y música; importar WAV/MP3/M4A/OGG, onda visible, mover, recortar, dividir, volumen y fundidos por clip, mezcla por pista, ducking automático, grabación con micrófono y cuenta atrás, marcadores en las pausas de la voz y «ajustar planos a la voz».
 - **Sonidos generados por código** (6 efectos y 3 músicas), sin licencias.
 
-Siguiente (paso 3): texto, bocadillos y onomatopeyas animadas, subtítulos, importar PDF, modo Página completa y borrador en un clic.
+Paso 3 (hecho):
+- **Texto del cómic**: bocadillos (habla, grito, pensamiento) con cola arrastrable, cajas de texto, onomatopeyas y subtítulos. Se editan en el visor (mover, cola) y en la línea de tiempo (mover, recortar).
+- **Revelado** de golpe, por palabras o por letras, y **entrada animada** (pop, rebote, golpe, deslizar) con movimiento continuo opcional.
+- **Sincronía con la voz**: un texto vinculado a un clip de locución aparece cuando suena su línea y se va cuando termina; la velocidad de revelado se puede ajustar a la locución.
+- **Subtítulos**: se crean desde la locución (un subtítulo por frase, con su tiempo; el texto lo escribes tú, sin reconocimiento de voz), con estilo propio, y se exportan como SRT o se queman en el vídeo.
+- **Multiidioma**: varias versiones del texto en el mismo proyecto y exportación de cada una.
+- **Tipografías**: cuatro incluidas y subida de TTF/OTF propios, con aviso si falta alguna al abrir el proyecto en otro equipo.
+- Onomatopeyas con sonido: añade un efecto de la biblioteca en el momento en que aparecen.
 
-Pendiente conocido: la exportación bloquea la ventana mientras dura (la cola en segundo plano llega después) y el PDF no se importa todavía.
+Siguiente (paso 4): modo Página completa con detección de viñetas y orden de lectura, borrador en un clic, «Mi estilo», simulador de plataformas y cola de exportación en segundo plano.
+
+Pendiente conocido: la exportación bloquea la ventana mientras dura y el PDF no se importa todavía.
 
 ## Ejecutar
 

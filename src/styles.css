@@ -239,3 +239,11 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 @media (prefers-reduced-motion: no-preference) {
   .btn, .seg button, .chip-b, .card { transition: background .15s, border-color .15s, color .15s; }
 }
+
+/* texto en la línea de tiempo y formularios */
+.clip.tx { background: var(--accent); color: var(--on-accent); padding: 0 12px 0 8px; }
+.clip.tx.sub { background: var(--raised); color: var(--fg); border-color: var(--line); }
+.clip.tx.on, .clip.tx.sub.on { border-color: var(--fg); box-shadow: 0 0 0 1px var(--accent); }
+.clip.fx.thin { top: auto; height: 6px; bottom: 1px; padding: 0; border-radius: 3px; border: 0; pointer-events: auto; }
+textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
+select.input { appearance: auto; }

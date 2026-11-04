@@ -135,13 +135,6 @@
     [[1000, 800, 90], [1200, 800, 100]].forEach((k) => { g.fillStyle = '#5A5470'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
     L.push({ name: 'Humo', c, z: 0.5, role: '' });
 
-    ({ c, g } = mk());
-    g.translate(SW / 2, 540); g.rotate(-0.1);
-    g.font = '800 420px ' + font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    g.lineWidth = 52; g.strokeStyle = INK; g.strokeText('¡BOOM!', 14, 18);
-    g.lineWidth = 34; g.strokeStyle = '#ECEEF0'; g.strokeText('¡BOOM!', 0, 0);
-    g.fillStyle = '#E5333D'; g.fillText('¡BOOM!', 0, 0);
-    L.push({ name: 'Onomatopeya', c, z: 0.85, role: '' });
     return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
   }
 
@@ -173,8 +166,15 @@
     await put('noche', 'musica', 0, { dur: Math.min(total, 16), vol: 0.9, fadeIn: 0.8, fadeOut: 1.8 });
     await put('whoosh', 'sfx', Math.max(0, starts[1] - 0.15), { vol: 0.8 });
     await put('explosion', 'sfx', starts[2], { vol: 0.9 });
+    /* texto de ejemplo en dos idiomas */
+    p.langs = ['es', 'en']; p.lang = en ? 'en' : 'es';
+    const tx = (kind, start, dur, es, enT, o) => { const it = MC.newText(kind, start, p); it.t = { es, en: enT }; it.start = start; it.dur = dur; Object.assign(it, o || {}); p.texts.push(it); return it; };
+    tx('box', 0.3, 3.6, 'Esa misma noche…', 'That same night…', { reveal: 'chars', speed: 22 });
+    tx('bubble', 1.4, 3.4, 'Otra noche más\nsin dormir.', 'Another night\nwithout sleep.', { x: 0.18, y: -0.3, w: 0.3, size: 0.048, tail: { x: -0.06, y: 0.2 }, reveal: 'words', speed: 24, loop: 'float' });
+    tx('bubble', starts[1] + 0.5, 3, '¡Tenemos que irnos!', 'We have to go!', { shape: 'shout', x: -0.2, y: -0.28, w: 0.3, size: 0.06, anim: 'bounce', color: '#14141c', fill: '#FFE08A', tail: { x: 0, y: 0.2 } });
+    tx('sfx', starts[2] + 0.05, 2.2, '¡BOOM!', 'BOOM!', { y: 0.05 });
     p.thumb = MC.makeThumb(p);
-    p.sample = true; p.sampleV = 2;
+    p.sample = true; p.sampleV = 3;
     return p;
   };
 })();

@@ -78,6 +78,7 @@
     const ids = new Set();
     p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
+    (p.fonts || []).forEach((f) => ids.add(f.id));
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
@@ -87,6 +88,8 @@
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
+    p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
+    p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
     return p;
   };
@@ -97,6 +100,7 @@
   MC.newProject = (o) => ({
     id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
+    texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
     clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
   });
 

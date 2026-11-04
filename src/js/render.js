@@ -135,7 +135,7 @@
     { v: 'flash', es: 'Destello', en: 'Flash' }, { v: 'wipe', es: 'Barrido', en: 'Wipe' },
   ];
 
-  MC.renderFrame = (ctx, project, time, o) => {
+  const renderBase = (ctx, project, time, o) => {
     const { W, H } = o;
     const { i, tl } = MC.locate(project, time);
     const cur = project.shots[i];
@@ -159,6 +159,8 @@
     }
     MC.renderShot(ctx, cur, tl, o);
   };
+
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);

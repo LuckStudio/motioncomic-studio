@@ -39,6 +39,7 @@
     const size = MC.frameSize(p.ratio, p.res), W = size.w, H = size.h, fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
     const total = MC.totalTime(p), from = opt.from || 0, to = Math.min(opt.to == null ? total : opt.to, total), dur = Math.max(0.1, to - from);
     const frames = Math.max(1, Math.round(dur * fps));
+    await MC.ensureFonts();
     const vid = await pickVideo(W, H, fps, bitrate);
     if (!vid) throw new Error(t('Este navegador no puede codificar vídeo a ' + W + '×' + H + '. Prueba con una resolución menor.', 'This browser cannot encode video at ' + W + '×' + H + '. Try a lower resolution.'));
     let mixBuf = null, aud = null;
@@ -50,7 +51,7 @@
     const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } });
     venc.configure(vid.cfg);
 
-    const canvas = new OffscreenCanvas(W, H), ctx = canvas.getContext('2d'), o = MC.renderOpts(p, { W, H });
+    const canvas = new OffscreenCanvas(W, H), ctx = canvas.getContext('2d'), o = MC.renderOpts(p, { W, H, lang: opt.lang, subs: opt.subs });
     for (let i = 0; i < frames; i++) {
       if (signal.aborted) { venc.close(); throw new Error('cancelado'); }
       if (encErr) throw encErr;
@@ -91,10 +92,11 @@
   /* Ventana de exportación. api: { project, time, shot, applyFormat(ratio,res) } */
   MC.openExport = (api) => {
     const p = api.project;
-    const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res };
+    const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
     const body = h('div', { style: { display: 'grid', gap: '16px' } });
     let ctl = null, resultUrl = null;
     const hasAudio = () => (p.clips || []).length > 0;
+    const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub');
     const plat = () => MC.PLATFORMS.find((x) => x.id === st.plat);
     const cur = () => {
       const pl = plat(), ratio = pl.ratio || p.ratio, res = pl.res || p.res;
@@ -112,6 +114,8 @@
         c.mismatch ? h('div', { class: 'calc' }, h('span', { class: 'warn' }, t('Tu proyecto es ' + p.ratio + ' y esta plataforma pide ' + c.ratio + '.', 'Your project is ' + p.ratio + ' and this platform asks for ' + c.ratio + '.')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { api.applyFormat(c.ratio, c.res); st.plat = 'proj'; draw(); } }, t('Cambiar el proyecto a ' + c.ratio, 'Change the project to ' + c.ratio))) : null,
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Fotogramas por segundo', 'Frames per second')), MC.ui.seg([24, 30, 60].map((v) => ({ v, l: v + ' fps' })), st.fps, (v) => { st.fps = +v; draw(); })),
+        p.langs.length > 1 ? h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Idioma del texto', 'Text language')), MC.ui.seg(p.langs.map((l) => ({ v: l, l: l.toUpperCase() })), st.lang, (v) => { st.lang = v; })) : null,
+        hasSubs() ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.subs, onChange: (e) => { st.subs = e.target.checked; } }), h('span', null, t('Mostrar los subtítulos en el vídeo', 'Show subtitles in the video'), h('small', null, t('Desactívalo si los subirás aparte como archivo SRT.', 'Turn it off if you will upload them separately as an SRT file.')))) : null,
         MC.ui.slider({ label: t('Calidad (bitrate)', 'Quality (bitrate)'), min: 2, max: 60, step: 1, value: mbps, fmt: (v) => v + ' Mbps', onInput: (v) => { st.mbps = v; refreshSum(); }, onChange: draw }),
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Qué exportar', 'What to export')), MC.ui.seg([{ v: 'all', l: t('Todo el vídeo', 'Whole video') }, { v: 'shot', l: t('Solo el plano actual', 'Current shot only') }], st.range, (v) => { st.range = v; draw(); })),
         hasAudio() ? h('div', { style: { display: 'grid', gap: '8px' } },
@@ -134,7 +138,7 @@
       const go = h('button', { class: 'btn btn-p', type: 'button', disabled: !E.supported() }, t('Exportar vídeo', 'Export video'));
       const still = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
         const sz = MC.frameSize(p.ratio, p.res), c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
-        MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p));
+        MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p, { lang: st.lang, subs: st.subs }));
         c.toBlob((b) => { download(b, p.name.replace(/[^\w\- ]+/g, '') + '-portada.png'); MC.toast(t('Portada exportada', 'Cover exported')); }, 'image/png');
       } }, t('Portada (PNG)', 'Cover (PNG)'));
       go.addEventListener('click', async () => {
@@ -146,7 +150,7 @@
         MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', borderRadius: '99px', overflow: 'hidden' } }, bar), label,
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => ctl.abort() }, t('Cancelar exportación', 'Cancel export')));
         try {
-          const res = await E.run(p, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize },
+          const res = await E.run(p, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
             (f, msg) => { bar.style.width = Math.round(f * 100) + '%'; label.textContent = Math.round(f * 100) + ' % · ' + msg; }, ctl.signal);
           resultUrl = URL.createObjectURL(res.blob);
           const name = p.name.replace(/[^\w\- ]+/g, '') + '.mp4';
@@ -164,7 +168,12 @@
             h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { progress.style.display = 'none'; body.style.display = 'grid'; go.disabled = !E.supported(); still.disabled = false; } }, t('Volver', 'Back')));
         }
       });
-      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { if (ctl) ctl.abort(); if (resultUrl) URL.revokeObjectURL(resultUrl); close(); } }, t('Cerrar', 'Close')), still, go];
+      const srt = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
+        const txt = MC.srt(p, st.lang);
+        if (!txt) { MC.toast(t('Aún no hay subtítulos con texto.', 'There are no subtitles with text yet.')); return; }
+        download(new Blob([txt], { type: 'text/plain' }), p.name.replace(/[^\w\- ]+/g, '') + '-' + st.lang + '.srt'); MC.toast(t('Subtítulos exportados (SRT)', 'Subtitles exported (SRT)'));
+      } }, t('Subtítulos (SRT)', 'Subtitles (SRT)'));
+      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { if (ctl) ctl.abort(); if (resultUrl) URL.revokeObjectURL(resultUrl); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
     });
     return modal;
   };
