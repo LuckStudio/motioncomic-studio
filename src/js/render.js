@@ -47,7 +47,7 @@
     if (shot.camera.path && shot.camera.path.pts.length) return pathCam(shot.camera.path, tl);
     const c = shot.camera, d = Math.max(0.01, shot.duration), p = MC.ease(c.curve, tl / d);
     const z0 = c.from.zoom, z1 = c.to.zoom;
-    const cam = { x: lerp(c.from.x, c.to.x, p), y: lerp(c.from.y, c.to.y, p), zoom: z0 * Math.pow(z1 / z0, p), rot: lerp(c.from.rot || 0, c.to.rot || 0, p), sx: 0, sy: 0 };
+    const cam = { x: lerp(c.from.x, c.to.x, p), y: lerp(c.from.y, c.to.y, p), zoom: z0 * Math.pow(z1 / z0, p), rot: lerp(c.from.rot || 0, c.to.rot || 0, p), sx: 0, sy: 0, dolly: (c.dolly || 0) * p };
     if (withShake !== false && c.shake > 0) {
       const k = Math.floor(tl * 30), a = 0.012 * c.shake;
       cam.sx = (noise(k) - 0.5) * 2 * a;
@@ -69,7 +69,7 @@
     const I = o.parallaxI;
     return {
       f: 1 + (layer.z - 0.5) * I * 0.8, // cuánto se desplaza con la cámara
-      zl: 1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6), // cuánto se acerca con el zoom
+      zl: (1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6)) * (cam.dolly ? (cam.dolly > 0 ? 1 + cam.dolly * Math.max(0, 0.5 - layer.z) * 1.1 : 1 - cam.dolly * Math.max(0, layer.z - 0.5) * 1.1) : 1), // cuánto se acerca con el zoom (y el efecto vértigo)
       base: MC.layerBox(layer, img, o).base,
     };
   };
@@ -131,6 +131,7 @@
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
     const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
     const pan = fr ? MC.panelGeom(fr, W, H) : null;
+    const k0 = ctx.getTransform().a;
     const shotStart = o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0;
     const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
@@ -145,7 +146,7 @@
       ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1);
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
-      if (blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (blur * W / 1920).toFixed(2) + 'px)';
+      if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
       ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
       if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
@@ -158,7 +159,7 @@
       }
       let src = img.bitmap;
       if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
-      ctx.drawImage(src, ix, iy, iw, ih);
+      if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);
       /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
       const pg = shot.page;
       if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {

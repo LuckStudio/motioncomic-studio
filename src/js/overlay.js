@@ -165,6 +165,7 @@
   const BLEND = { multiply: 1, screen: 1, overlay: 1, darken: 1, lighten: 1, 'color-dodge': 1, 'color-burn': 1, 'hard-light': 1, 'soft-light': 1, difference: 1, exclusion: 1 };
   MC.renderOverlays = (ctx, p, time, o) => {
     if (o.overlays === false || !(p.overlays && p.overlays.length)) return;
+    const k0 = ctx.getTransform().a;
     MC.overlaysAt(p, time).forEach((it) => {
       const a = o.getImg(it.assetId); if (!a) return;
       let src = a.bitmap;
@@ -174,9 +175,9 @@
       ctx.save();
       ctx.globalAlpha = clamp(b.op, 0, 1);
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
-      if (MC.itemFx) MC.itemFx(ctx, it, o);
+      const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
       ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip) ctx.scale(-1, 1);
-      ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
+      if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
       ctx.restore();
     });
   };

@@ -126,7 +126,7 @@
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
-    p.look = Object.assign({ vignette: 0, grain: 0, halftone: 0, tint: null }, p.look || {}); p.shots.forEach((sh) => { sh.fx = sh.fx || []; });
+    p.look = Object.assign({ vignette: 0, grain: 0, halftone: 0, tint: null, sat: 1, contrast: 1, bright: 1, warm: 0 }, p.look || {}); p.shots.forEach((sh) => { sh.fx = sh.fx || []; });
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
@@ -151,11 +151,12 @@
     { v: 'none', es: 'Quieta', en: 'Still' }, { v: 'zoomin', es: 'Zoom in', en: 'Zoom in' }, { v: 'zoomout', es: 'Zoom out', en: 'Zoom out' },
     { v: 'panl', es: 'Paneo ←', en: 'Pan ←' }, { v: 'panr', es: 'Paneo →', en: 'Pan →' }, { v: 'panu', es: 'Paneo ↑', en: 'Pan ↑' }, { v: 'pand', es: 'Paneo ↓', en: 'Pan ↓' },
     { v: 'kenburns', es: 'Ken Burns', en: 'Ken Burns' }, { v: 'shake', es: 'Temblor', en: 'Shake' }, { v: 'dutch', es: 'Ángulo holandés', en: 'Dutch angle' },
+    { v: 'dolly', es: 'Dolly zoom (vértigo)', en: 'Dolly zoom (vertigo)' }, { v: 'dollyout', es: 'Dolly zoom inverso', en: 'Reverse dolly zoom' },
   ];
   MC.applyPreset = (cam, preset, intensity) => {
     const i = MC.clamp(intensity == null ? cam.intensity || 1 : intensity, 0.2, 2);
     const K = (x, y, zoom, rot) => ({ x, y, zoom, rot: rot || 0 });
-    cam.preset = preset; cam.intensity = i; cam.shake = 0; cam.path = null;
+    cam.preset = preset; cam.intensity = i; cam.shake = 0; cam.path = null; cam.dolly = 0;
     const P = {
       none: () => [K(0, 0, 1), K(0, 0, 1)],
       zoomin: () => [K(0, 0, 1), K(0, 0, 1 + 0.3 * i)],
@@ -167,6 +168,8 @@
       kenburns: () => [K(-0.015 * i, 0.01 * i, 1), K(0.02 * i, -0.015 * i, 1 + 0.15 * i)],
       shake: () => { cam.shake = i; return [K(0, 0, 1.06), K(0, 0, 1.06)]; },
       dutch: () => [K(0, 0, 1.12, 0), K(0, 0, 1.15, 6 * i)],
+      dolly: () => { cam.dolly = i; return [K(0, 0, 1.1), K(0, 0, 1.1)]; },
+      dollyout: () => { cam.dolly = -i; return [K(0, 0, 1.1), K(0, 0, 1.1)]; },
     };
     if (P[preset]) { const r = P[preset](); cam.from = r[0]; cam.to = r[1]; }
     return cam;

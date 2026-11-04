@@ -16,7 +16,7 @@
 
     const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay' };
     const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
-      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
+      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
     const el = {};
@@ -159,8 +159,8 @@
           const isV = MC.video.isFile(f);
           if (isV) MC.toast(t('Leyendo el vídeo…', 'Reading the video…'));
           const a = isV ? await MC.video.add(f, f.name) : await MC.assets.add(f, f.name);
-          const it = MC.newOverlay(a, { track: clamp(track, 0, p.otracks.length - 1), start: at, dur: 4 });
-          if (!isV) { it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; it.scale = 1; }
+          const it = MC.newOverlay(a, { track: clamp(track, 0, p.otracks.length - 1), start: at, dur: 4 }); it.scale = 0.6;
+          if (!isV) { it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; }
           p.overlays.push(it);
           if (isV && a.audioId) {
             const ab = MC.audio.get(a.audioId) || (await MC.audio.load(a.audioId)), c = MC.audio.newClip('voz', ab, it.start);
@@ -896,7 +896,7 @@
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         const propNodes = [];
         if (selF) {
-          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
           propNodes.push(
             h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
@@ -935,6 +935,10 @@
       const lk = p.look;
       const lookSec = sec('aspecto', t('Aspecto global', 'Global look'), [
         h('p', { class: 'cap' }, t('Capas de ajuste para todo el vídeo.', 'Adjustment layers for the whole video.')),
+        MC.ui.slider({ label: t('Saturación', 'Saturation'), min: 0, max: 2, step: 0.01, value: lk.sat == null ? 1 : lk.sat, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.sat = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Contraste', 'Contrast'), min: 0.5, max: 1.8, step: 0.01, value: lk.contrast == null ? 1 : lk.contrast, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.contrast = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Brillo', 'Brightness'), min: 0.5, max: 1.5, step: 0.01, value: lk.bright == null ? 1 : lk.bright, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.bright = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Temperatura (frío ↔ cálido)', 'Temperature (cool ↔ warm)'), min: -1, max: 1, step: 0.01, value: lk.warm || 0, fmt: (v) => (v === 0 ? t('neutra', 'neutral') : (v > 0 ? t('cálida ', 'warm ') : t('fría ', 'cool ')) + Math.round(Math.abs(v) * 100) + ' %'), onInput: (v) => { lk.warm = v; touch(); }, onChange: commit }),
         MC.ui.slider({ label: t('Viñeteado', 'Vignette'), min: 0, max: 1, step: 0.01, value: lk.vignette, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.vignette = v; touch(); }, onChange: commit }),
         MC.ui.slider({ label: t('Grano de película', 'Film grain'), min: 0, max: 1, step: 0.01, value: lk.grain, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.grain = v; touch(); }, onChange: commit }),
         MC.ui.slider({ label: t('Tramado de cómic (halftone)', 'Comic halftone'), min: 0, max: 1, step: 0.01, value: lk.halftone, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.halftone = v; touch(); }, onChange: commit }),
@@ -1025,7 +1029,8 @@
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: kx.spill !== false, onChange: (e) => { setK('spill', e.target.checked); commit(); } }), h('span', null, t('Quitar el reflejo del color en los bordes', 'Remove colour spill on the edges'))));
         ovNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(ovx)); c.id = MC.uid(); c.name += ' 2'; c.start = ovx.start + 0.5; c.audioClip = null; if (ovx.audioClip && clipById(ovx.audioClip)) { const k = JSON.parse(JSON.stringify(clipById(ovx.audioClip))); k.id = MC.uid(); c.audioClip = k.id; p.clips.push(k); } p.overlays.push(c); S.ov = c.id; syncOvAudio(c); commit(); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
-          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { ovx.x = 0; ovx.y = 0; ovx.scale = 1; ovx.rot = 0; commit(); } }, t('Restablecer', 'Reset')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Se ve entera dentro del encuadre', 'Fits whole inside the frame'), onClick: () => { ovx.x = 0; ovx.y = 0; ovx.scale = 1; ovx.rot = 0; commit(); } }, t('Encajar', 'Fit')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Cubre todo el encuadre', 'Covers the whole frame'), onClick: () => { const o2 = opts(); if (oa) { ovx.scale = Math.max(o2.W / oa.w, o2.H / oa.h) / Math.min(o2.W / oa.w, o2.H / oa.h); ovx.x = 0; ovx.y = 0; ovx.rot = 0; commit(); } } }, t('Rellenar', 'Fill')),
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { removeOverlay(ovx); commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete'))));
       }
 
@@ -1064,6 +1069,25 @@
           MC.ui.slider({ label: t('Pivote Y', 'Pivot Y'), min: 0, max: 1, step: 0.01, value: pv.y, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP((l2.pivot || pv).x, v), onChange: commit }),
           MC.ui.slider({ label: t('Límite de desplazamiento por parallax', 'Parallax travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit })];
       };
+      const lookNodes = (it) => {
+        const D = MC.ITEM_LOOK, L = it.look, ens = () => (it.look = it.look || {}), cb = (key, label, hint) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!(L && L[key] && L[key].on), onChange: (e) => { const l2 = ens(); l2[key] = Object.assign({}, D[key], l2[key] || {}, { on: e.target.checked }); commit(); } }), h('span', null, label, hint ? h('small', null, hint) : null));
+        const colorF = (key, k, label) => h('div', { class: 'field' }, h('label', null, label), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: (L[key] && L[key][k]) || D[key][k], onInput: (e) => { L[key][k] = e.target.value; S.dirty = true; touch(); }, onChange: commit }));
+        const sl = (key, k, label, min, max, step, fmt) => MC.ui.slider({ label, min, max, step, value: L[key][k] == null ? D[key][k] : L[key][k], fmt, onInput: (v) => { L[key][k] = v; S.dirty = true; touch(); }, onChange: commit });
+        const nodes = [cb('shadow', t('Sombra', 'Drop shadow'))];
+        if (L && L.shadow && L.shadow.on) nodes.push(colorF('shadow', 'color', t('Color de la sombra', 'Shadow colour')), sl('shadow', 'a', t('Opacidad', 'Opacity'), 0, 1, 0.01, (v) => Math.round(v * 100) + ' %'), sl('shadow', 'blur', t('Desenfoque', 'Blur'), 0, 80, 1, (v) => v + ' px'), sl('shadow', 'x', t('Desplazamiento X', 'Offset X'), -60, 60, 1, (v) => v + ' px'), sl('shadow', 'y', t('Desplazamiento Y', 'Offset Y'), -60, 60, 1, (v) => v + ' px'));
+        nodes.push(cb('glow', t('Resplandor', 'Glow')));
+        if (L && L.glow && L.glow.on) nodes.push(colorF('glow', 'color', t('Color del resplandor', 'Glow colour')), sl('glow', 'blur', t('Alcance', 'Reach'), 2, 100, 1, (v) => v + ' px'), sl('glow', 'a', t('Fuerza', 'Strength'), 0, 1, 0.01, (v) => Math.round(v * 100) + ' %'));
+        nodes.push(cb('outline', t('Contorno', 'Outline'), t('Un borde de color alrededor de la silueta, como una pegatina.', 'A coloured edge around the silhouette, like a sticker.')));
+        if (L && L.outline && L.outline.on) nodes.push(colorF('outline', 'color', t('Color del contorno', 'Outline colour')), sl('outline', 'w', t('Grosor', 'Width'), 1, 30, 0.5, (v) => v + ' px'));
+        const A = (L && L.adj) || D.adj, setA = (k, v) => { const l2 = ens(); l2.adj = Object.assign({}, D.adj, l2.adj || {}); l2.adj[k] = v; S.dirty = true; touch(); };
+        nodes.push(h('div', { class: 'eyebrow', style: { marginTop: '6px' } }, t('Color de este elemento', 'Colour of this element')),
+          MC.ui.slider({ label: t('Brillo', 'Brightness'), min: 0, max: 2, step: 0.01, value: A.bright == null ? 1 : A.bright, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('bright', v), onChange: commit }),
+          MC.ui.slider({ label: t('Contraste', 'Contrast'), min: 0, max: 2, step: 0.01, value: A.contrast == null ? 1 : A.contrast, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('contrast', v), onChange: commit }),
+          MC.ui.slider({ label: t('Saturación', 'Saturation'), min: 0, max: 2.5, step: 0.01, value: A.sat == null ? 1 : A.sat, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('sat', v), onChange: commit }),
+          MC.ui.slider({ label: t('Tono', 'Hue'), min: -180, max: 180, step: 1, value: A.hue || 0, fmt: (v) => v + '°', onInput: (v) => setA('hue', v), onChange: commit }),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, disabled: !MC.hasItemLook(it), onClick: () => { it.look = null; commit(); } }, t('Quitar todo el aspecto', 'Clear all styling')));
+        return nodes;
+      };
       const kfNodes = (it, start, dur) => {
         const local = clamp(S.time - start, 0, dur), list = (it.kf || []).slice().sort((a, b) => a.t - b.t), cur = list.find((q) => q.id === S.kfid);
         const sel = (q) => { S.kfid = q.id; setTime(start + clamp(q.t, 0, Math.max(0, dur - 0.001))); renderInspector(); renderTimeline(); };
@@ -1089,8 +1113,8 @@
         }
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
-      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
+      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
@@ -1214,7 +1238,7 @@
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_kf)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }

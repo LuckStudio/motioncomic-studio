@@ -13,9 +13,10 @@
     { v: 'aberration', g: 'fx', dur: 0.8, es: 'Aberración cromática', en: 'Chromatic aberration' }, { v: 'flash', g: 'fx', dur: 0.4, es: 'Destello de color', en: 'Colour flash' },
     { v: 'rain', g: 'fx', dur: 3, es: 'Lluvia', en: 'Rain' }, { v: 'dust', g: 'fx', dur: 3, es: 'Polvo', en: 'Dust' }, { v: 'sparks', g: 'fx', dur: 2.5, es: 'Chispas', en: 'Sparks' },
     { v: 'snow', g: 'fx', dur: 3, es: 'Nieve', en: 'Snow' }, { v: 'smoke', g: 'fx', dur: 3, es: 'Humo', en: 'Smoke' },
+    { v: 'fog', g: 'fx', dur: 4, es: 'Niebla', en: 'Fog' }, { v: 'beam', g: 'fx', dur: 4, es: 'Haces de luz', en: 'Light beams' },
   ];
   const ANIM = new Set(['shake', 'impact', 'pulse', 'vibrate']);
-  const DEF_COLOR = { speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff' };
+  const DEF_COLOR = { speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff', fog: '#cfd6e6', beam: '#fff1bf' };
   MC.fxName = (v) => { const f = MC.FX.find((x) => x.v === v); return f ? MC.t(f.es, f.en) : v; };
   MC.isAnimFx = (v) => ANIM.has(v);
   MC.newFx = (type, start) => {
@@ -128,6 +129,27 @@
     ctx.restore();
   }
 
+  /* Niebla: manchas grandes y suaves que se desplazan. Haces de luz: franjas inclinadas que se mecen. */
+  function ambient(ctx, f, a, W, H) {
+    const I = clamp(f.intensity, 0, 3), col = f.color || '#fff';
+    const rgb = (() => { const m = /^#?([0-9a-f]{6})$/i.exec(col); const n = m ? parseInt(m[1], 16) : 0xffffff; return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); })();
+    if (f.type === 'fog') {
+      const n = 9;
+      for (let i = 0; i < n; i++) {
+        const dir = i % 2 ? 1 : -1, x = (wrap1(nz(i * 3) + a * 0.035 * dir * (0.6 + nz(i))) * 1.5 - 0.25) * W, y = (0.45 + nz(i * 7) * 0.55) * H, r = (0.28 + nz(i * 11) * 0.3) * Math.max(W, H);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + rgb + ',' + 0.2 * Math.min(1.5, I) + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+    } else {
+      const n = 5; ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < n; i++) {
+        const sway = Math.sin(a * 0.6 + i * 1.7) * 0.03, top = (0.05 + i * 0.2 + sway) * W, wid = (0.05 + nz(i * 5) * 0.06) * W, lean = 0.35 * H, op = (0.55 + 0.45 * Math.sin(a * 0.9 + i * 2.3)) * 0.3 * Math.min(1.5, I);
+        const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(' + rgb + ',' + op + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(top, -2); ctx.lineTo(top + wid, -2); ctx.lineTo(top + wid + lean + wid * 0.8, H); ctx.lineTo(top + lean, H); ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
   MC.fxOverlays = (ctx, shot, tl, o, anim) => {
     const { W, H } = o, list = shot.fx || [];
     list.forEach((f) => {
@@ -144,6 +166,7 @@
       if (f.type === 'speed') speedLines(ctx, f, a, W, H);
       else if (f.type === 'focus') focusLines(ctx, f, a, W, H);
       else if (f.type === 'flash') { ctx.globalAlpha = Math.pow(1 - a / f.dur, 2) * clamp(f.intensity, 0, 1); ctx.fillStyle = f.color || '#fff'; ctx.fillRect(0, 0, W, H); }
+      else if (f.type === 'fog' || f.type === 'beam') ambient(ctx, f, a, W, H);
       else particles(ctx, f, a, W, H);
       ctx.restore();
     });
@@ -157,6 +180,17 @@
     const L = p.look;
     if (!L) return;
     const { W, H } = o, u = W / 1920;
+    /* corrección de color de todo el fotograma: saturación, contraste, brillo y temperatura */
+    const sat = L.sat == null ? 1 : L.sat, con = L.contrast == null ? 1 : L.contrast, bri = L.bright == null ? 1 : L.bright;
+    if (Math.abs(sat - 1) > 0.005 || Math.abs(con - 1) > 0.005 || Math.abs(bri - 1) > 0.005) {
+      const m = ctx.getTransform(), x0 = Math.round(m.e), y0 = Math.round(m.f), w = Math.round(W * m.a), h = Math.round(H * m.d);
+      if (w > 1 && h > 1) {
+        const tmp = mk(2, w, h), tg = tmp.getContext('2d'); tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, w, h); tg.drawImage(ctx.canvas, x0, y0, w, h, 0, 0, w, h);
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+        ctx.filter = 'saturate(' + sat + ') contrast(' + con + ') brightness(' + bri + ')'; ctx.drawImage(tmp, x0, y0); ctx.filter = 'none'; ctx.restore();
+      }
+    }
+    if (L.warm) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = clamp(Math.abs(L.warm), 0, 1) * 0.7; ctx.fillStyle = L.warm > 0 ? '#ff9a3c' : '#3c8cff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
     if (L.tint && L.tint.amount > 0) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = clamp(L.tint.amount, 0, 1); ctx.fillStyle = L.tint.color; ctx.fillRect(0, 0, W, H); ctx.restore(); }
     if (L.halftone > 0) {
       if (!dotTile) { dotTile = tile(16, 16); const g = dotTile.getContext('2d'); g.fillStyle = '#000'; g.beginPath(); g.arc(8, 8, 4.2, 0, 6.2832); g.fill(); }

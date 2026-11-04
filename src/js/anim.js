@@ -192,4 +192,41 @@
     wrap.append(chipsBox, cv); buildChips(); draw();
     return wrap;
   };
+
+  /* ---------- aspecto por elemento: sombra, resplandor, contorno y color ---------- */
+  MC.ITEM_LOOK = { shadow: { on: true, color: '#000000', a: 0.55, blur: 18, x: 8, y: 10 }, glow: { on: true, color: '#8C7CFF', a: 0.9, blur: 26 }, outline: { on: true, color: '#ffffff', w: 5 }, adj: { bright: 1, contrast: 1, sat: 1, hue: 0 } };
+  const adjOn = (a) => a && (Math.abs((a.bright == null ? 1 : a.bright) - 1) > 0.01 || Math.abs((a.contrast == null ? 1 : a.contrast) - 1) > 0.01 || Math.abs((a.sat == null ? 1 : a.sat) - 1) > 0.01 || Math.abs(a.hue || 0) > 0.5);
+  MC.hasItemLook = (it) => { const L = it.look; return !!(L && ((L.shadow && L.shadow.on) || (L.glow && L.glow.on) || (L.outline && L.outline.on) || adjOn(L.adj))); };
+  /* Cadena de filtros de lienzo: desenfoque + ajustes de color. */
+  MC.itemFilter = (it, blurPx) => {
+    const a = it.look && it.look.adj, f = [];
+    if (blurPx > 0) f.push('blur(' + blurPx.toFixed(2) + 'px)');
+    if (adjOn(a)) f.push('brightness(' + (a.bright == null ? 1 : a.bright) + ')', 'contrast(' + (a.contrast == null ? 1 : a.contrast) + ')', 'saturate(' + (a.sat == null ? 1 : a.sat) + ')', 'hue-rotate(' + (a.hue || 0) + 'deg)');
+    return f.join(' ');
+  };
+  const silCache = new WeakMap();
+  const silhouette = (src, color) => {
+    const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height; if (!sw || !sh) return null;
+    const live = !!src.videoWidth || src instanceof HTMLCanvasElement;
+    let cache = silCache.get(src); if (!live) { if (!cache) { cache = new Map(); silCache.set(src, cache); } const hit = cache.get(color); if (hit) return hit; }
+    const k = Math.min(1, 1024 / Math.max(sw, sh)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(sw * k)); c.height = Math.max(1, Math.round(sh * k));
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0, c.width, c.height); g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+    if (!live) cache.set(color, c);
+    return c;
+  };
+  /* Dibuja la imagen con su sombra, resplandor y contorno. k0 = escala del lienzo (el visor dibuja a menor tamaño). */
+  MC.drawItem = (ctx, src, it, x, y, w, h, o, k0) => {
+    const L = it.look; if (!L) { ctx.drawImage(src, x, y, w, h); return; }
+    const u = (o.W / 1920) * (k0 || 1);
+    if (L.outline && L.outline.on) {
+      const m = ctx.getTransform(), sc = Math.max(0.0001, Math.hypot(m.a, m.b)), r = (Math.max(0.5, L.outline.w) * (o.W / 1920) * (k0 || 1)) / sc, sil = silhouette(src, L.outline.color || '#fff');
+      if (sil) for (let i = 0; i < 16; i++) { const an = (i / 16) * Math.PI * 2; ctx.drawImage(sil, x + Math.cos(an) * r, y + Math.sin(an) * r, w, h); }
+    }
+    if (L.glow && L.glow.on) { ctx.save(); ctx.shadowColor = L.glow.color || '#fff'; ctx.shadowBlur = Math.max(1, L.glow.blur) * u; ctx.globalAlpha *= clamp(L.glow.a == null ? 0.9 : L.glow.a, 0, 1); ctx.drawImage(src, x, y, w, h); ctx.drawImage(src, x, y, w, h); ctx.restore(); }
+    if (L.shadow && L.shadow.on) {
+      ctx.save(); const a = clamp(L.shadow.a == null ? 0.55 : L.shadow.a, 0, 1), c = /^#?([0-9a-f]{6})$/i.exec(L.shadow.color || '#000000'), n = c ? parseInt(c[1], 16) : 0;
+      ctx.shadowColor = 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; ctx.shadowBlur = Math.max(0, L.shadow.blur) * u; ctx.shadowOffsetX = (L.shadow.x || 0) * u; ctx.shadowOffsetY = (L.shadow.y || 0) * u;
+      ctx.drawImage(src, x, y, w, h); ctx.restore();
+    } else ctx.drawImage(src, x, y, w, h);
+  };
 })();
