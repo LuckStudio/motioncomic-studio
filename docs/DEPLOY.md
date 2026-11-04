@@ -12,15 +12,20 @@ Crea `public/` (y `public.zip` si tienes `zip`) con solo lo necesario: `index.ht
 
 ### Imagen y texto al compartir el enlace
 
-Al pegar el enlace en WhatsApp, Telegram, X, Facebook, LinkedIn o Slack aparece una tarjeta con el logotipo sobre fondo claro, el nombre y una descripción (`icons/share.png`, 1200×630). Esas redes **solo aceptan direcciones absolutas** en las etiquetas, así que empaqueta indicando tu dominio:
+Al pegar el enlace en WhatsApp, Telegram, X, Facebook, LinkedIn o Slack aparece una tarjeta con el logotipo sobre fondo claro, el nombre y una descripción (`icons/share.png`, 1200×630). Esas redes **solo aceptan direcciones completas** en las etiquetas, así que `index.html` ya las lleva apuntando a GitHub Pages: `https://luckstudio.github.io/motioncomic-studio/`.
 
-```bash
-SITE_URL=https://tudominio.com node tools/pack.js
-```
+- **Si publicas con GitHub Pages:** en el repositorio, *Settings → Pages → Deploy from a branch → `main` / `(root)`*. No hay que hacer nada más.
+- **Si publicas en tu propio dominio:** empaqueta indicándolo y las etiquetas se cambian solas:
 
-(Si la web va en una carpeta, incluye la carpeta: `https://tudominio.com/studio`.) También puedes guardar la dirección en un archivo `tools/site.txt` y ejecutar solo `node tools/pack.js`. Sin dirección, `pack.js` avisa y la imagen no saldrá.
+  ```bash
+  SITE_URL=https://tudominio.com node tools/pack.js
+  ```
 
-Para cambiar la imagen o su texto, edita `tools/share.js` y ejecuta `node tools/share.js` (necesita Playwright). Después de publicar, las redes guardan la tarjeta en caché: para forzar que la actualicen usa el depurador de Facebook (<https://developers.facebook.com/tools/debug/>) y, en WhatsApp, comparte el enlace con un parámetro nuevo, por ejemplo `?v=2`.
+  (Si va en una carpeta, incluye la carpeta: `https://tudominio.com/studio`. También puedes guardar la dirección en `tools/site.txt`.)
+
+- **Si compartes el enlace del repositorio de GitHub** (no el de la web), GitHub usa su propia tarjeta: sube `icons/share.png` en *Settings → General → Social preview*.
+
+Para cambiar la imagen o su texto, edita `tools/share.js` y ejecuta `node tools/share.js` (necesita Playwright). Las redes guardan la tarjeta en caché: para que la actualicen usa el depurador de Facebook (<https://developers.facebook.com/tools/debug/>) y, en WhatsApp, comparte el enlace con un parámetro nuevo, por ejemplo `?v=2`.
 
 Para probarla en local con las mismas cabeceras de seguridad que `.htaccess`:
 

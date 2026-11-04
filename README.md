@@ -312,7 +312,7 @@ MotionComic Studio es una web estática: basta con subir una carpeta a cualquier
 
    Crea `public/` (y `public.zip`) con todos los archivos, el modo sin conexión versionado y las cabeceras de seguridad en `.htaccess`.
 
-   Para que al **compartir el enlace** (WhatsApp, Telegram, X…) salga la tarjeta con el logotipo y la descripción, indica tu dirección: `SITE_URL=https://tudominio.com node tools/pack.js`.
+   La tarjeta que sale al **compartir el enlace** (WhatsApp, Telegram, X…) apunta a GitHub Pages; si usas tu propio dominio: `SITE_URL=https://tudominio.com node tools/pack.js`.
 
 2. Pruébala en local con las mismas cabeceras:
 
