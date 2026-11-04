@@ -36,7 +36,7 @@
   MC.importProject = async (file) => {
     const data = JSON.parse(await file.text());
     if (data.app !== 'motioncomic-studio') throw new Error('formato');
-    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); await MC.assets.add(blob, a.name, a.id); }
+    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); if (/^audio\//.test(a.type || blob.type)) await MC.audio.add(blob, a.name, a.id); else await MC.assets.add(blob, a.name, a.id); }
     const p = data.project;
     if ((await MC.db.get('projects', p.id))) { p.id = MC.uid(); p.name += ' (importado)'; }
     p.updated = Date.now();

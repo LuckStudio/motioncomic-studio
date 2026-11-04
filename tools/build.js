@@ -2,7 +2,8 @@
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
-const scripts = ['util', 'formats', 'db', 'render', 'sample', 'home', 'studio', 'main'].map((n) => read('src/js/' + n + '.js')).join('\n');
+const vendor = ['mp4-muxer', 'ag-psd'].map((n) => read('src/vendor/' + n + '.js'));
+const scripts = ['util', 'formats', 'db', 'audio', 'render', 'psd', 'export', 'sample', 'home', 'studio', 'main'].map((n) => read('src/js/' + n + '.js')).join('\n');
 const html = `<title>MotionComic Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap">
@@ -11,6 +12,7 @@ ${read('src/styles.css')}
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
+${vendor.map((v) => '<script>\n' + v.replace(/<\/script>/g, '<\\/script>') + '\n</script>').join('\n')}
 <script>
 ${scripts.replace(/<\/script>/g, '<\\/script>')}
 </script>

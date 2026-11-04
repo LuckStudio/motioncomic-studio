@@ -11,10 +11,11 @@
 
   MC.mountStudio = async function mountStudio(root, project) {
     MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…')));
+    MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false },
+    const S = { project, si: 0, li: -1, cl: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
@@ -57,7 +58,7 @@
 
     /* ---------- selección y tiempo ---------- */
     function selectShot(i, seek) {
-      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1;
+      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null;
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
     }
@@ -71,13 +72,17 @@
       S.playing = on == null ? !S.playing : on;
       if (S.playing && S.time >= MC.totalTime(S.project) - 0.05) setTime(0);
       if (S.playing && S.view === 'cam') { S.view = 'out'; renderVbar(); fit(); }
+      if (S.playing) MC.audio.play(S.project, S.time); else MC.audio.stop();
       updateTransport();
     }
 
     /* ---------- importar ---------- */
     async function importFiles(files, mode) {
       let list = [...files];
-      if (list.some((f) => /\.(psd|pdf)$/i.test(f.name))) MC.toast(t('PSD y PDF llegan en el siguiente paso. Por ahora usa PNG, JPEG o WebP.', 'PSD and PDF arrive in the next step. For now use PNG, JPEG or WebP.'));
+      const psds = list.filter((f) => /\.psd$/i.test(f.name)), auds = list.filter((f) => /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg|aac)$/i.test(f.name));
+      if (list.some((f) => /\.pdf$/i.test(f.name))) MC.toast(t('El PDF llega más adelante. Por ahora usa PSD, PNG, JPEG o WebP.', 'PDF arrives later. For now use PSD, PNG, JPEG or WebP.'));
+      for (const f of psds) await importPsd(f);
+      if (auds.length) await importAudio(auds, 'auto');
       list = list.filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name));
       if (!list.length) return;
       list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
@@ -103,6 +108,80 @@
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
 
+    async function importPsd(file) {
+      MC.toast(t('Leyendo el PSD…', 'Reading the PSD…'));
+      try {
+        const r = await MC.importPsd(file), sh = shot(), warns = r.warnings.slice();
+        const [pw, ph] = [r.doc.w, r.doc.h];
+        if (Math.abs(pw / ph - opts().W / opts().H) > 0.06) warns.push(t('El PSD mide ' + pw + '×' + ph + ' y el proyecto es ' + S.project.ratio + ': se recorta para cubrir el encuadre. Puedes cambiar la proporción en «Formato».', 'The PSD is ' + pw + '×' + ph + ' and the project is ' + S.project.ratio + ': it is cropped to cover the frame. You can change the ratio in “Format”.'));
+        if (!sh.layers.length) { sh.layers = r.shot.layers; sh.name = r.shot.name; S.li = -1; commit(); }
+        else { S.project.shots.splice(S.si + 1, 0, r.shot); commit(); selectShot(S.si + 1, true); }
+        MC.modal(t('PSD importado', 'PSD imported'), h('div', { style: { display: 'grid', gap: '10px' } },
+          h('p', null, t(r.count + ' capas con su nombre y orden. Las capas que reconocemos (fondo, cielo, personaje, texto…) ya tienen su profundidad; revisa el resto.', r.count + ' layers with their names and order. Recognised layers (background, sky, character, text…) already have their depth; check the rest.')),
+          warns.length ? h('ul', { class: 'cap', style: { margin: 0, paddingLeft: '18px', display: 'grid', gap: '4px' } }, warns.map((w) => h('li', null, w))) : h('p', { class: 'cap good' }, t('Sin avisos.', 'No warnings.'))),
+          (c) => [h('button', { class: 'btn btn-p', type: 'button', onClick: c }, t('Entendido', 'Got it'))]);
+      } catch (e) { console.error(e); MC.toast(t('No se pudo leer ese PSD.', 'Could not read that PSD.')); }
+    }
+    async function importAudio(files, track) {
+      for (const f of files) {
+        try {
+          const a = await MC.audio.add(f, f.name), c = MC.audio.newClip(track === 'auto' ? (a.dur >= 20 ? 'musica' : 'sfx') : track, a, S.time);
+          S.project.clips.push(c); S.cl = c.id;
+        } catch (e) { MC.toast(t('No se pudo leer ese audio.', 'Could not read that audio.')); }
+      }
+      commit();
+    }
+    const clipById = (id) => S.project.clips.find((c) => c.id === id);
+    function splitClip() {
+      const c = clipById(S.cl); if (!c) return;
+      if (S.time <= c.start + 0.05 || S.time >= c.start + c.dur - 0.05) { MC.toast(t('Coloca el cabezal dentro del clip para dividirlo.', 'Place the playhead inside the clip to split it.')); return; }
+      const b = Object.assign({}, c, { id: MC.uid(), start: S.time, offset: c.offset + (S.time - c.start), dur: c.start + c.dur - S.time, fadeIn: 0 });
+      c.dur = S.time - c.start; c.fadeOut = 0;
+      S.project.clips.push(b); S.cl = b.id; commit();
+    }
+    async function recordVoice() {
+      let rec;
+      try { rec = await MC.audio.record(); } catch (e) { MC.toast(t('Aquí no se puede usar el micrófono. Importa un archivo de audio.', 'The microphone is not available here. Import an audio file.')); return; }
+      const num = h('div', { style: { fontSize: '56px', fontWeight: 700, textAlign: 'center', letterSpacing: '-0.03em' } }, '3'), msg = h('p', { class: 'cap', style: { textAlign: 'center' } }, t('Se reproduce la imagen mientras grabas.', 'The picture plays while you record.'));
+      let state = 'count', startT = S.time, timer = 0;
+      const m = MC.modal(t('Grabar locución', 'Record voice-over'), h('div', { style: { display: 'grid', gap: '8px' } }, num, msg), (close) => {
+        const stop = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Parar', 'Stop'));
+        stop.addEventListener('click', async () => {
+          clearInterval(timer); togglePlay(false); stop.disabled = true;
+          try {
+            const a = await MC.audio.add(await rec.stop(), t('Locución ', 'Voice ') + (S.project.clips.filter((c) => c.track === 'voz').length + 1) + '.webm');
+            const c = MC.audio.newClip('voz', a, startT); S.project.clips.push(c); S.cl = c.id; commit();
+          } catch (e) { MC.toast(t('No se pudo guardar la toma.', 'Could not save the take.')); }
+          close();
+        });
+        let n = 3;
+        timer = setInterval(() => {
+          if (state === 'count') {
+            n--;
+            if (n > 0) num.textContent = String(n);
+            else { state = 'rec'; startT = S.time; rec.start(); togglePlay(true); MC.audio.stop(); stop.disabled = false; num.textContent = t('Grabando', 'Recording'); num.style.color = 'var(--bad)'; }
+          }
+        }, 1000);
+        return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { clearInterval(timer); togglePlay(false); if (state === 'rec') rec.stop(); else rec.cancel(); close(); } }, t('Cancelar', 'Cancel')), stop];
+      });
+      return m;
+    }
+    function openLibrary() {
+      let cur = null;
+      const stopPrev = () => { if (cur) { try { cur.stop(); } catch (e) { /* parado */ } cur = null; } };
+      const rows = MC.audio.LIBRARY.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } },
+        h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { stopPrev(); cur = await MC.audio.preview(await MC.audio.renderLibrary(it)); } }, MC.icon('play', 12), t('Oír', 'Play')),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: async (e) => {
+          const btn = e.currentTarget; btn.disabled = true;
+          const buf = await MC.audio.renderLibrary(it), a = await MC.audio.add(MC.audio.wav(buf), t(it.es, it.en) + '.wav'), c = MC.audio.newClip(it.kind === 'music' ? 'musica' : 'sfx', a, S.time);
+          S.project.clips.push(c); S.cl = c.id; commit(); MC.toast(t('Añadido en el cabezal', 'Added at the playhead')); btn.disabled = false;
+        } }, MC.icon('plus', 12), t('Añadir', 'Add'))));
+      MC.modal(t('Sonidos', 'Sounds'), h('div', { style: { display: 'grid', gap: '10px' } }, h('p', { class: 'cap' }, t('Efectos y música ambiente generados por código, sin licencias. Se añaden donde está el cabezal.', 'Effects and ambient music generated by code, no licences. They are added at the playhead.')), h('div', { style: { display: 'grid', gap: '2px' } }, rows)),
+        (c) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { stopPrev(); c(); } }, t('Cerrar', 'Close'))]);
+    }
+    const openExport = () => MC.openExport({ project: S.project, time: () => S.time, shotIndex: () => S.si, applyFormat: (r, res) => { S.project.ratio = r; S.project.res = res; fit(); commit(); } });
+
     /* ---------- calidad y huecos ---------- */
     function quality(l) {
       const img = MC.assets.get(l.assetId); if (!img) return null;
@@ -119,14 +198,14 @@
         const img = MC.assets.get(l.assetId);
         if (!img || l.role !== 'fondo' || l.visible === false) return;
         any = true;
-        ratio = Math.max(ratio, MC.coverScale(l, img, sh, o) / (Math.max(o.W / img.w, o.H / img.h) * (l.scale || 1)));
+        ratio = Math.max(ratio, MC.coverScale(l, img, sh, o) / MC.layerBox(l, img, o).base);
       });
       return { any, ratio, margin: MC.safeMargin(sh, o) };
     }
 
     /* ---------- barra superior ---------- */
     function renderTop() {
-      const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; renderTop(); renderInspector(); fit(); } }, l);
+      const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; if (v === 'audio') S.open.mezcla = true; renderTop(); renderInspector(); fit(); } }, l);
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
       el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
@@ -135,11 +214,11 @@
         MC.mark(24),
         h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') },
-          wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio', true), wsBtn('export', t('Exportación', 'Export'), true)),
+          wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onClick: openExport }, t('Exportación', 'Export'))),
         h('span', { class: 'sp' }),
         el.status, el.undo, el.redo,
         MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
-        h('button', { class: 'btn btn-p hide-n', type: 'button', disabled: true, title: t('La exportación de vídeo es el siguiente paso del desarrollo', 'Video export is the next development step') }, t('Exportar', 'Export')));
+        h('button', { class: 'btn btn-p hide-n', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
       setStatus(true); updateHistBtns();
     }
     async function close() { S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
@@ -259,8 +338,33 @@
           h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
       ];
 
-      b.append(sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
-        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes));
+      const audioSecs = [], clip = S.cl ? clipById(S.cl) : null, mixv = p.mix;
+      if (clip) {
+        const a = MC.audio.get(clip.assetId), cs = (k, v) => { clip[k] = v; touch(); };
+        audioSecs.push(sec('audio', t('Clip de audio', 'Audio clip') + ' · ' + clip.name, [
+          nameIn(t('Nombre', 'Name'), clip.name, (v) => { if (v) { clip.name = v; commit(); } }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Pista', 'Track')), MC.ui.seg([{ v: 'voz', l: t('Locución', 'Voice') }, { v: 'sfx', l: 'SFX' }, { v: 'musica', l: t('Música', 'Music') }], clip.track, (v) => { clip.track = v; commit(); })),
+          MC.ui.slider({ label: t('Volumen del clip', 'Clip volume'), min: 0, max: 1.5, step: 0.01, value: clip.vol == null ? 1 : clip.vol, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => cs('vol', v), onChange: commit }),
+          MC.ui.slider({ label: t('Fundido de entrada', 'Fade in'), min: 0, max: 5, step: 0.1, value: clip.fadeIn || 0, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => cs('fadeIn', v), onChange: commit }),
+          MC.ui.slider({ label: t('Fundido de salida', 'Fade out'), min: 0, max: 5, step: 0.1, value: clip.fadeOut || 0, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => cs('fadeOut', v), onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip }, MC.icon('cut', 14), t('Dividir en el cabezal (S)', 'Split at playhead (S)')),
+            h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { p.clips = p.clips.filter((c) => c !== clip); S.cl = null; commit(); } }, MC.icon('trash', 14), t('Eliminar clip', 'Delete clip'))),
+          a ? h('p', { class: 'cap' }, t('Duración original: ', 'Original length: ') + a.dur.toFixed(1) + ' s') : null]));
+      }
+      const hasVoice = p.clips.some((c) => c.track === 'voz');
+      audioSecs.push(sec('mezcla', t('Mezcla de audio', 'Audio mix'), [
+        MC.ui.slider({ label: t('Locución', 'Voice'), min: 0, max: 1.5, step: 0.01, value: mixv.voz, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.voz = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: 'SFX', min: 0, max: 1.5, step: 0.01, value: mixv.sfx, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.sfx = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Música', 'Music'), min: 0, max: 1.5, step: 0.01, value: mixv.musica, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.musica = v; touch(); }, onChange: commit }),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: mixv.duck !== false, onChange: (e) => { mixv.duck = e.target.checked; commit(); } }), h('span', null, t('Ducking automático', 'Automatic ducking'), h('small', null, t('La música baja sola cuando habla la voz.', 'Music lowers by itself when the voice speaks.')))),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice, onClick: () => { const ps = MC.audio.voicePauses(p); p.markers = ps.map((x) => Math.round(x.t * 100) / 100); commit(); MC.toast(ps.length ? t(ps.length + ' pausas marcadas en la regla', ps.length + ' pauses marked on the ruler') : t('No se han encontrado pausas', 'No pauses found')); } }, t('Marcar pausas de la voz', 'Mark voice pauses')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice || p.shots.length < 2, onClick: () => { if (MC.audio.fitShotsToVoice(p)) { commit(); setTime(S.time); MC.toast(t('Planos ajustados a la voz', 'Shots fitted to the voice')); } else MC.toast(t('Faltan pausas en la voz para repartir ' + p.shots.length + ' planos.', 'Not enough voice pauses to split ' + p.shots.length + ' shots.')); } }, t('Ajustar planos a la voz', 'Fit shots to voice'))),
+        !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
+      const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
+        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
+      MC.put(b, S.ws === 'audio' ? audioSecs.concat(ordered) : ordered.slice(0, 3).concat(audioSecs, ordered.slice(3)));
       b.scrollTop = top;
     }
 
@@ -388,9 +492,23 @@
       { es: '1 · Planos', en: '1 · Shots' }, { es: '2 · Texto y efectos', en: '2 · Text and effects' }, { es: '3 · Locución', en: '3 · Voice' },
       { es: '4 · SFX', en: '4 · SFX' }, { es: '5 · Música', en: '5 · Music' },
     ];
+    const AU = ['voz', 'sfx', 'musica'];
+    const WAVE = { bg: '', fg: '' };
+    function drawWave(canvas, c, w) {
+      const a = MC.audio.get(c.assetId); if (!a) return;
+      const hh = 26; canvas.width = Math.max(1, Math.floor(w)); canvas.height = hh;
+      const g = canvas.getContext('2d'); g.clearRect(0, 0, canvas.width, hh);
+      g.fillStyle = WAVE.fg || '#ECEEF0'; g.globalAlpha = 0.85;
+      for (let x = 0; x < canvas.width; x += 2) {
+        const i0 = Math.floor((c.offset + (x / canvas.width) * c.dur) * 50), i1 = Math.floor((c.offset + ((x + 2) / canvas.width) * c.dur) * 50);
+        let m = 0; for (let i = i0; i <= Math.max(i0, i1); i++) m = Math.max(m, a.peaks[i] || 0);
+        const bh = Math.max(1, (m / 255) * hh); g.fillRect(x, (hh - bh) / 2, 1.4, bh);
+      }
+    }
     function layoutClips() {
       const p = S.project, starts = MC.shotStarts(p), total = MC.totalTime(p), pps = S.pps;
-      el.tlContent.style.width = Math.max(total * pps + 120, 320) + 'px';
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur));
+      el.tlContent.style.width = Math.max(end * pps + 120, 320) + 'px';
       el.tlContent.querySelectorAll('.clip[data-i]').forEach((c) => {
         const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
@@ -399,17 +517,33 @@
         const i = +c.dataset.tr, sh = p.shots[i]; if (!sh) return;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, Math.min(sh.transition.dur, sh.duration * 0.9) * pps - 2) + 'px';
       });
+      el.tlContent.querySelectorAll('.clip[data-c]').forEach((el2) => {
+        const c = clipById(el2.dataset.c); if (!c) return;
+        el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
+        drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
+      });
       updateTime();
+    }
+    function snapT(tm, ignore) {
+      const pts = [0, S.time].concat(MC.shotStarts(S.project), S.project.clips.filter((c) => c.id !== ignore).flatMap((c) => [c.start, c.start + c.dur]));
+      let best = tm; const thr = 8 / S.pps;
+      pts.forEach((x) => { if (Math.abs(x - tm) < thr && Math.abs(x - tm) <= Math.abs(best - tm)) best = x; });
+      return Math.max(0, Math.round(best * 100) / 100);
     }
     function renderTimeline() {
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
-      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }), TRACKS.map((tr) => h('div', null, t(tr.es, tr.en))));
+      const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
+      const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
+      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }), TRACKS.map((tr, i) => h('div', { class: 'trl' }, h('span', null, t(tr.es, tr.en)),
+        i >= 2 ? h('span', { class: 'trb' }, addBtn(AU[i - 2]), i === 2 ? h('button', { class: 'btn btn-g', type: 'button', title: t('Grabar locución', 'Record voice-over'), 'aria-label': t('Grabar locución', 'Record voice-over'), onClick: recordVoice }, MC.icon('mic', 13)) : null) : null)));
       MC.clear(el.tlContent);
       const ruler = h('div', { class: 'tl-ruler', 'aria-label': t('Regla de tiempo', 'Time ruler') });
       const step = pps >= 55 ? 1 : pps >= 28 ? 2 : 5;
-      for (let s = 0; s <= total + 40; s += step) ruler.append(h('b', { style: { left: s * pps + 'px' } }, Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')));
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur));
+      for (let s = 0; s <= end + 40; s += step) ruler.append(h('b', { style: { left: s * pps + 'px' } }, Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')));
+      p.markers.forEach((m) => ruler.append(h('i', { class: 'mk', title: t('Pausa de la voz', 'Voice pause'), style: { left: m * pps + 'px' } })));
       el.tlContent.append(ruler);
-      const rows = TRACKS.map((tr, i) => h('div', { class: 'tl-track' + (i > 1 ? ' off' : ''), 'data-hint': i > 1 ? t('Llega con el audio', 'Arrives with audio') : '' }));
+      const rows = TRACKS.map((tr, i) => h('div', { class: 'tl-track' + (i > 1 && !p.clips.some((c) => c.track === AU[i - 2]) ? ' off' : ''), 'data-hint': t('Importa o graba audio con los botones de la izquierda', 'Import or record audio with the buttons on the left') }));
       rows.forEach((r) => el.tlContent.append(r));
       p.shots.forEach((sh, i) => {
         const clip = h('div', { class: 'clip' + (i === S.si ? ' on' : ''), 'data-i': i, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
@@ -421,14 +555,37 @@
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = sh.duration; clip._moved = true;
           const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
-          const end = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', end); rz.removeEventListener('pointercancel', end); setTimeout(() => { clip._moved = false; }, 0); commit(); };
-          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', end); rz.addEventListener('pointercancel', end);
+          const endd = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', endd); rz.removeEventListener('pointercancel', endd); setTimeout(() => { clip._moved = false; }, 0); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', endd); rz.addEventListener('pointercancel', endd);
         });
         rows[0].append(clip);
         if (i > 0 && sh.transition.type !== 'cut') {
           const tr = MC.TRANSITIONS.find((x) => x.v === sh.transition.type);
           rows[1].append(h('div', { class: 'clip fx', 'data-tr': i, title: t('Transición de entrada', 'Entry transition') }, h('span', null, t(tr.es, tr.en))));
         }
+      });
+      p.clips.forEach((c) => {
+        const a = MC.audio.get(c.assetId);
+        const el2 = h('div', { class: 'clip au' + (c.id === S.cl ? ' on' : ''), 'data-c': c.id, role: 'button', tabindex: '0', title: c.name }, h('canvas'), h('span', null, c.name), h('div', { class: 'rz', 'aria-label': t('Recortar el final', 'Trim the end') }));
+        const rz = el2.querySelector('.rz');
+        el2.addEventListener('pointerdown', (e) => {
+          if (e.target === rz) return;
+          el2.setPointerCapture(e.pointerId);
+          el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
+          el2.classList.add('on'); S.cl = c.id;
+          const x0 = e.clientX, s0 = c.start; let moved = false;
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapT(s0 + (ev.clientX - x0) / S.pps, c.id); layoutClips(); touch(); } };
+          const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else renderInspector(); };
+          el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
+        });
+        rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId);
+          const x0 = e.clientX, d0 = c.dur, maxd = a ? a.dur - c.offset : 600;
+          const mv = (ev) => { c.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.1, maxd); layoutClips(); touch(); };
+          const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
+        });
+        rows[2 + Math.max(0, AU.indexOf(c.track))].append(el2);
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
       layoutClips();
@@ -446,8 +603,9 @@
     }
 
     /* ---------- montaje de la interfaz ---------- */
-    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
-    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
+    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
+    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
+    const fileAudio = h('input', { type: 'file', accept: 'audio/*,.wav,.mp3,.m4a,.ogg', multiple: true, hidden: true, id: 'f-audio', onChange: (e) => { importAudio([...e.target.files], fileAudio.dataset.track || 'auto'); e.target.value = ''; } });
     el.top = h('div', { class: 's-top' });
     el.layersBody = h('div', { class: 'pbody' });
     el.inspBody = h('div', { class: 'pbody insp' });
@@ -475,12 +633,14 @@
     const timeline = h('div', { class: 'p-timeline' },
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: openLibrary }, MC.icon('note', 14), t('Sonidos', 'Sounds')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime),
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
     const mtabs = h('div', { class: 'mtabs' }, [['layers', t('Capas', 'Layers')], ['inspector', 'Inspector'], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
-    const studio = h('div', { class: 'studio', 'data-ws': S.ws, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, layersPanel, viewer, inspector), mtabs, timeline, fileLayers, fileShots);
+    const studio = h('div', { class: 'studio', 'data-ws': S.ws, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, layersPanel, viewer, inspector), mtabs, timeline, fileLayers, fileShots, fileAudio);
 
     function renderAll() { renderTop(); renderLayers(); renderInspector(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     MC.put(MC.clear(root), studio);
@@ -502,9 +662,10 @@
       const dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (S.playing) {
         const total = MC.totalTime(S.project);
-        let tm = S.time + dt;
-        if (tm >= total) { if (S.loop) tm = 0; else { tm = Math.max(0, total - 0.001); S.playing = false; updateTransport(); } }
+        let tm = S.time + dt, wrapped = false;
+        if (tm >= total) { if (S.loop) { tm = 0; wrapped = true; } else { tm = Math.max(0, total - 0.001); S.playing = false; MC.audio.stop(); updateTransport(); } }
         setTime(tm);
+        if (wrapped) MC.audio.play(S.project, 0);
       }
       if (S.dirty) { S.dirty = false; try { draw(); } catch (e) { console.error(e); } }
     }
@@ -524,13 +685,15 @@
       else if (k === 'arrowright') setTime(S.time + (e.shiftKey ? 1 : 1 / 30));
       else if (k === 'home') setTime(0);
       else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
+      else if (k === 's' && S.cl) splitClip();
+      else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }
       else if ((k === 'delete' || k === 'backspace') && layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); }
     }
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
-    function cleanup() { cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
+    function cleanup() { MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
     MC.studioCleanup = () => { S.alive = false; cleanup(); };
   };
 })();

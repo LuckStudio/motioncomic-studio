@@ -138,6 +138,7 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 /* estudio */
 .studio { height: 100%; min-height: 520px; display: grid; grid-template-rows: auto minmax(0, 1fr) var(--tl-h, 274px); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
 .studio[data-ws="capas"] { --tl-h: 224px; }
+.studio[data-ws="audio"] { --tl-h: 330px; }
 .s-top { display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--line); min-width: 0; }
 .s-top .ttl { background: transparent; border: 1px solid transparent; border-radius: 8px; font-weight: 600; font-size: 14px; padding: 5px 8px; width: min(220px, 26vw); min-width: 90px; }
 .s-top .ttl:hover, .s-top .ttl:focus { border-color: var(--line); outline: none; background: var(--bg); }
@@ -194,6 +195,9 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 .tl-body { display: grid; grid-template-columns: 136px minmax(0, 1fr); overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; padding-bottom: 8px; }
 .tl-labels { display: grid; grid-auto-rows: 34px; padding-left: 12px; }
 .tl-labels .rs { height: 24px; }
+.tl-labels .trl { justify-content: space-between; gap: 4px; }
+.tl-labels .trb { display: inline-flex; flex: none; }
+.tl-labels .trb .btn { width: 24px; height: 24px; padding: 3px; }
 .tl-labels div { font-size: 12px; color: var(--muted); display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tl-scroll { overflow-x: auto; overflow-y: hidden; padding-right: 12px; }
 .tl-content { position: relative; min-width: 100%; }
@@ -207,6 +211,10 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 .clip .rz { position: absolute; right: 0; top: 0; bottom: 0; width: 10px; cursor: ew-resize; touch-action: none; }
 .clip .rz::after { content: ""; position: absolute; right: 3px; top: 25%; bottom: 25%; width: 2px; border-radius: 2px; background: currentColor; opacity: .4; }
 .clip.fx { background: var(--accent); color: var(--on-accent); }
+.clip.au { background: var(--aux); color: var(--fg); padding: 0; }
+.clip.au canvas { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 26px; pointer-events: none; }
+.clip.au span { position: relative; padding: 0 12px 0 6px; font-size: 11px; font-weight: 600; mix-blend-mode: normal; text-shadow: 0 0 3px var(--bg); }
+.tl-ruler i.mk { position: absolute; bottom: 0; width: 0; height: 9px; border-left: 2px solid var(--accent); }
 .tr-mark { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent); opacity: .85; pointer-events: none; }
 .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; z-index: 3; }
 .playhead::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: var(--accent); border-bottom: 0; }

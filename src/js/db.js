@@ -77,9 +77,19 @@
   MC.projectAssetIds = (p) => {
     const ids = new Set();
     p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    (p.clips || []).forEach((c) => ids.add(c.assetId));
     return ids;
   };
-  MC.loadProjectAssets = (p) => Promise.all([...MC.projectAssetIds(p)].map((id) => MC.assets.load(id)));
+  MC.loadProjectAssets = (p) => Promise.all([
+    ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
+  ]);
+  /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
+  MC.normalizeProject = (p) => {
+    p.clips = p.clips || []; p.markers = p.markers || [];
+    p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
+    return p;
+  };
 
   /* Modelo de proyecto */
   MC.newCamera = () => ({ preset: 'zoomin', intensity: 1, curve: 'smooth', from: { x: 0, y: 0, zoom: 1, rot: 0 }, to: { x: 0, y: 0, zoom: 1.25, rot: 0 }, shake: 0 });
@@ -87,6 +97,7 @@
   MC.newProject = (o) => ({
     id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
+    clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
   });
 
   /* Presets de cámara (PRD 8) */

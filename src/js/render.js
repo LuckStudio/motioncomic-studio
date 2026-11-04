@@ -34,16 +34,24 @@
     return cam;
   };
 
+  /* Caja de la capa: escala base y centro. Una capa de PSD recortada (layer.doc) conserva su sitio dentro del documento. */
+  MC.layerBox = (layer, img, o, s) => {
+    const doc = layer.doc;
+    const s0 = doc ? Math.max(o.W / doc.w, o.H / doc.h) : Math.max(o.W / img.w, o.H / img.h);
+    const base = s0 * (layer.scale || 1), sc = s == null ? base : s;
+    const dx = doc ? doc.left + img.w / 2 - doc.w / 2 : 0, dy = doc ? doc.top + img.h / 2 - doc.h / 2 : 0;
+    return { base, s: sc, dx, dy, cx: o.W / 2 + dx * sc + (layer.x || 0) * o.W, cy: o.H / 2 + dy * sc + (layer.y || 0) * o.H };
+  };
   MC.layerGeom = (layer, img, cam, o) => {
     const I = o.parallaxI;
     return {
       f: 1 + (layer.z - 0.5) * I * 0.8, // cuánto se desplaza con la cámara
       zl: 1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6), // cuánto se acerca con el zoom
-      base: Math.max(o.W / img.w, o.H / img.h) * (layer.scale || 1),
+      base: MC.layerBox(layer, img, o).base,
     };
   };
 
-  /* Escala que necesita una capa de fondo para no dejar huecos durante todo el plano. */
+  /* Muestras de cámara a lo largo del plano para saber qué debe cubrir una capa de fondo. */
   MC.coverNeeds = (layer, img, shot, o) => {
     const { W, H } = o, out = [];
     const shake = shot.camera.shake || 0;
@@ -52,21 +60,26 @@
       const g = MC.layerGeom(layer, img, cam, o);
       const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
       const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
-      const camx = W / 2 + cam.x * W * g.f, camy = H / 2 + cam.y * H * g.f;
-      const nx = Math.abs(W / 2 + (layer.x || 0) * W - camx) + (W / (2 * g.zl)) * rk + shake * 0.014 * W;
-      const ny = Math.abs(H / 2 + (layer.y || 0) * H - camy) + (H / (2 * g.zl)) * rk + shake * 0.014 * H;
-      out.push({ nx, ny, zl: g.zl });
+      out.push({
+        Ax: W / 2 + (layer.x || 0) * W - (W / 2 + cam.x * W * g.f), Bx: (W / (2 * g.zl)) * rk + shake * 0.014 * W,
+        Ay: H / 2 + (layer.y || 0) * H - (H / 2 + cam.y * H * g.f), By: (H / (2 * g.zl)) * rk + shake * 0.014 * H, zl: g.zl,
+      });
     }
     return out;
   };
   MC.coverScale = (layer, img, shot, o) => {
+    const box = MC.layerBox(layer, img, o), hw = img.w / 2, hh = img.h / 2;
     let s = 0;
-    MC.coverNeeds(layer, img, shot, o).forEach((n) => { s = Math.max(s, n.nx / (img.w / 2), n.ny / (img.h / 2)); });
+    const need = (v, c) => { if (c > 1e-6) s = Math.max(s, v / c); };
+    MC.coverNeeds(layer, img, shot, o).forEach((n) => {
+      need(n.Ax + n.Bx, hw - box.dx); need(-n.Ax + n.Bx, hw + box.dx);
+      need(n.Ay + n.By, hh - box.dy); need(-n.Ay + n.By, hh + box.dy);
+    });
     return s * 1.003;
   };
   /* Escala con la que se dibuja la capa de verdad (incluye sobreescalado automático). */
   MC.effScale = (layer, img, shot, o) => {
-    const base = Math.max(o.W / img.w, o.H / img.h) * (layer.scale || 1);
+    const base = MC.layerBox(layer, img, o).base;
     return o.overscan && layer.role === 'fondo' ? Math.max(base, MC.coverScale(layer, img, shot, o)) : base;
   };
   /* Margen seguro del plano: cuánto se puede mover la cámara sin enseñar huecos (fracción del encuadre). Negativo = hay huecos. */
@@ -76,15 +89,16 @@
       const img = o.getImg(l.assetId);
       if (!img || l.role !== 'fondo' || l.visible === false) return;
       any = true;
-      const s = MC.effScale(l, img, shot, o);
+      const s = MC.effScale(l, img, shot, o), box = MC.layerBox(l, img, o, s), hw = img.w / 2, hh = img.h / 2;
       MC.coverNeeds(l, img, shot, o).forEach((n) => {
-        mx = Math.min(mx, (img.w * s / 2 - n.nx) / o.W);
-        my = Math.min(my, (img.h * s / 2 - n.ny) / o.H);
+        mx = Math.min(mx, (s * (hw - box.dx) - (n.Ax + n.Bx)) / o.W, (s * (hw + box.dx) - (-n.Ax + n.Bx)) / o.W);
+        my = Math.min(my, (s * (hh - box.dy) - (n.Ay + n.By)) / o.H, (s * (hh + box.dy) - (-n.Ay + n.By)) / o.H);
       });
     });
     return any ? { x: mx, y: my } : null;
   };
 
+  const BLEND = { multiply: 1, screen: 1, overlay: 1, darken: 1, lighten: 1, 'color-dodge': 1, 'color-burn': 1, 'hard-light': 1, 'soft-light': 1, difference: 1, exclusion: 1 };
   MC.renderShot = (ctx, shot, tl, o) => {
     const { W, H } = o;
     const cam = o.cam || MC.camAt(shot, tl);
@@ -100,17 +114,17 @@
       const img = o.getImg(layer.assetId);
       if (!img) continue;
       const g = MC.layerGeom(layer, img, cam, o);
-      const s = MC.effScale(layer, img, shot, o);
+      const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
       const camx = W / 2 + (cam.x + cam.sx) * W * g.f, camy = H / 2 + (cam.y + cam.sy) * H * g.f;
-      const lx = W / 2 + (layer.x || 0) * W, ly = H / 2 + (layer.y || 0) * H;
       ctx.save();
       ctx.globalAlpha = layer.opacity == null ? 1 : layer.opacity;
+      if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       if (layer.blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (layer.blur * W / 1920).toFixed(2) + 'px)';
       ctx.translate(W / 2, H / 2);
       if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
       ctx.scale(g.zl, g.zl);
       ctx.translate(-camx, -camy);
-      ctx.drawImage(img.bitmap, lx - (img.w * s) / 2, ly - (img.h * s) / 2, img.w * s, img.h * s);
+      ctx.drawImage(img.bitmap, box.cx - (img.w * box.s) / 2, box.cy - (img.h * box.s) / 2, img.w * box.s, img.h * box.s);
       ctx.restore();
     }
     ctx.restore();

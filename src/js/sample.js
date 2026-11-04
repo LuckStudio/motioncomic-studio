@@ -164,8 +164,17 @@
       MC.applyPreset(sh.camera, spec.preset[0], spec.preset[1]);
       p.shots.push(sh);
     }
+    /* audio de ejemplo generado por código: música de fondo y dos efectos en los cambios de plano */
+    const lib = (id) => MC.audio.LIBRARY.find((x) => x.id === id), starts = MC.shotStarts(p), total = MC.totalTime(p);
+    const put = async (id, track, start, opts) => {
+      const it = lib(id), a = await MC.audio.add(MC.audio.wav(await MC.audio.renderLibrary(it)), (en ? it.en : it.es) + '.wav');
+      const c = MC.audio.newClip(track, a, start); Object.assign(c, opts || {}); p.clips.push(c);
+    };
+    await put('noche', 'musica', 0, { dur: Math.min(total, 16), vol: 0.9, fadeIn: 0.8, fadeOut: 1.8 });
+    await put('whoosh', 'sfx', Math.max(0, starts[1] - 0.15), { vol: 0.8 });
+    await put('explosion', 'sfx', starts[2], { vol: 0.9 });
     p.thumb = MC.makeThumb(p);
-    p.sample = true;
+    p.sample = true; p.sampleV = 2;
     return p;
   };
 })();

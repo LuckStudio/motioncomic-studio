@@ -21,12 +21,12 @@
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
-    if (!MC.store.get('seeded', '')) {
+    if (!MC.store.get('seeded2', '')) {
       const existing = await MC.db.all('projects');
-      if (!existing.length) {
+      if (!existing.some((q) => q.sampleV === 2)) {
         try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
-      MC.store.set('seeded', '1');
+      MC.store.set('seeded2', '1');
     }
     await MC.app.render();
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
