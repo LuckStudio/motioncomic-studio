@@ -534,3 +534,11 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .sndrow .lt.au { display: grid; place-items: center; color: var(--aux); background: var(--raised); }
 .subpresets { display: grid; gap: 8px; }
 .subprs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 420px; overflow: auto; padding: 2px; }
+
+/* ---------- planos superpuestos ---------- */
+.tl-track.xtr { background: color-mix(in srgb, var(--warn) 7%, var(--bg)); }
+.tl-labels .trl.xt { color: var(--warn); }
+.clip.xs { background-color: color-mix(in srgb, var(--warn) 55%, var(--panel)); background-size: auto 100%; background-repeat: repeat-x; color: #fff; padding-left: 8px; }
+.clip.xs span { background: rgba(0,0,0,.62); padding: 1px 7px; }
+.clip.xs.on { border-color: var(--fg); box-shadow: 0 0 0 1px var(--warn); }
+.clip.xs.hid { opacity: .4; }

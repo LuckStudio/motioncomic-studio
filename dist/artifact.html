@@ -564,6 +564,14 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .subpresets { display: grid; gap: 8px; }
 .subprs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 420px; overflow: auto; padding: 2px; }
 
+/* ---------- planos superpuestos ---------- */
+.tl-track.xtr { background: color-mix(in srgb, var(--warn) 7%, var(--bg)); }
+.tl-labels .trl.xt { color: var(--warn); }
+.clip.xs { background-color: color-mix(in srgb, var(--warn) 55%, var(--panel)); background-size: auto 100%; background-repeat: repeat-x; color: #fff; padding-left: 8px; }
+.clip.xs span { background: rgba(0,0,0,.62); padding: 1px 7px; }
+.clip.xs.on { border-color: var(--fg); box-shadow: 0 0 0 1px var(--warn); }
+.clip.xs.hid { opacity: .4; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -27077,7 +27085,7 @@ module.exports = ZStream;
   /* Memoria de las imágenes (RGBA sin comprimir): en edición y al exportar. */
   MC.memEstimate = (p) => {
     let edit = 0, full = 0;
-    new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
+    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
       const a = cache.get(id); if (!a) return;
       full += a.w * a.h * 4; edit += (a.proxy ? a.bitmap.width * a.bitmap.height : a.w * a.h) * 4;
     });
@@ -27086,7 +27094,7 @@ module.exports = ZStream;
 
   MC.projectAssetIds = (p) => {
     const ids = new Set();
-    p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
     (p.overlays || []).forEach((o) => ids.add(o.assetId));
     (p.fonts || []).forEach((f) => ids.add(f.id));
@@ -27094,7 +27102,7 @@ module.exports = ZStream;
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
-    ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.overlays || []).map((o) => o.assetId))].map((id) => MC.assets.load(id).catch(() => null)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
@@ -27107,7 +27115,7 @@ module.exports = ZStream;
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
-    p.notes = p.notes || []; p.subs = p.subs || [];
+    p.notes = p.notes || []; p.subs = p.subs || []; p.xshots = p.xshots || []; p.xtracks = p.xtracks && p.xtracks.length ? p.xtracks : [{ id: MC.uid(), name: MC.t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }]; p.xshots.forEach((sh) => { sh.fx = sh.fx || []; sh.xtrack = Math.min(sh.xtrack || 0, p.xtracks.length - 1); });
     p.overlays = p.overlays || []; p.otracks = p.otracks && p.otracks.length ? p.otracks : [MC.newOtrack(1)];
     p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
     if ((p.mode || 'free') === 'free') p.frame.on = true;
@@ -27528,7 +27536,8 @@ module.exports = ZStream;
   MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
 
   MC.shotStarts = (p) => { let t = 0; return p.shots.map((s) => { const a = t; t += s.duration; return a; }); };
-  MC.totalTime = (p) => p.shots.reduce((a, s) => a + s.duration, 0);
+  MC.totalTime = (p) => Math.max(p.shots.reduce((a, s) => a + s.duration, 0), ...(p.xshots || []).map((x) => x.start + x.duration));
+  MC.baseTime = (p) => p.shots.reduce((a, s) => a + s.duration, 0);
   MC.locate = (p, time) => {
     let t = 0;
     for (let i = 0; i < p.shots.length; i++) {
@@ -27646,10 +27655,10 @@ module.exports = ZStream;
     const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
-    const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
+    const fr = !o.noClip && !o.transparent && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
     const pan = fr ? MC.panelGeom(fr, W, H) : null;
     const k0 = ctx.getTransform().a;
-    const shotStart = o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0;
+    const shotStart = shot.xtrack != null && shot.start != null ? shot.start : (o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0);
     const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
       if (!img) return;
@@ -27706,8 +27715,7 @@ module.exports = ZStream;
       ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
       const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
       if (pan) { MC.drawPanelBg(ctx, fr, W, H); MC.drawPanelShadow(ctx, fr, pan, W, H); ctx.save(); MC.pathPoly(ctx, pan.poly); ctx.clip(); }
-      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
-      ctx.fillRect(0, 0, W, H);
+      if (!o.transparent) { ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000'; ctx.fillRect(0, 0, W, H); }
     }
     ctx.save(); content();
     for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
@@ -27742,7 +27750,13 @@ module.exports = ZStream;
     MC.renderShot(ctx, cur, tl, o);
   };
 
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
+  /* planos superpuestos: varios planos a la vez, cada uno con su cámara y sus capas, sobre el plano principal */
+  MC.renderXShots = (ctx, project, time, o) => {
+    const list = project.xshots || []; if (!list.length || o.xshots === false) return;
+    const tr = project.xtracks || [];
+    list.filter((x) => time >= x.start && time < x.start + x.duration && (tr[x.xtrack || 0] || {}).visible !== false).sort((a, b) => (a.xtrack || 0) - (b.xtrack || 0)).forEach((x) => MC.renderShot(ctx, x, time - x.start, Object.assign({}, o, { transparent: true, project })));
+  };
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); MC.renderXShots(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
@@ -28455,12 +28469,13 @@ module.exports = ZStream;
       out.push({ key: l.id, asset: a, vt: V.localTime({ start: 0, offset: l.voffset || 0, speed: l.vspeed || 1, loop: l.vloop }, a, tl), speed: l.vspeed || 1, play: true });
     });
     pushShot(cur, loc.tl);
+    (p.xshots || []).forEach((x) => { if (time >= x.start && time < x.start + x.duration) pushShot(x, time - x.start); });
     if (loc.i > 0 && cur && cur.transition && cur.transition.type !== 'cut' && loc.tl < Math.min(cur.transition.dur || 0.6, cur.duration * 0.9)) pushShot(p.shots[loc.i - 1], p.shots[loc.i - 1].duration);
     return out;
   };
   /* mientras se exporta, el visor no toca los vídeos (se vence solo si la exportación se corta) */
   V.isExporting = () => !!V.exporting && Date.now() - (V.expAt || 0) < 4000;
-  V.hasVideo = (p) => (p.overlays || []).some((o) => o.kind === 'video') || p.shots.some((s) => s.layers.some((l) => { const a = MC.assets.get(l.assetId); return a && a.video; }));
+  V.hasVideo = (p) => (p.overlays || []).some((o) => o.kind === 'video') || p.shots.concat(p.xshots || []).some((s) => s.layers.some((l) => { const a = MC.assets.get(l.assetId); return a && a.video; }));
 
   /* Reproducción: los vídeos corren solos y se corrigen si se desvían. Parado: se pausan. */
   V.sync = (p, time, playing) => {
@@ -30179,7 +30194,7 @@ module.exports = ZStream;
     if (opt.ratio) p.ratio = opt.ratio;
     p.res = opt.res || p.res;
     MC.finalizePages(p);
-    await MC.assets.useFull([...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))]);
+    await MC.assets.useFull([...new Set(p.shots.concat(p.xshots || []).flatMap((sh) => sh.layers.map((l) => l.assetId)))]);
     try { return await runOne(p, opt, onProgress, signal); } finally { MC.assets.useProxy(); }
   };
 
@@ -31255,13 +31270,15 @@ module.exports = ZStream;
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay', sb: 'subs' };
-    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, sb: null, swi: 0, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
+    const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay', sb: 'subs', xs: 'shot' };
+    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, xs: null, li: -1, cl: null, tx: null, ov: null, sb: null, swi: 0, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
       ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_3d: false, overlay_3d: false, capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
     const el = {};
-    const shot = () => S.project.shots[S.si];
+    const shot = () => (S.xs && xById(S.xs)) || S.project.shots[S.si];
+    const xById = (id) => (S.project.xshots || []).find((x) => x.id === id);
+    const curStart = () => { const x = S.xs && xById(S.xs); return x ? x.start : MC.shotStarts(S.project)[S.si]; };
     const layer = () => (shot() ? shot().layers[S.li] : null);
     const opts = (extra) => MC.renderOpts(S.project, Object.assign({ holes: S.holes && S.view === 'out', lang: S.project.lang }, extra));
 
@@ -31289,7 +31306,7 @@ module.exports = ZStream;
     }
     function touch() { S.dirty = true; S.dirtySinceVer = true; scheduleSave(); }
     function commit() {
-      S.project.shots.forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
+      S.project.shots.concat(S.project.xshots || []).forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
       MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
     function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
     function restore(i) {
@@ -31307,11 +31324,16 @@ module.exports = ZStream;
       const me = MC.memEstimate(S.project), lim = MC.limits(), mb = me.edit / 1048576;
       if (mb > lim.editMB) { S.memWarned = true; MC.toast(t('Las imágenes ocupan ≈ ' + Math.round(mb) + ' MB en edición y para este equipo se recomienda no pasar de ≈ ' + Math.round(lim.editMB) + ' MB. Reduce capas o tamaño.', 'Images take ≈ ' + Math.round(mb) + ' MB while editing and about ' + Math.round(lim.editMB) + ' MB is recommended for this device. Reduce layers or size.')); }
     }
+    function selectXs(id, seek) {
+      const x = xById(id); if (!x) return; S.xs = id; S.li = -1; S.cl = null; S.tx = null; S.ov = null; S.sb = null; S.multi = []; S.fxsel = null; S.selKind = 'shot';
+      if (seek) S.time = clamp(x.start + 0.01, 0, Math.max(0, MC.totalTime(S.project) - 0.001));
+      S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
+    }
     function selectShot(i, seek) {
-      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null; S.fxsel = null;
+      S.xs = null; S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null; S.fxsel = null;
       if (S.ws === 'camara') S.view = editView(); else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
       S.selKind = 'shot';
-      if (seek) S.time = MC.shotStarts(S.project)[S.si];
+      if (seek) S.time = curStart();
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
       MC.announce(t('Plano ', 'Shot ') + (S.si + 1) + ': ' + (shot() ? shot().name : ''));
     }
@@ -31384,7 +31406,7 @@ module.exports = ZStream;
           if (asShots) { const ns = MC.newShot(a.name.replace(/\.[a-z0-9]+$/i, '')); MC.applyPreset(ns.camera, 'none', 1); S.project.shots.push(ns); S.si = S.project.shots.length - 1; }
           const sh = shot(), empty = sh.layers.length === 0;
           const L = MC.newLayer(a, empty ? { z: 0.1, role: 'fondo' } : { z: 0.5, role: '' }); L.vloop = true; sh.layers.push(L); S.li = sh.layers.length - 1;
-          if (a.audioId) { const ab = MC.audio.get(a.audioId), c = MC.audio.newClip('sfx', ab, MC.shotStarts(S.project)[S.si]); c.dur = Math.min(ab.dur, sh.duration); c.name = a.name.replace(/\.[a-z0-9]+$/i, '') + ' · audio'; S.project.clips.push(c); }
+          if (a.audioId) { const ab = MC.audio.get(a.audioId), c = MC.audio.newClip('sfx', ab, curStart()); c.dur = Math.min(ab.dur, sh.duration); c.name = a.name.replace(/\.[a-z0-9]+$/i, '') + ' · audio'; S.project.clips.push(c); }
           if (a.dur > sh.duration && empty) sh.duration = Math.min(60, Math.round(a.dur * 10) / 10);
           commit(); videoNote(a);
         } catch (e) { MC.toast(t('No se pudo leer ese vídeo. Prueba con MP4 (H.264) o WebM.', 'Could not read that video. Try MP4 (H.264) or WebM.')); }
@@ -31470,7 +31492,7 @@ module.exports = ZStream;
         const r = await MC.importPsd(file), sh = shot(), warns = r.warnings.slice();
         const [pw, ph] = [r.doc.w, r.doc.h];
         if (Math.abs(pw / ph - opts().W / opts().H) > 0.06) warns.push(t('El PSD mide ' + pw + '×' + ph + ' y el proyecto es ' + S.project.ratio + ': se recorta para cubrir el encuadre. Puedes cambiar la proporción en «Formato».', 'The PSD is ' + pw + '×' + ph + ' and the project is ' + S.project.ratio + ': it is cropped to cover the frame. You can change the ratio in “Format”.'));
-        const startAt = (!sh.layers.length ? MC.shotStarts(S.project)[S.si] : MC.shotStarts(S.project)[S.si] + sh.duration);
+        const startAt = (!sh.layers.length ? curStart() : curStart() + sh.duration);
         if (!sh.layers.length) { sh.layers = r.shot.layers; sh.name = r.shot.name; S.li = -1; }
         else { S.project.shots.splice(S.si + 1, 0, r.shot); }
         (r.texts || []).forEach((q) => { const it = MC.newText('box', Math.round(startAt * 100) / 100, S.project); it.t[S.project.lang || 'es'] = q.text; Object.assign(it, { x: q.x, y: q.y, w: q.w, size: q.size, color: q.color, fill: 'rgba(255,255,255,0)', stroke: 'rgba(0,0,0,0)', align: 'center', anim: 'pop', dur: Math.min(4, (shot() ? r.shot.duration : 4)) }); S.project.texts.push(it); });
@@ -31495,7 +31517,7 @@ module.exports = ZStream;
     const kfTarget = () => {
       const sel = S.selKind;
       if (sel === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { it, start: it.start, dur: it.dur, kind: 'overlay' }; }
-      if (sel === 'layer' && layer()) { const sh = shot(); return { it: layer(), start: MC.shotStarts(S.project)[S.si], dur: sh.duration, kind: 'layer' }; }
+      if (sel === 'layer' && layer()) { const sh = shot(); return { it: layer(), start: curStart(), dur: sh.duration, kind: 'layer' }; }
       return null;
     };
     const subById = (id) => (S.project.subs || []).find((x) => x.id === id);
@@ -31882,7 +31904,7 @@ module.exports = ZStream;
       return h('button', { type: 'button', class: 'trtile', 'aria-pressed': String(!!selected), title: t(info.es, info.en), onClick: onPick, onPointerenter: () => { c._hover = true; }, onPointerleave: () => { c._hover = false; MC.trPreview(c, tr, 0.5); } }, c, h('span', null, t(info.es, info.en)));
     }
     function previewTransition() {
-      const st = MC.shotStarts(S.project)[S.si];
+      const st = curStart();
       setTime(Math.max(0, st - 0.6)); togglePlay(true);
       const stopAt = st + Math.min(shot().transition.dur || 0.6, shot().duration * 0.9) + 0.6;
       const iv = setInterval(() => { if (!S.playing || S.time >= stopAt) { clearInterval(iv); if (S.playing) togglePlay(false); } }, 50);
@@ -31938,12 +31960,18 @@ module.exports = ZStream;
       /* plano */
       const planoNodes = [
         nameIn(t('Nombre del plano', 'Shot name'), sh.name, (v) => { if (v) { sh.name = v; commit(); } }),
-        (() => { let rp = null, d0 = sh.duration; return MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { if (S.ripple && !rp) rp = rippleBegin(MC.shotStarts(p)[S.si] + d0); sh.duration = v; if (rp) rippleApply(rp, v - d0); layoutClips(); touch(); }, onChange: () => { rp = null; commit(); } }); })(),
+        (() => { let rp = null, d0 = sh.duration; return MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { if (S.ripple && !rp) rp = rippleBegin(curStart() + d0); sh.duration = v; if (rp) rippleApply(rp, v - d0); layoutClips(); touch(); }, onChange: () => { rp = null; commit(); } }); })(),
       ];
-      if (S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
+      const isX = !!(S.xs && xById(S.xs));
+      if (isX) planoNodes.push(h('p', { class: 'cap' }, t('Plano superpuesto: suena y se ve a la vez que el plano principal, encima de él. Tiene su propia cámara, capas y efectos. Las zonas vacías son transparentes.', 'Overlapping shot: it plays at the same time as the main shot, on top of it. It has its own camera, layers and effects. Empty areas are transparent.')),
+        MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(MC.totalTime(p), sh.start + 1), step: 0.05, value: sh.start, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { sh.start = v; layoutClips(); S.dirty = true; touch(); }, onChange: commit }),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Pista', 'Track')), MC.ui.chips(p.xtracks.map((q, i) => ({ v: i, l: q.name })), sh.xtrack || 0, (v) => { sh.xtrack = v; commit(); })));
+      if (!isX && S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
       planoNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); if (S.ripple) rippleApply(rippleBegin(MC.shotStarts(p)[S.si] + sh.duration), sh.duration); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
-        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: p.shots.length < 2, onClick: () => { if (S.ripple) { const rp = rippleBegin(MC.shotStarts(p)[S.si] + sh.duration); rippleApply(rp, -sh.duration); } p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot'))));
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); if (isX) { c.start = r2(sh.start + 0.5); p.xshots.push(c); commit(); selectXs(c.id, true); return; } if (S.ripple) rippleApply(rippleBegin(curStart() + sh.duration), sh.duration); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
+        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: !isX && p.shots.length < 2, onClick: () => { if (isX) { p.xshots = p.xshots.filter((x) => x.id !== S.xs); S.xs = null; S.li = -1; S.selKind = 'shot'; commit(); return; } if (S.ripple) { const rp = rippleBegin(curStart() + sh.duration); rippleApply(rp, -sh.duration); } p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot')),
+        isX ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const x = sh, starts = MC.shotStarts(p); let at = p.shots.length; for (let i = 0; i < p.shots.length; i++) if (x.start < starts[i] + p.shots[i].duration / 2) { at = i; break; } p.xshots = p.xshots.filter((q) => q !== x); delete x.start; delete x.xtrack; x.transition = x.transition || { type: 'cut', dur: 0.6 }; p.shots.splice(at, 0, x); S.xs = null; commit(); selectShot(at, true); } }, t('Pasar a la pista principal', 'Move to the main track'))
+          : h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.shots.length < 2 || !!(sh.page || sh.webtoon), title: t('Lo saca de la secuencia y lo pone encima, a la vez que los demás', 'Takes it out of the sequence and puts it on top, playing at the same time'), onClick: () => { const st = curStart(), x = sh; p.shots.splice(S.si, 1); x.start = r2(st); x.xtrack = 0; x.transition = { type: 'cut', dur: 0.6 }; p.xshots.push(x); S.si = clamp(S.si, 0, p.shots.length - 1); commit(); selectXs(x.id, true); } }, t('Pasar a plano superpuesto', 'Make it an overlapping shot'))));
 
       /* cámara */
       const cam = sh.camera;
@@ -32150,7 +32178,7 @@ module.exports = ZStream;
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !asset, onClick: () => { wt.stops = MC.suggestStops(asset); S.sp = null; commit(); MC.toast(wt.stops.length ? t(wt.stops.length + ' pausas sugeridas', wt.stops.length + ' pauses suggested') : t('No se han encontrado bloques separados', 'No separate blocks found')); } }, t('Sugerir pausas', 'Suggest pauses')),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !asset, onClick: () => {
-              const o2 = opts(), tl = clamp(S.time - MC.shotStarts(p)[S.si], 0, sh.duration), cam = MC.camAt(sh, tl, false), s0 = Math.max(o2.W / asset.w, o2.H / asset.h), PH = asset.h * s0;
+              const o2 = opts(), tl = clamp(S.time - curStart(), 0, sh.duration), cam = MC.camAt(sh, tl, false), s0 = Math.max(o2.W / asset.w, o2.H / asset.h), PH = asset.h * s0;
               const sp = { id: MC.uid(), y: Math.round(clamp((o2.H / 2 + cam.y * o2.H - (o2.H / 2 - PH / 2)) / PH, 0, 1) * 1000) / 1000, hold: 1.5, zoom: 1, x: 0 }; wt.stops.push(sp); S.sp = sp.id; commit();
             } }, MC.icon('plus', 14), t('Pausa en el cabezal', 'Pause at playhead')),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: !wt.stops.length, onClick: () => { wt.stops = []; S.sp = null; commit(); } }, t('Quitar todas', 'Remove all'))),
@@ -32219,7 +32247,7 @@ module.exports = ZStream;
         !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
 
       /* trayectoria dibujada, efectos, rack focus y aspecto */
-      const fxSecs = [], shotStart = MC.shotStarts(p)[S.si], localT = clamp(S.time - shotStart, 0, Math.max(0.1, sh.duration));
+      const fxSecs = [], shotStart = curStart(), localT = clamp(S.time - shotStart, 0, Math.max(0.1, sh.duration));
       if (!autoCam) {
         const cp = cam.path && cam.path.custom ? cam.path : null;
         const nodes = [];
@@ -32486,7 +32514,7 @@ module.exports = ZStream;
         }
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart(), sh.duration))] : [];
       const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
@@ -32572,7 +32600,16 @@ module.exports = ZStream;
         h('div', { style: { display: 'grid' } },
           h('button', { class: 'btn btn-g', type: 'button', style: { padding: '2px', width: '26px', height: '24px' }, disabled: i === 0, title: t('Subir', 'Move up'), 'aria-label': t('Subir', 'Move up'), onClick: (e) => { e.stopPropagation(); p.shots.splice(i - 1, 0, p.shots.splice(i, 1)[0]); S.si = i - 1; commit(); } }, MC.icon('up', 14)),
           h('button', { class: 'btn btn-g', type: 'button', style: { padding: '2px', width: '26px', height: '24px' }, disabled: i === p.shots.length - 1, title: t('Bajar', 'Move down'), 'aria-label': t('Bajar', 'Move down'), onClick: (e) => { e.stopPropagation(); p.shots.splice(i + 1, 0, p.shots.splice(i, 1)[0]); S.si = i + 1; commit(); } }, MC.icon('down', 14))))));
-      return [h('div', { class: 'box' }, h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 15), mode === 'page' ? t('Añadir páginas', 'Add pages') : mode === 'webtoon' ? t('Añadir una tira', 'Add a strip') : t('Añadir planos desde imágenes', 'Add shots from images')), h('p', { class: 'cap' }, t('Acepta PNG, JPEG, WebP, PSD y PDF. Selecciona uno para editarlo; arrástralo en la línea de tiempo para estirarlo.', 'Accepts PNG, JPEG, WebP, PSD and PDF. Select one to edit it; stretch it on the timeline.'))), list];
+      return [h('div', { class: 'box' }, h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 15), mode === 'page' ? t('Añadir páginas', 'Add pages') : mode === 'webtoon' ? t('Añadir una tira', 'Add a strip') : t('Añadir planos desde imágenes', 'Add shots from images')), h('p', { class: 'cap' }, t('Acepta PNG, JPEG, WebP, PSD y PDF. Selecciona uno para editarlo; arrástralo en la línea de tiempo para estirarlo.', 'Accepts PNG, JPEG, WebP, PSD and PDF. Select one to edit it; stretch it on the timeline.'))), list].concat((S.project.xshots || []).length || S.project.mode === 'free' ? [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Planos superpuestos · ', 'Overlapping shots · ') + S.project.xshots.length), h('p', { class: 'cap' }, t('Planos que se ven a la vez que el principal, encima de él. Arrastra una imagen a una pista de la línea de tiempo o usa el botón.', 'Shots that show at the same time as the main one, on top of it. Drag an image to a timeline track or use the button.')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: addXShotFromPicker }, MC.icon('plus', 14), t('Añadir plano superpuesto', 'Add overlapping shot')),
+        S.project.xshots.length ? h('div', { style: { display: 'grid', gap: '2px' } }, S.project.xshots.map((x) => h('div', { class: 'layer' + (x.id === S.xs ? ' on' : ''), role: 'button', tabindex: '0', onClick: () => selectXs(x.id, true), onKeydown: (e) => { if (e.key === 'Enter') selectXs(x.id, true); } }, h('span', { class: 'lt' }, MC.icon('layersx', 16)), h('span', { class: 'ln' }, x.name), h('span', { class: 'lz' }, MC.fmtTime(x.start))))) : null)] : []);
+    }
+    async function addXShotFromPicker() { await openAssetPicker({ title: t('Plano superpuesto: elige imágenes', 'Overlapping shot: choose images'), onPick: (ids) => addXShots(ids, 0, S.time) }); }
+    /* crea planos superpuestos a partir de recursos */
+    async function addXShots(ids, track, at) {
+      const p = S.project; let last = null, t0 = at;
+      for (const id of ids) { const a = await MC.assets.load(id); if (!a) continue; const x = MC.newShot(a.name.replace(/\.[a-z0-9]+$/i, '')); const L = MC.newLayer(a, { z: 0.5, role: '' }); L.z = 0.5; if (a.video) { L.vloop = true; x.duration = clamp(Math.round(a.dur * 10) / 10, 1, 30); } else x.duration = 4; x.layers.push(L); MC.applyPreset(x.camera, 'none', 1); x.start = r2(t0); x.xtrack = clamp(track, 0, p.xtracks.length - 1); x.fx = []; delete x.transition; p.xshots.push(x); last = x; t0 += x.duration; }
+      if (last) { commit(); selectXs(last.id, true); MC.toast(t('Plano superpuesto creado: se ve a la vez que el principal.', 'Overlapping shot created: it shows at the same time as the main one.')); }
     }
     function resourcesPanel() {
       const p = S.project, ids = [...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))], aud = [...new Set(p.clips.map((c) => c.assetId))];
@@ -32993,7 +33030,7 @@ module.exports = ZStream;
     }
     function hoverStart(kind, apply) {
       if (S.playing || hov || S.view === 'page' || S.view === 'strip') return; const sh = shot(); if (!sh) return;
-      const st = MC.shotStarts(S.project)[S.si]; hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view };
+      const st = curStart(); hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view };
       apply(sh, st); S.view = 'out'; const t0 = performance.now(), from = kind === 'fx' ? clamp(S.time - st, 0, Math.max(0, sh.duration - 0.2)) : 0;
       hov.iv = setInterval(() => { const el2 = ((performance.now() - t0) / 1000); setTime(st + (kind === 'fx' ? from + (el2 % Math.max(0.5, sh.duration - from)) : el2 % sh.duration)); }, 33);
     }
@@ -33138,7 +33175,7 @@ module.exports = ZStream;
       S.stripMap = { ks, ox, oy, img, iw, ih };
       ctx.drawImage(img.bitmap, ox, oy, iw, ih);
       const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', wt = sh.webtoon;
-      const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), cam = MC.camAt(sh, tl, false);
+      const tl = clamp(S.time - curStart(), 0, sh.duration), cam = MC.camAt(sh, tl, false);
       const s0 = Math.max(o.W / img.w, o.H / img.h) * (L.scale || 1), PW = img.w * s0, PH = img.h * s0, cyw = o.H / 2 + cam.y * o.H, cxw = o.W / 2 + cam.x * o.W;
       const wy = (cyw - (o.H / 2 - PH / 2)) / PH, wh = o.H / cam.zoom / PH, wx = (cxw - (o.W / 2 - PW / 2)) / PW, ww = o.W / cam.zoom / PW;
       ctx.save(); ctx.fillStyle = 'rgba(140,124,255,.18)'; ctx.strokeStyle = acc; ctx.lineWidth = 2 * d;
@@ -33187,7 +33224,7 @@ module.exports = ZStream;
           ctx.fillStyle = on ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + lw * 7 + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), fr.cx, fr.cy + lw * 0.3);
         });
         ctx.fillStyle = acc; ctx.fillRect(fs.cx + fs.hw - lw * 5, fs.cy + fs.hh - lw * 5, lw * 10, lw * 10);
-        const cu2 = MC.camAt(sh, clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), false), fc2 = frameRect(cu2, o);
+        const cu2 = MC.camAt(sh, clamp(S.time - curStart(), 0, sh.duration), false), fc2 = frameRect(cu2, o);
         ctx.beginPath(); path(fc2, 0); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 0.6; ctx.stroke();
         ctx.setTransform(1, 0, 0, 1, 0, 0); return;
       }
@@ -33195,7 +33232,7 @@ module.exports = ZStream;
       ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H);
       ctx.beginPath(); path(fo, oth.rot); ctx.strokeStyle = 'rgba(236,238,240,.6)'; ctx.stroke(); ctx.setLineDash([]);
       ctx.beginPath(); ctx.moveTo(fo.cx, fo.cy); ctx.lineTo(fa.cx, fa.cy); ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.stroke();
-      const cur = MC.camAt(sh, clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), false), fc = frameRect(cur, o);
+      const cur = MC.camAt(sh, clamp(S.time - curStart(), 0, sh.duration), false), fc = frameRect(cur, o);
       ctx.beginPath(); path(fc, cur.rot); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 0.6; ctx.stroke();
       ctx.beginPath(); path(fa, act.rot); ctx.strokeStyle = acc; ctx.lineWidth = lw * 1.4; ctx.stroke();
       ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(fa.cx, fa.cy, lw * 3, 0, 6.283); ctx.fill();
@@ -33305,7 +33342,7 @@ module.exports = ZStream;
           if (!drag && layer() && !layer().locked) {
           const l = layer(), img = MC.assets.get(l.assetId);
           if (!img) return;
-          const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration);
+          const tl = clamp(S.time - curStart(), 0, sh.duration);
           const px2 = MC.panelXf(S.project, sh, o.W, o.H);
           drag = { m: 'layer', p0: p, x0: l.x || 0, y0: l.y || 0, zl: MC.layerGeom(l, img, MC.camAt(sh, tl, false), o).zl * (px2 && S.view === 'out' ? px2.s : 1), l };
           }
@@ -33408,7 +33445,7 @@ module.exports = ZStream;
     }
     function layoutClips() {
       const p = S.project, starts = MC.shotStarts(p), total = MC.totalTime(p), pps = S.pps;
-      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...(p.overlays || []).map((o) => o.start + o.dur), ...(p.subs || []).map((o) => o.start + o.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...(p.overlays || []).map((o) => o.start + o.dur), ...(p.subs || []).map((o) => o.start + o.dur), ...(p.xshots || []).map((o) => o.start + o.duration), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
       el.tlContent.style.width = Math.max(end * pps + 120, 320) + 'px';
       el.tlContent.querySelectorAll('.clip[data-i]').forEach((c) => {
         const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
@@ -33431,6 +33468,7 @@ module.exports = ZStream;
         el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
         drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
       });
+      el.tlContent.querySelectorAll('.clip[data-xs]').forEach((el2) => { const x = xById(el2.dataset.xs); if (!x) return; el2.style.left = x.start * pps + 'px'; el2.style.width = Math.max(8, x.duration * pps - 2) + 'px'; });
       el.tlContent.querySelectorAll('.clip[data-s]').forEach((el2) => {
         const it = subById(el2.dataset.s); if (!it) return;
         el2.style.left = it.start * pps + 'px'; el2.style.width = Math.max(8, it.dur * pps - 2) + 'px';
@@ -33563,13 +33601,17 @@ module.exports = ZStream;
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
       const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
       const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
-      const ots = p.otracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat(kft ? ['kf'] : [], ['shots', 'text', 'subs', 'fxr', 'voz', 'sfx', 'musica']);
+      const ots = p.otracks, xts = p.xtracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat((p.xshots.length || S.xs ? xts.map((q, i) => 'x' + i) : []), kft ? ['kf'] : [], ['shots', 'text', 'subs', 'fxr', 'voz', 'sfx', 'musica']);
       const ovBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración', 'Add an image or video above the artwork'), 'aria-label': t('Añadir una superposición a ', 'Add an overlay to ') + ots[i].name, onClick: () => { fileOv.dataset.track = i; fileOv.click(); } }, MC.icon('plus', 13));
       const eyeBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(ots[i].visible !== false), title: ots[i].visible === false ? t('Mostrar la pista', 'Show track') : t('Ocultar la pista', 'Hide track'), 'aria-label': t('Mostrar u ocultar ', 'Show or hide ') + ots[i].name, onClick: () => { ots[i].visible = ots[i].visible === false; commit(); } }, MC.icon(ots[i].visible === false ? 'eyeoff' : 'eye', 13));
       const delBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Quitar la pista vacía', 'Remove the empty track'), 'aria-label': t('Quitar ', 'Remove ') + ots[i].name, onClick: () => { p.overlays.forEach((o) => { if (o.track > i) o.track--; }); ots.splice(i, 1); commit(); } }, MC.icon('trash', 13));
       const labelOf = (k) => {
         if (/^o\d+$/.test(k)) { const i = +k.slice(1); return h('div', { class: 'trl ot', 'data-k': k }, h('span', { title: t('Doble clic para renombrar', 'Double-click to rename'), onDblclick: () => { const v = prompt(t('Nombre de la pista', 'Track name'), ots[i].name); if (v && v.trim()) { ots[i].name = v.trim(); commit(); } } }, ots[i].name),
           h('span', { class: 'trb' }, ovBtn(i), eyeBtn(i), ots.length > 1 && !p.overlays.some((o) => o.track === i) ? delBtn(i) : null)); }
+        if (/^x\d+$/.test(k)) { const i = +k.slice(1); return h('div', { class: 'trl xt', 'data-k': k }, h('span', { title: t('Planos que se ven a la vez que el principal', 'Shots shown at the same time as the main one') }, xts[i].name),
+          h('span', { class: 'trb' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir un plano encima', 'Add a shot on top'), 'aria-label': t('Añadir plano superpuesto', 'Add overlapping shot'), onClick: () => openAssetPicker({ title: t('Plano superpuesto: elige imágenes', 'Overlapping shot: choose images'), onPick: (ids) => addXShots(ids, i, S.time) }) }, MC.icon('plus', 13)),
+            h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(xts[i].visible !== false), title: t('Mostrar u ocultar la pista', 'Show or hide the track'), 'aria-label': t('Mostrar u ocultar ', 'Show or hide ') + xts[i].name, onClick: () => { xts[i].visible = xts[i].visible === false; commit(); } }, MC.icon(xts[i].visible === false ? 'eyeoff' : 'eye', 13)),
+            xts.length > 1 && !p.xshots.some((x) => (x.xtrack || 0) === i) ? h('button', { class: 'btn btn-g', type: 'button', 'aria-label': t('Quitar ', 'Remove ') + xts[i].name, onClick: () => { p.xshots.forEach((x) => { if ((x.xtrack || 0) > i) x.xtrack--; }); xts.splice(i, 1); commit(); } }, MC.icon('trash', 13)) : null)); }
         if (k === 'kf') return h('div', { class: 'trl kfl', 'data-k': k }, h('span', null, t('Fotogramas clave', 'Keyframes')));
         if (k === 'fxr') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Efectos', 'Effects')));
         if (k === 'subs') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Subtítulos', 'Subtitles')), h('span', { class: 'trb' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Nuevo subtítulo', 'New subtitle'), 'aria-label': t('Nuevo subtítulo', 'New subtitle'), onClick: () => newSubLayer(false) }, MC.icon('plus', 13))));
@@ -33599,6 +33641,7 @@ module.exports = ZStream;
       const R = {};
       KEYS.forEach((k) => {
         const ov = /^o\d+$/.test(k), audio = AU.includes(k);
+        if (/^x\d+$/.test(k)) { R[k] = h('div', { class: 'tl-track xtr' + (p.xshots.some((x) => (x.xtrack || 0) === +k.slice(1)) ? '' : ' off'), 'data-k': k, 'data-hint': t('Arrastra aquí una imagen o un vídeo: se verá a la vez que el plano principal', 'Drag an image or video here: it shows at the same time as the main shot') }); el.tlContent.append(R[k]); return; }
         if (k === 'subs') { R.subs = h('div', { class: 'tl-track' + (p.subs.length ? '' : ' off'), 'data-k': 'subs', 'data-hint': t('Pulsa + para crear un subtítulo: una capa con todas las palabras y sus tiempos', 'Press + to create a subtitle: one layer with all the words and their timings') }); el.tlContent.append(R.subs); return; }
         if (k === 'fxr') { R.fxr = h('div', { class: 'tl-track' + (p.shots.some((q) => q.fx && q.fx.length) ? '' : ' off'), 'data-k': 'fxr', 'data-hint': t('Los efectos de cada plano (temblor, lluvia, niebla…) aparecen aquí', 'Each shot’s effects (shake, rain, fog…) show up here') }); el.tlContent.append(R.fxr); return; }
         if (k === 'kf') { R.kf = h('div', { class: 'tl-track kft', 'data-k': 'kf', 'data-hint': '' }); el.tlContent.append(R.kf); return; }
@@ -33702,6 +33745,35 @@ module.exports = ZStream;
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
         R.text.append(el2);
+      });
+      /* planos superpuestos */
+      p.xshots.forEach((x) => {
+        let thumbU = ''; try { thumbU = shotThumbURL(x); } catch (e) { thumbU = ''; }
+        const hid = (xts[x.xtrack || 0] || {}).visible === false;
+        const el2 = h('div', { class: 'clip xs' + (x.id === S.xs ? ' on' : '') + (hid ? ' hid' : ''), 'data-xs': x.id, role: 'button', tabindex: '0', title: x.name + ' · ' + x.duration.toFixed(1) + ' s', 'aria-label': x.name + ', ' + MC.fmtTime(x.start) + ', ' + x.duration.toFixed(1) + ' s', 'aria-pressed': String(x.id === S.xs), style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null,
+          onKeydown: (e) => { if (e.key === 'Enter') { selectXs(x.id, true); } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); x.start = Math.max(0, r2(x.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); commit(); } } },
+          h('span', null, x.name), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const rz = el2.querySelector('.rz');
+        el2.addEventListener('pointerdown', (e) => {
+          if (e.target === rz) return; el2.setPointerCapture(e.pointerId); S.xs = x.id; S.li = -1; S.cl = null; S.tx = null; S.ov = null; S.sb = null; S.multi = []; S.fxsel = null; S.selKind = 'shot';
+          const x0 = e.clientX, s0 = x.start; let moved = false;
+          const mv = (ev) => {
+            if (Math.abs(ev.clientX - x0) > 3 || Math.abs(ev.clientY - e.clientY) > 6) moved = true; if (!moved) return;
+            x.start = Math.max(0, snapT(s0 + (ev.clientX - x0) / S.pps, null));
+            const row = xts.map((q, i) => R['x' + i]).find((r3) => r3 && ev.clientY >= r3.getBoundingClientRect().top && ev.clientY < r3.getBoundingClientRect().bottom);
+            xts.forEach((q, i) => R['x' + i] && R['x' + i].classList.toggle('drop', R['x' + i] === row)); if (row) x.xtrack = +row.dataset.k.slice(1);
+            layoutClips(); S.dirty = true; touch();
+          };
+          const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { selectXs(x.id, true); } };
+          el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
+        });
+        rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = x.duration;
+          const mv = (ev) => { x.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 120); layoutClips(); S.dirty = true; touch(); };
+          const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
+        });
+        (R['x' + clamp(x.xtrack || 0, 0, xts.length - 1)] || R.x0).append(el2);
       });
       /* capas de subtítulos: un clip con sus líneas dentro */
       p.subs.forEach((it) => {
@@ -33825,8 +33897,8 @@ module.exports = ZStream;
     function dropInfo(e) {
       const row = e.target.closest && e.target.closest('.tl-track'); if (!row) return null; const key = row.dataset.k, p = S.project, pps = S.pps;
       const time = Math.max(0, Math.round(((e.clientX - el.tlContent.getBoundingClientRect().left) / pps) * 100) / 100);
-      const bar = e.target.closest('.lyrbar'), clip = e.target.closest('.clip[data-i]');
-      return { row, key, time, bar, clip, si: bar ? +bar.dataset.si : clip ? +clip.dataset.i : null };
+      const bar = e.target.closest('.lyrbar'), clip = e.target.closest('.clip[data-i]'), xclip = e.target.closest('.clip[data-xs]');
+      return { row, key, time, bar, clip, xclip, si: bar ? +bar.dataset.si : clip ? +clip.dataset.i : null };
     }
     async function dropOnTimeline(e) {
       const info = dropInfo(e); if (!info) return; const dt = e.dataTransfer, p = S.project; let items = [], rest = [];
@@ -33837,6 +33909,7 @@ module.exports = ZStream;
         for (const q of auds) { if (q.lib) { const it = MC.audio.LIBRARY.find((x) => x.id === q.lib); if (it) { const c = await addLibrarySound(it, info.time); if (AU.includes(key)) c.track = key; S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; } continue; } const a = MC.audio.get(q.id) || (await MC.audio.load(q.id)); if (!a) continue; const c = MC.audio.newClip(AU.includes(key) ? key : a.dur >= 20 ? 'musica' : 'sfx', a, info.time); p.clips.push(c); S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; }
         commit(); return;
       }
+      if (/^x\d+$/.test(key) && imgs.length) { if (info.xclip) { selectXs(info.xclip.dataset.xs, false); await assetsToLayers(imgs.map((q) => q.id), null); return; } await addXShots(imgs.map((q) => q.id), +key.slice(1), info.time); return; }
       if (/^o\d+$/.test(key) && imgs.length) { let at = info.time; for (const q of imgs) { const a = await MC.assets.load(q.id); if (!a) continue; const it = MC.newOverlay(a, { track: +key.slice(1), start: at, dur: 4 }); it.scale = 0.6; if (!a.video) it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; p.overlays.push(it); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1; at += it.dur; } commit(); return; }
       if (key === 'shots' && imgs.length) {
         if (info.si != null) { /* sobre un plano: capas */
@@ -33963,6 +34036,7 @@ module.exports = ZStream;
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track'), onClick: () => { fileOv.dataset.track = 0; fileOv.click(); } }, MC.icon('layersx', 14), t('Superposición', 'Overlay')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Plano superpuesto: otro plano a la vez que el principal, con su cámara y sus capas', 'Overlapping shot: another shot at the same time as the main one, with its own camera and layers'), onClick: () => { if (S.project.xtracks.length < 1) S.project.xtracks.push({ id: MC.uid(), name: t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }); addXShotFromPicker(); } }, MC.icon('film', 14), t('Plano encima', 'Shot on top')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)'), onClick: () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); } }, MC.icon('plus', 14), t('Pista', 'Track')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!S.ripple), title: t('Ripple: al cambiar la duración de un plano, todo lo que va detrás se mueve con él', 'Ripple: when a shot’s length changes, everything after it moves along'), onClick: (e) => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); e.currentTarget.setAttribute('aria-pressed', String(S.ripple)); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); } }, t('Ripple', 'Ripple')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)'), onClick: () => addMarker('note') }, MC.icon('bookmark', 14), t('Marcador', 'Marker')),
@@ -34050,6 +34124,7 @@ module.exports = ZStream;
         else if (S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); MC.announce(t('Clip eliminado', 'Clip deleted')); }
         else if (layer() && layer().locked) { MC.toast(t('La capa está bloqueada. Desbloquéala para borrarla.', 'The layer is locked. Unlock it to delete it.')); }
         else if (layer()) { delLayer(S.li); MC.announce(t('Capa eliminada', 'Layer deleted')); }
+        else if (S.xs && xById(S.xs) && S.selKind === 'shot') { S.project.xshots = S.project.xshots.filter((x) => x.id !== S.xs); S.xs = null; S.li = -1; commit(); MC.announce(t('Plano superpuesto eliminado', 'Overlapping shot deleted')); }
         else return false;
       },
     };

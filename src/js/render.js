@@ -11,7 +11,8 @@
   MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
 
   MC.shotStarts = (p) => { let t = 0; return p.shots.map((s) => { const a = t; t += s.duration; return a; }); };
-  MC.totalTime = (p) => p.shots.reduce((a, s) => a + s.duration, 0);
+  MC.totalTime = (p) => Math.max(p.shots.reduce((a, s) => a + s.duration, 0), ...(p.xshots || []).map((x) => x.start + x.duration));
+  MC.baseTime = (p) => p.shots.reduce((a, s) => a + s.duration, 0);
   MC.locate = (p, time) => {
     let t = 0;
     for (let i = 0; i < p.shots.length; i++) {
@@ -129,10 +130,10 @@
     const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
-    const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
+    const fr = !o.noClip && !o.transparent && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
     const pan = fr ? MC.panelGeom(fr, W, H) : null;
     const k0 = ctx.getTransform().a;
-    const shotStart = o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0;
+    const shotStart = shot.xtrack != null && shot.start != null ? shot.start : (o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0);
     const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
       if (!img) return;
@@ -189,8 +190,7 @@
       ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
       const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
       if (pan) { MC.drawPanelBg(ctx, fr, W, H); MC.drawPanelShadow(ctx, fr, pan, W, H); ctx.save(); MC.pathPoly(ctx, pan.poly); ctx.clip(); }
-      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
-      ctx.fillRect(0, 0, W, H);
+      if (!o.transparent) { ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000'; ctx.fillRect(0, 0, W, H); }
     }
     ctx.save(); content();
     for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
@@ -225,7 +225,13 @@
     MC.renderShot(ctx, cur, tl, o);
   };
 
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
+  /* planos superpuestos: varios planos a la vez, cada uno con su cámara y sus capas, sobre el plano principal */
+  MC.renderXShots = (ctx, project, time, o) => {
+    const list = project.xshots || []; if (!list.length || o.xshots === false) return;
+    const tr = project.xtracks || [];
+    list.filter((x) => time >= x.start && time < x.start + x.duration && (tr[x.xtrack || 0] || {}).visible !== false).sort((a, b) => (a.xtrack || 0) - (b.xtrack || 0)).forEach((x) => MC.renderShot(ctx, x, time - x.start, Object.assign({}, o, { transparent: true, project })));
+  };
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); MC.renderXShots(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);

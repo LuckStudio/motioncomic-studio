@@ -86,12 +86,13 @@
       out.push({ key: l.id, asset: a, vt: V.localTime({ start: 0, offset: l.voffset || 0, speed: l.vspeed || 1, loop: l.vloop }, a, tl), speed: l.vspeed || 1, play: true });
     });
     pushShot(cur, loc.tl);
+    (p.xshots || []).forEach((x) => { if (time >= x.start && time < x.start + x.duration) pushShot(x, time - x.start); });
     if (loc.i > 0 && cur && cur.transition && cur.transition.type !== 'cut' && loc.tl < Math.min(cur.transition.dur || 0.6, cur.duration * 0.9)) pushShot(p.shots[loc.i - 1], p.shots[loc.i - 1].duration);
     return out;
   };
   /* mientras se exporta, el visor no toca los vídeos (se vence solo si la exportación se corta) */
   V.isExporting = () => !!V.exporting && Date.now() - (V.expAt || 0) < 4000;
-  V.hasVideo = (p) => (p.overlays || []).some((o) => o.kind === 'video') || p.shots.some((s) => s.layers.some((l) => { const a = MC.assets.get(l.assetId); return a && a.video; }));
+  V.hasVideo = (p) => (p.overlays || []).some((o) => o.kind === 'video') || p.shots.concat(p.xshots || []).some((s) => s.layers.some((l) => { const a = MC.assets.get(l.assetId); return a && a.video; }));
 
   /* Reproducción: los vídeos corren solos y se corrigen si se desvían. Parado: se pausan. */
   V.sync = (p, time, playing) => {

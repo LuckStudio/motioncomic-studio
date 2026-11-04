@@ -12,6 +12,10 @@ Registro paso a paso de lo que se fue construyendo. Para la descripción públic
 - **Paso 16 · tus proyectos**: archivo `.motioncomic`, versiones persistentes, biblioteca y consejo de instalación.
 - **Paso 17 · salida y entrada**: WebM, GIF, PNG y audio; SVG, ZIP, carpetas, CMYK y texto del PSD; zoom del visor, reglas, vista de profundidad, tabla de traducción y vista previa al pasar el cursor.
 
+## Paso 19 · capas, arrastrar y soltar, 3D, sonidos y planos superpuestos
+
+Panel de capas estilo Photoshop (orden = profundidad), arrastrar recursos a capas y línea de tiempo, planos desplegables, selector del proyecto, giro 3D con perspectiva, entradas y transiciones 3D, vista de profundidad en 3D, 66 sonidos, 16 tipografías, 31 estilos de subtítulos y planos superpuestos.
+
 ## Paso 18 · subtítulos
 
 Capas de subtítulo con el momento de cada palabra y de los silencios, marcado con el cursor, importación de tiempos (JSON, SRT, VTT, CSV), seguimiento de palabra, 13 estilos y pestaña propia. Arreglo del simulador de redes, que se descuadraba con el tamaño de la interfaz.

@@ -189,6 +189,26 @@ Además de las capas de cada plano, puedes poner elementos **fijos por encima de
 
 > Para trabajar con vídeo y archivos pesados, MotionComic Studio funciona mejor **instalado en tu ordenador o tableta**.
 
+### Capas como en Photoshop y Procreate
+
+- **Arriba = más cerca**: la capa de arriba tapa a las de abajo, y el orden coincide con la profundidad (z). Arrastra una capa para reordenarla y su profundidad se ajusta sola; si cambias la profundidad, la capa sube o baja en la lista.
+- Por capa: **ojo, candado, renombrar** (doble clic), **duplicar** (Ctrl+J), **eliminar**, **modo de mezcla** (12 modos) y **opacidad**, además de llevar adelante o atrás, al frente o al fondo.
+- **Importar**: desde el equipo, **de las imágenes del proyecto o de la biblioteca** (selector con miniaturas), una capa de color liso, o carpetas y ZIP.
+- **Arrastrar y soltar** imágenes o vídeos —desde Recursos, la biblioteca, el selector o el explorador de archivos— al panel de capas, en el punto exacto de la pila.
+
+### Línea de tiempo con arrastrar y soltar
+
+- Suelta un recurso en el **hueco de la pista de planos** y crea un plano nuevo; suéltalo **sobre un plano** y se añade como capa. En una pista de superposición o de audio, lo coloca ahí.
+- **Planos desplegables**: la flecha de cada plano muestra su pila de capas, reordenables arrastrando; suelta un recurso en una altura concreta para colocarlo arriba o como fondo.
+- **Planos superpuestos**: pistas de planos que se ven **a la vez** que el principal, con su propia cámara, capas y efectos (las zonas vacías son transparentes). Se pueden pasar de la pista principal a la superpuesta y al revés.
+
+### 3D
+
+- **Giro en X e Y con perspectiva** en cada capa y superposición (además del giro en Z), con poses rápidas y perspectiva ajustable. Se anima con fotogramas clave.
+- **Entradas y salidas 3D** (volteos, giros desde un lado, puerta, voltereta, vuelo) y bucles 3D (tarjeta que se mece, cabeceo, giro completo, bamboleo).
+- **Transiciones 3D** entre planos: cubo, volteo de carta, puerta, voltereta y carrusel, con dirección.
+- **Vista de profundidad en 3D**: las capas como planos en el espacio, con la cámara y su pirámide de visión; gira la escena con el ratón (frontal, 45°, lado, arriba) y arrastra una capa para moverla en profundidad.
+
 ### Animación de capas
 
 - **Entradas, salidas y bucles** por capa y por superposición: aparecer, deslizarse, pop, zoom, caída con rebote, giro, flotar, balanceo, respirar, latido…
@@ -219,7 +239,7 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Repartir por igual** o **ajustar a las pausas de la voz** para tener un punto de partida.
 - **Importar un archivo de tiempos**: JSON de Whisper, Deepgram o ElevenLabs, listas de `{palabra, inicio, fin}`, SRT, VTT o CSV. Los huecos entre palabras se convierten en silencios.
 - **Seguimiento de palabra**: la palabra que suena se resalta (color, tamaño, fondo), con otros modos: una palabra cada vez o que el texto vaya apareciendo.
-- **13 estilos listos** (Clásico, Cine, TikTok, Karaoke, Cómic, Neón, Caja moderna, Mínimo, Una palabra, Palabra resaltada, Papel, Manga, Revelado) y control de tipografía, tamaño, colores, trazo, sombra, fondo (color, opacidad, margen y **radio**), animación, posición, ancho y letras por línea.
+- **31 estilos listos** en cuatro familias (Redes, Cine y serie, Cómic, Creativos), con vista previa animada al pasar el cursor, y **16 tipografías nuevas** incluidas. Controles de tipografía, tamaño, colores, trazo, sombra suave y dura, degradado, fondo (color, opacidad, margen, borde y **radio**), alineación, espaciado, inclinación, animación, posición rápida, ancho y letras por línea, y efectos de la palabra que suena (salto, rebote, subrayado, brillo).
 - Exportación a **SRT** y subtítulos quemados en el vídeo.
 
 ### Efectos y aspecto
@@ -239,7 +259,7 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Marcadores en las pausas de la voz** y «ajustar planos a la voz» para que cada plano dure lo que su frase.
 - **Mezclador** con silenciar, solo y medidores de nivel por pista.
 - **Marcadores con notas** (M) y **marcadores de pulso musical** (B); detección automática del pulso de la música y «cortes al pulso».
-- **Biblioteca de sonidos generados por código** (efectos y músicas), sin problemas de licencia.
+- **Biblioteca de 66 sonidos generados por código**, por categorías (impactos, movimiento, cómic, ambiente, tecnología y magia, terror) y 12 músicas, con búsqueda, vista previa y arrastre a la línea de tiempo. Sin archivos ni licencias.
 
 ### Exportación
 
@@ -339,7 +359,7 @@ Base «MotionComic Studio» (se pueden cambiar todos en **Preferencias → Atajo
 | Acercar / alejar la línea de tiempo | + / − |
 | Deshacer / rehacer | Ctrl + Z / Ctrl + Mayús + Z |
 | Guardar ahora | Ctrl + S |
-| Duplicar lo seleccionado | Ctrl + D |
+| Duplicar lo seleccionado (o la capa) | Ctrl + D (o Ctrl + J) |
 | Seleccionar todos los clips | Ctrl + A |
 | Marcador con nota / marcar un pulso | M / B |
 | Subtítulos: fijar palabra / silencio / atrás | Intro / . / Retroceso |
@@ -421,6 +441,8 @@ Abre `http://localhost:8000`.
 | `src/js/page.js` | Detección de viñetas, modo Página y modo Webtoon. |
 | `src/js/text.js` | Bocadillos, cajas, onomatopeyas y subtítulos. |
 | `src/js/subs.js` | Subtítulos: capas con palabras y silencios, estilos, seguimiento de palabra, importación de tiempos y SRT. |
+| `src/js/three.js` | 3D sobre el lienzo: giros con perspectiva mediante mallas de triángulos. |
+| `src/js/sounds.js` | Los 66 sonidos y músicas generados por código. |
 | `src/js/fx.js` | Efectos, rack focus y aspecto general. |
 | `src/js/audio.js` | Pistas, mezcla, grabación y sonidos generados. |
 | `src/js/export.js` | Exportación MP4 con WebCodecs, lotes y cola en segundo plano. |

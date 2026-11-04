@@ -99,7 +99,7 @@
   /* Memoria de las imágenes (RGBA sin comprimir): en edición y al exportar. */
   MC.memEstimate = (p) => {
     let edit = 0, full = 0;
-    new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
+    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
       const a = cache.get(id); if (!a) return;
       full += a.w * a.h * 4; edit += (a.proxy ? a.bitmap.width * a.bitmap.height : a.w * a.h) * 4;
     });
@@ -108,7 +108,7 @@
 
   MC.projectAssetIds = (p) => {
     const ids = new Set();
-    p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
     (p.overlays || []).forEach((o) => ids.add(o.assetId));
     (p.fonts || []).forEach((f) => ids.add(f.id));
@@ -116,7 +116,7 @@
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
-    ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.overlays || []).map((o) => o.assetId))].map((id) => MC.assets.load(id).catch(() => null)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
@@ -129,7 +129,7 @@
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
-    p.notes = p.notes || []; p.subs = p.subs || [];
+    p.notes = p.notes || []; p.subs = p.subs || []; p.xshots = p.xshots || []; p.xtracks = p.xtracks && p.xtracks.length ? p.xtracks : [{ id: MC.uid(), name: MC.t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }]; p.xshots.forEach((sh) => { sh.fx = sh.fx || []; sh.xtrack = Math.min(sh.xtrack || 0, p.xtracks.length - 1); });
     p.overlays = p.overlays || []; p.otracks = p.otracks && p.otracks.length ? p.otracks : [MC.newOtrack(1)];
     p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
     if ((p.mode || 'free') === 'free') p.frame.on = true;
