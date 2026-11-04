@@ -293,3 +293,18 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 
 @media (pointer: coarse) and (min-width: 901px) { .studio { --tl-h: 330px; } .studio[data-ws="capas"] { --tl-h: 270px; } .studio[data-ws="audio"] { --tl-h: 390px; } }
 @media (max-width: 1300px) { .s-top .ttl { width: 130px; } .s-tabs button { padding: 6px 8px; } }
+
+.viewer:fullscreen { background: #000; }
+.viewer:fullscreen .stage { padding: 0; }
+@media (max-width: 700px) {
+  .vbar, .s-top { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .vbar > *, .s-top > * { flex: none; }
+  .vbar .status { display: none; }
+  .s-top .sp { display: none; }
+  .studio { grid-template-rows: auto minmax(250px, 46%) auto minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .s-top > svg { display: none; }
+  .s-top .ttl { width: 96px; min-width: 70px; }
+  .s-top .seg { display: none; }
+}

@@ -211,6 +211,11 @@
     const f3 = MC.newFx('aberration', 0.05); f3.dur = 0.7; f3.intensity = 1; p.shots[2].fx.push(f3);
     const f4 = MC.newFx('sparks', 0.4); f4.dur = 2; f4.intensity = 0.8; p.shots[2].fx.push(f4);
     p.look = { vignette: 0.35, grain: 0.22, halftone: 0, tint: null };
+    if (en) {
+      const NAMES = { 'La azotea': 'The rooftop', 'Amanecer': 'Dawn', '¡Impacto!': 'Impact!', 'Cielo': 'Sky', 'Ciudad lejana': 'Far city', 'Ciudad cercana': 'Near city', 'Personaje': 'Character', 'Primer plano': 'Foreground',
+        'Cielo amanecer': 'Dawn sky', 'Edificios': 'Buildings', 'Primer plano líneas': 'Foreground lines', 'Fondo explosión': 'Blast background', 'Humo': 'Smoke' };
+      p.shots.forEach((sh) => { sh.name = NAMES[sh.name] || sh.name; sh.layers.forEach((l) => { l.name = NAMES[l.name] || l.name; }); });
+    }
     p.thumb = MC.makeThumb(p);
     p.sample = true; p.sampleV = 4;
     return p;

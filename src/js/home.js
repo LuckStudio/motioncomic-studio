@@ -6,6 +6,7 @@
   MC.topBar = (extra) => h('div', { class: 'top' },
     h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
     h('div', { class: 'top-actions' }, extra,
+      MC.installEvt && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); await ev.userChoice.catch(() => {}); MC.app.render(); } }, MC.icon('download', 14), t('Instalar la aplicación', 'Install the app')) : null,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), 'aria-label': t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Cambiar tema', 'Toggle theme'), 'aria-label': t('Cambiar tema', 'Toggle theme'), onClick: () => MC.toggleTheme() }, MC.icon(MC.isLight() ? 'moon' : 'sun'))));
@@ -140,6 +141,8 @@
           h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileIn.click() }, MC.icon('upload'), t('Importar copia', 'Import backup')), fileIn,
           h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('frame'), t('Borrador en un clic', 'One-click draft')),
           h('button', { class: 'btn btn-p', type: 'button', onClick: MC.newProjectDialog }, MC.icon('plus'), t('Proyecto nuevo', 'New project')))),
+      MC.swWaiting ? h('div', { class: 'notice' }, h('span', { style: { color: 'var(--fg)' } }, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Actualizar ahora', 'Update now'))) : null,
       h('div', { class: 'notice' },
         h('span', { class: 'cap', style: { color: 'var(--fg)' } }, MC.db.persistent
           ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.')

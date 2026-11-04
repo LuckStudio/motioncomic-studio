@@ -40,9 +40,19 @@
       }
       MC.store.set('seeded5', '1');
     }
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); MC.installEvt = e; if (!MC.studioApi) MC.app.render(); });
+    window.addEventListener('appinstalled', () => { MC.installEvt = null; });
     await MC.app.render();
+    if (/[?&]new=1/.test(location.search)) { history.replaceState(null, '', location.pathname + location.hash); MC.newProjectDialog(); }
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-      navigator.serviceWorker.register('./sw.js').catch(() => { /* sin modo sin conexión */ });
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        const watch = (w) => w && w.addEventListener('statechange', () => {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) { MC.swWaiting = w; MC.toast(t('Hay una versión nueva. Actualiza desde Inicio.', 'A new version is available. Update from Home.')); if (!MC.studioApi) MC.app.render(); }
+        });
+        if (reg.waiting && navigator.serviceWorker.controller) MC.swWaiting = reg.waiting;
+        reg.addEventListener('updatefound', () => watch(reg.installing));
+      }).catch(() => { /* sin modo sin conexión */ });
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (MC.reloadOnUpdate) location.reload(); });
     }
   }
   boot();

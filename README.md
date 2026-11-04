@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 7 · ayuda, atajos y accesibilidad
+## Estado: paso 8 · listo para publicar
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -61,7 +61,13 @@ Paso 7 (hecho):
 - **Tableta**: revisado a 1180×820 y 820×1180; menú «Texto» compacto, barra superior que se reparte en dos filas y objetivos táctiles más grandes.
 - **Tu equipo**: «Medir mi equipo» calcula los fotogramas por segundo en 1080p y el coste de 4K, y los límites de memoria avisan según la memoria que informa el navegador.
 
-Siguiente (paso 8): pruebas con archivos reales de Goti y ajuste final de límites, revisión de textos y traducción al inglés, rendimiento en móvil, y preparar la publicación (hosting propio, manifest con iconos PNG y revisión de la PWA).
+Paso 8 (hecho, sin archivos reales):
+- **Listo para publicar**: iconos PNG (normal, maskable y Apple), manifiesto completo con acceso directo a «Proyecto nuevo», modo sin conexión versionado con aviso de «Hay una versión nueva» e instalación desde la pantalla de inicio. Guía en [`docs/DEPLOY.md`](docs/DEPLOY.md).
+- **Sin terceros**: las tipografías van incluidas (OFL) y la política de seguridad del `.htaccess` solo permite cargar del propio dominio. Verificado sin violaciones de política con importación de PDF y exportación.
+- **Preparar la carpeta**: `node tools/pack.js` crea `public/` y `public.zip`; `node tools/serve.js public` la sirve con las mismas cabeceras para probarla.
+- **Rendimiento en móvil y equipos modestos**: calidad de previsualización media o completa (media por defecto en móviles y equipos con poca memoria), con bajada automática si la reproducción va lenta; pantalla completa del visor (F); guías de tercios y margen de título; barra del visor en una sola fila en pantallas pequeñas.
+- **Textos**: revisión completa en español e inglés (sin mezclas) y proyecto de ejemplo traducido.
+- **Cobertura del PRD**: qué está hecho y qué falta, sección por sección, en [`docs/COBERTURA_PRD.md`](docs/COBERTURA_PRD.md).
 
 Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 
@@ -73,7 +79,7 @@ No necesita compilar. Sirve la carpeta con cualquier servidor estático:
 python3 -m http.server 8000
 ```
 
-Abre `http://localhost:8000`. Para generar el archivo único de previsualización: `node tools/build.js` (crea `dist/artifact.html`).
+Abre `http://localhost:8000`. Para generar el archivo único de previsualización: `node tools/build.js` (crea `dist/artifact.html`). Para publicar: `node tools/pack.js` y la guía de [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Estructura
 

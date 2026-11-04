@@ -14,7 +14,7 @@
   /* Devuelve un archivo PNG por página. width = ancho en píxeles de la imagen resultante. */
   MC.pdfToImages = async (file, width, onProgress) => {
     if (!setup()) throw new Error('sin lector de PDF');
-    const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
     const total = doc.numPages, out = [], n = Math.min(total, 80), base = file.name.replace(/\.pdf$/i, '');
     for (let i = 1; i <= n; i++) {
       if (onProgress) onProgress(i, n);

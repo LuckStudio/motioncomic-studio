@@ -14,7 +14,7 @@
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], guides: false, ema: 0, slow: 0, quality: MC.store.get('pq', (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
       ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
@@ -711,6 +711,7 @@
         S.view !== 'page' ? tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')) : null,
         portrait && S.view === 'out' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(!!S.sim), title: t('Vista previa con la interfaz de una red social encima', 'Preview with a social app interface on top'), onClick: () => { S.sim = S.sim ? null : 'tiktok'; renderVbar(); buildSim(); } }, t('Simulador', 'Simulator')) : null,
         S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
+        S.view === 'out' ? tog('guides', t('Guías', 'Guides'), t('Tercios, centro y margen de título', 'Thirds, centre and title margin')) : null,
         portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
         S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
         S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.tmenu), title: t('Añadir texto en el cabezal', 'Add text at the playhead'), onClick: (e) => { S.tmenu = !S.tmenu; renderVbar(); if (S.tmenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu button'); if (f) f.focus(); }, 0); } }, MC.icon('plus', 12), t('Texto', 'Text')),
@@ -718,6 +719,7 @@
             [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja de texto', 'Text box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { type: 'button', role: 'menuitem', onClick: () => { S.tmenu = false; renderVbar(); addText(k[0]); } }, k[1]))) : null) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
         h('span', { style: { flex: 1 } }),
+        MC.ui.seg([{ v: 'media', l: t('Media', 'Medium') }, { v: 'full', l: t('Completa', 'Full') }], S.quality, (v) => { S.quality = v; MC.store.set('pq', v); S.slow = 0; fit(); }, t('Calidad de la previsualización', 'Preview quality')),
         h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
     }
     /* Simulador: interfaz genérica de una app de vídeo vertical encima del visor, para ver qué tapa. No usa marcas ni logos. */
@@ -761,7 +763,7 @@
       const c = el.canvas, st = el.stage, o = opts();
       const A = o.W / o.H, pw = st.clientWidth - 24, ph = st.clientHeight - 12;
       if (pw <= 0 || ph <= 0) return;
-      const w = Math.min(pw, ph * A), dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.min(pw, ph * A), dpr = S.quality === 'full' ? Math.min(window.devicePixelRatio || 1, 2) : Math.min(window.devicePixelRatio || 1, 1) * 0.75;
       c.style.width = w + 'px'; c.style.height = w / A + 'px';
       const cw = Math.round(w * dpr), chh = Math.round(cw / A);
       if (c.width !== cw || c.height !== chh) { c.width = cw; c.height = chh; }
@@ -785,6 +787,7 @@
       MC.renderFrame(ctx, S.project, S.time, o);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (S.safe) drawSafe(ctx, c);
+      if (S.guides) drawGuides(ctx, c);
       const hit = !S.playing && S.tx && hits.find((x) => x.id === S.tx);
       if (hit) {
         const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', b = hit.bounds;
@@ -852,6 +855,13 @@
         ctx.fillText((i + 1) + ' · ' + sp.hold.toFixed(1) + ' s' + (sp.zoom > 1.01 ? ' · ×' + sp.zoom.toFixed(1) : ''), ox - 46 * d, Y - 10 * d);
         ctx.restore();
       });
+    }
+    function drawGuides(ctx, c) {
+      const W = c.width, H = c.height;
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, S.dpr); ctx.beginPath();
+      [1 / 3, 2 / 3].forEach((k) => { ctx.moveTo(W * k, 0); ctx.lineTo(W * k, H); ctx.moveTo(0, H * k); ctx.lineTo(W, H * k); });
+      ctx.moveTo(W / 2 - 10 * S.dpr, H / 2); ctx.lineTo(W / 2 + 10 * S.dpr, H / 2); ctx.moveTo(W / 2, H / 2 - 10 * S.dpr); ctx.lineTo(W / 2, H / 2 + 10 * S.dpr); ctx.stroke();
+      ctx.setLineDash([6 * S.dpr, 5 * S.dpr]); ctx.strokeStyle = 'rgba(140,124,255,.9)'; ctx.strokeRect(W * 0.05, H * 0.05, W * 0.9, H * 0.9); ctx.restore();
     }
     function drawSafe(ctx, c) {
       const W = c.width, H = c.height;
@@ -1218,10 +1228,11 @@
     const layersPanel = h('div', { class: 'panel-col p-layers' },
       h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, t('Capas', 'Layers')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))), el.layersBody);
-    const viewer = h('div', { class: 'viewer' }, el.vbar, el.stage,
+    const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage,
       h('div', { class: 'tbar' },
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
-        el.play, el.loop, el.time));
+        el.play, el.loop, el.time,
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame'))));
     const inspector = h('div', { class: 'panel-col p-inspector' }, h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, 'Inspector')), el.inspBody);
     const timeline = h('div', { class: 'p-timeline' },
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
@@ -1262,7 +1273,12 @@
         setTime(tm);
         if (wrapped) MC.audio.play(S.project, 0);
       }
-      if (S.dirty) { S.dirty = false; try { draw(); } catch (e) { console.error(e); } }
+      if (S.dirty) {
+        S.dirty = false; const t0 = performance.now();
+        try { draw(); } catch (e) { console.error(e); }
+        S.ema = S.ema * 0.9 + (performance.now() - t0) * 0.1;
+        if (S.playing && S.quality === 'full' && S.ema > 42) { if (++S.slow > 90) { S.quality = 'media'; MC.store.set('pq', 'media'); S.slow = 0; fit(); MC.toast(t('Se bajó la calidad de la previsualización para que vaya fluida. Puedes subirla en el visor.', 'Preview quality was lowered to keep playback smooth. You can raise it in the viewer.')); } } else S.slow = 0;
+      }
     }
     raf = requestAnimationFrame(loop);
 
@@ -1276,6 +1292,7 @@
       split: () => { if (S.cl) splitClip(); else return false; },
       undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
       addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
+      fullscreen: () => { const v = el.viewerEl; if (!v) return; if (document.fullscreenElement) document.exitFullscreen(); else if (v.requestFullscreen) v.requestFullscreen().catch(() => MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.'))); else MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.')); },
       viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
       zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
       export: () => openExport(), help: () => MC.openHelp(), keys: () => MC.openHelp('keys'),
@@ -1297,11 +1314,13 @@
       if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa
       if (ACT[id](e) !== false) e.preventDefault();
     }
+    const onFs = () => setTimeout(fit, 120);
+    document.addEventListener('fullscreenchange', onFs);
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
-    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
+    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       selectLayer: () => { const sh = shot(); if (sh && sh.layers.length && S.li < 0) { S.li = sh.layers.length - 1; S.tx = null; renderLayers(); renderInspector(); } },

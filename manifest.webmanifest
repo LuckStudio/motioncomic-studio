@@ -1,10 +1,23 @@
 {
+  "id": "./",
   "name": "MotionComic Studio",
   "short_name": "MotionComic",
-  "description": "Convierte tus páginas de cómic en vídeo animado, sin salir del navegador.",
+  "description": "Convierte tus páginas de cómic en vídeo animado, sin salir del navegador. Tus dibujos no salen de tu equipo.",
+  "lang": "es",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0F1012",
   "theme_color": "#0F1012",
-  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "categories": ["graphics", "productivity", "multimedia"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Proyecto nuevo", "short_name": "Nuevo", "url": "./?new=1", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
 }
