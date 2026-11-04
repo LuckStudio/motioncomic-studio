@@ -287,12 +287,78 @@
       S.ws = v; studio.dataset.ws = v; studio.dataset.tl = WS[v].tl;
       if (v === 'camara') S.view = editView(); else if (['cam', 'page', 'strip'].includes(S.view)) S.view = 'out';
       if (v === 'exportar') { togglePlay(false); S.view = 'out'; if (!S.sim && opts().W / opts().H < 0.8) S.sim = 'tiktok'; buildExportPanel(); }
-      S.fmtOpen = false; S.ovMenu = false;
+      S.fmtOpen = false; S.ovMenu = false; S.viewOpen = false; applyLayout();
       renderTop(); renderRail(); renderPanels(); renderVbar(); buildSim(); renderTimeline(); fit();
       [el.leftEl, el.rightEl].forEach((n) => { if (n) { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); } });
       MC.announce(t(WS[v].es, WS[v].en));
     }
     const openExport = () => setWs('exportar');
+
+    /* ---------- disposición ajustable ---------- */
+    const LAYOUT_DEF = { left: null, right: null, tl: null, hl: false, hr: false, ht: false };
+    const loadLayout = () => { try { return Object.assign({}, LAYOUT_DEF, JSON.parse(MC.store.get('layout', '{}')) || {}); } catch (e) { return Object.assign({}, LAYOUT_DEF); } };
+    const LY = loadLayout();
+    const saveLayout = () => MC.store.set('layout', JSON.stringify(LY));
+    /* las medidas se guardan en píxeles de la interfaz (ya con la escala aplicada) */
+    function applyLayout() {
+      const st = studio.style, narrow = innerWidth <= 900;
+      const set = (k, v) => (v == null ? st.removeProperty(k) : st.setProperty(k, v));
+      if (narrow) { ['--left-w', '--right-w', '--tl-h'].forEach((k) => st.removeProperty(k)); studio.dataset.hl = studio.dataset.hr = studio.dataset.ht = '0'; return; }
+      studio.dataset.hl = LY.hl ? '1' : '0'; studio.dataset.hr = LY.hr ? '1' : '0'; studio.dataset.ht = LY.ht ? '1' : '0';
+      set('--left-w', LY.hl ? '0px' : LY.left ? LY.left + 'px' : null);
+      set('--right-w', LY.hr ? '0px' : LY.right ? LY.right + 'px' : null);
+      set('--tl-h', WS[S.ws].tl === 'none' ? null : LY.ht ? '46px' : LY.tl ? LY.tl + 'px' : null);
+      S.dirty = true; if (el.canvas) requestAnimationFrame(() => fit());
+    }
+    const zf = (n) => (n.offsetWidth ? n.getBoundingClientRect().width / n.offsetWidth : 1) || 1;
+    /* tirador para arrastrar el borde de un panel; doble clic lo oculta o lo restaura */
+    function handle(kind, cls, label) {
+      const hd = h('div', { class: 'rz rz-' + cls, role: 'separator', tabindex: '0', 'aria-label': label, 'aria-orientation': kind === 'tl' ? 'horizontal' : 'vertical',
+        title: t('Arrastra para cambiar el tamaño · doble clic para ocultar', 'Drag to resize · double-click to hide'),
+        onDblclick: () => toggleLayout(kind),
+        onPointerdown: (e) => {
+          if (e.button) return; e.preventDefault(); hd.setPointerCapture(e.pointerId); hd.classList.add('on');
+          const f = zf(studio), x0 = e.clientX, y0 = e.clientY, size = kind === 'left' ? el.leftEl.offsetWidth : kind === 'right' ? el.rightEl.offsetWidth : timeline.offsetHeight;
+          const move = (ev) => {
+            const dx = (ev.clientX - x0) / f, dy = (ev.clientY - y0) / f, H = studio.offsetHeight;
+            if (kind === 'left') { LY.left = clamp(Math.round(size + dx), 200, 620); LY.hl = false; }
+            else if (kind === 'right') { LY.right = clamp(Math.round(size - dx), 220, 620); LY.hr = false; }
+            else { LY.tl = clamp(Math.round(size - dy), 120, Math.round(H * 0.7)); LY.ht = false; }
+            applyLayout();
+          };
+          const up = () => { hd.classList.remove('on'); hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up); saveLayout(); renderTop(); };
+          hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+        },
+        onKeydown: (e) => {
+          const st = e.shiftKey ? 40 : 10, k = e.key; let used = true;
+          if (kind === 'left' && (k === 'ArrowLeft' || k === 'ArrowRight')) { LY.left = clamp((LY.left || el.leftEl.offsetWidth) + (k === 'ArrowRight' ? st : -st), 200, 620); LY.hl = false; }
+          else if (kind === 'right' && (k === 'ArrowLeft' || k === 'ArrowRight')) { LY.right = clamp((LY.right || el.rightEl.offsetWidth) + (k === 'ArrowLeft' ? st : -st), 220, 620); LY.hr = false; }
+          else if (kind === 'tl' && (k === 'ArrowUp' || k === 'ArrowDown')) { LY.tl = clamp((LY.tl || timeline.offsetHeight) + (k === 'ArrowUp' ? st : -st), 120, Math.round(studio.offsetHeight * 0.7)); LY.ht = false; }
+          else if (k === 'Enter') toggleLayout(kind); else used = false;
+          if (used) { e.preventDefault(); applyLayout(); saveLayout(); }
+        } });
+      return hd;
+    }
+    function toggleLayout(kind) {
+      const k = { left: 'hl', right: 'hr', tl: 'ht' }[kind]; LY[k] = !LY[k]; applyLayout(); saveLayout(); renderTop();
+      MC.announce(({ left: t('Panel izquierdo', 'Left panel'), right: t('Columna derecha', 'Right column'), tl: t('Línea de tiempo', 'Timeline') })[kind] + ': ' + (LY[k] ? t('oculto', 'hidden') : t('visible', 'visible')));
+    }
+    function resetLayout() { Object.assign(LY, LAYOUT_DEF); applyLayout(); saveLayout(); renderTop(); }
+    const UI_SCALES = [['0.7', '70 %'], ['0.8', '80 %'], ['0.9', '90 %'], ['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %']];
+    function setUiScale(v) { MC.store.set('uizoom', v); MC.applyPrefs(); S.dirty = true; renderTop(); requestAnimationFrame(() => { applyLayout(); fit(); }); }
+    function renderViewMenu() {
+      if (el.viewMenu) { el.viewMenu.remove(); el.viewMenu = null; }
+      if (!S.viewOpen || !el.viewBtn) return;
+      const z = MC.store.get('uizoom', '1'), cb = (key, kind, label) => h('label', null, h('input', { type: 'checkbox', checked: !LY[key], onChange: () => toggleLayout(kind) }), label);
+      el.viewMenu = h('div', { class: 'tmenu vmenu', role: 'dialog', 'aria-label': t('Vista de la interfaz', 'Interface view'), onKeydown: (e) => { if (e.key === 'Escape') { S.viewOpen = false; renderViewMenu(); el.viewBtn.focus(); } } },
+        h('div', { class: 'eyebrow', style: { padding: '6px 10px 2px' } }, t('Paneles', 'Panels')),
+        cb('hl', 'left', t('Panel izquierdo', 'Left panel')), cb('hr', 'right', t('Columna derecha (capas y propiedades)', 'Right column (layers and properties)')), cb('ht', 'tl', t('Línea de tiempo', 'Timeline')),
+        h('p', { class: 'cap', style: { padding: '2px 10px' } }, t('Arrastra los bordes de los paneles para cambiar su tamaño. Doble clic en un borde para ocultarlo.', 'Drag the panel edges to resize. Double-click an edge to hide it.')),
+        h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Tamaño de la interfaz', 'Interface size')),
+        h('div', { style: { padding: '2px 10px 6px' } }, MC.ui.seg(UI_SCALES.map((q) => ({ v: q[0], l: q[1] })), UI_SCALES.some((q) => q[0] === z) ? z : null, setUiScale, t('Tamaño de la interfaz', 'Interface size'))),
+        h('button', { type: 'button', onClick: () => { resetLayout(); setUiScale('1'); } }, MC.icon('undo', 14), t('Restablecer disposición y tamaño', 'Reset layout and size')));
+      el.viewBtn.parentNode.append(el.viewMenu);
+    }
 
     /* ---------- barra superior ---------- */
     function renderTop() {
@@ -312,9 +378,10 @@
         el.fmt,
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).map(wsBtn)),
         el.jobChip, el.status, el.undo, el.redo,
+        h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; renderTop(); } }, MC.icon('sliders'))),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales (?)', 'Help, shortcuts and tutorials (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear')));
-      setStatus(true); updateHistBtns(); renderFmtPop();
+      setStatus(true); updateHistBtns(); renderFmtPop(); renderViewMenu();
     }
     /* selector de formato: proporciones dibujadas a escala */
     function renderFmtPop() {
@@ -1518,21 +1585,21 @@
     el.rail = h('div', { class: 'rail', role: 'tablist', 'aria-label': t('Paneles', 'Panels'), 'aria-orientation': 'vertical' });
     el.leftTitle = h('h3', null, '');
     el.leftBody = h('div', { class: 'pbody' });
-    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle), el.leftBody);
+    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle), el.leftBody, handle('left', 'r', t('Ancho del panel izquierdo', 'Left panel width')));
     el.propsTitle = h('h3', null, '');
     el.exportHost = h('div', { class: 'exp-panel' });
     const layersPanel = h('div', { class: 'panel-col p-layers' },
       h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))),
       h('div', { style: { display: 'contents' }, onClick: (e) => { if (e.target === e.currentTarget || e.target === el.layersBody) { S.selKind = 'shot'; S.li = -1; renderLayers(); renderPanels(); S.dirty = true; } } }, el.layersBody));
     const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle), el.inspBody);
-    el.rightEl = h('div', { class: 'rightcol' }, layersPanel, propsPanel);
+    el.rightEl = h('div', { class: 'rightcol' }, layersPanel, propsPanel, handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
     const exportPanel = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
     const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage,
       h('div', { class: 'tbar' },
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
         el.play, el.loop, el.time,
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame'))));
-    const timeline = h('div', { class: 'p-timeline' },
+    const timeline = h('div', { class: 'p-timeline' }, handle('tl', 't', t('Alto de la línea de tiempo', 'Timeline height')),
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
@@ -1546,7 +1613,10 @@
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     MC.put(MC.clear(root), studio);
-    renderAll(); wire(el.canvas); wireTimeline();
+    renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
+    const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
+    const onDocDown = (e) => { if (S.viewOpen && el.viewMenu && !el.viewMenu.contains(e.target) && !(el.viewBtn && el.viewBtn.contains(e.target))) { S.viewOpen = false; renderViewMenu(); if (el.viewBtn) el.viewBtn.setAttribute('aria-expanded', 'false'); } };
+    document.addEventListener('pointerdown', onDocDown);
     MC.ensureFonts().then(() => { S.dirty = true; });
     MC.fonts.loadFor(S.project).then((miss) => { if (miss.length) MC.toast(t('Falta la tipografía: ', 'Missing font: ') + miss.join(', ') + t('. Se usa otra de reserva.', '. A fallback is used.')); S.dirty = true; });
 
@@ -1618,7 +1688,7 @@
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
-    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
+    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
