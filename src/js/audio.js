@@ -29,11 +29,22 @@
     buffers.set(id, a);
     return a;
   };
+  /* Audio que va dentro de otro archivo (la pista de sonido de un vídeo): no se guarda dos veces, apunta al vídeo. */
+  A.addFrom = async (blob, name, id, srcId) => {
+    const buffer = await decode(await blob.arrayBuffer());
+    const peaks = peaksOf(buffer);
+    await MC.db.put('assets', { id, name, kind: 'audio', src: srcId, dur: buffer.duration, peaks });
+    const a = { id, name, buffer, peaks, dur: buffer.duration };
+    buffers.set(id, a);
+    return a;
+  };
   A.load = async (id) => {
     if (buffers.has(id)) return buffers.get(id);
     const rec = await MC.db.get('assets', id);
     if (!rec) return null;
-    const buffer = await decode(await rec.blob.arrayBuffer());
+    const src = rec.src ? await MC.db.get('assets', rec.src) : rec;
+    if (!src || !src.blob) return null;
+    const buffer = await decode(await src.blob.arrayBuffer());
     const a = { id, name: rec.name, buffer, peaks: rec.peaks || peaksOf(buffer), dur: buffer.duration };
     buffers.set(id, a);
     return a;

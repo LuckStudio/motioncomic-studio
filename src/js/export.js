@@ -57,16 +57,20 @@
     venc.configure(vid.cfg);
 
     const canvas = new OffscreenCanvas(W, H), ctx = canvas.getContext('2d'), o = MC.renderOpts(p, { W, H, lang: opt.lang, subs: opt.subs });
+    const hasVid = MC.video.hasVideo(p); MC.video.exporting = hasVid;
     for (let i = 0; i < frames; i++) {
-      if (signal.aborted) { venc.close(); throw new Error('cancelado'); }
+      if (signal.aborted) { MC.video.exporting = false; venc.close(); throw new Error('cancelado'); }
       if (encErr) throw encErr;
-      MC.renderFrame(ctx, p, Math.min(total - 0.0001, from + i / fps), o);
+      const tt = Math.min(total - 0.0001, from + i / fps);
+      if (hasVid) await MC.video.prepare(p, tt);
+      MC.renderFrame(ctx, p, tt, o);
       const f = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
       venc.encode(f, { keyFrame: i % (fps * 2) === 0 });
       f.close();
       while (venc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 4));
       if (i % 3 === 0) { onProgress((i / frames) * 0.92, t('Fotograma ', 'Frame ') + (i + 1) + ' / ' + frames); await new Promise((r) => setTimeout(r, 0)); }
     }
+    MC.video.exporting = false;
     await venc.flush(); venc.close();
     if (encErr) throw encErr;
 

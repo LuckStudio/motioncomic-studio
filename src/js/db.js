@@ -59,6 +59,7 @@
       if (cache.has(id)) return cache.get(id);
       const rec = await db.get('assets', id);
       if (!rec) return null;
+      if (rec.kind === 'video') { const v = MC.video.fromRec(rec); cache.set(id, v); return v; }
       let bitmap, proxy = false, w = rec.w, h = rec.h;
       if (w && h && Math.max(w, h) > PROXY_LIMIT) { bitmap = await small(rec.blob, w, h); proxy = true; }
       else { bitmap = await createImageBitmap(rec.blob); w = bitmap.width; h = bitmap.height; }
@@ -110,11 +111,14 @@
     const ids = new Set();
     p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
+    (p.overlays || []).forEach((o) => ids.add(o.assetId));
     (p.fonts || []).forEach((f) => ids.add(f.id));
+    [...ids].forEach((id) => { const a = cache.get(id); if (a && a.video && a.audioId) ids.add(a.audioId); });
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
     ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set((p.overlays || []).map((o) => o.assetId))].map((id) => MC.assets.load(id).catch(() => null)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
   /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
@@ -126,6 +130,7 @@
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
+    p.overlays = p.overlays || []; p.otracks = p.otracks && p.otracks.length ? p.otracks : [MC.newOtrack(1)];
     p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
     if ((p.mode || 'free') === 'free') p.frame.on = true;
     return p;

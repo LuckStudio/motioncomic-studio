@@ -28,7 +28,7 @@
     const assets = [];
     for (const id of MC.projectAssetIds(p)) {
       const rec = await MC.db.get('assets', id);
-      if (rec) assets.push({ id, name: rec.name, type: rec.type, kind: rec.kind || 'image', data: await blobToDataUrl(rec.blob) });
+      if (rec && rec.blob) assets.push({ id, name: rec.name, type: rec.type, kind: rec.kind || 'image', data: await blobToDataUrl(rec.blob) });
     }
     const file = new Blob([JSON.stringify({ app: 'motioncomic-studio', v: 1, project: p, assets })], { type: 'application/json' });
     const a = h('a', { href: URL.createObjectURL(file), download: p.name.replace(/[^\w\- ]+/g, '') + '.motioncomic.json' });
@@ -38,7 +38,7 @@
   MC.importProject = async (file) => {
     const data = JSON.parse(await file.text());
     if (data.app !== 'motioncomic-studio') throw new Error('formato');
-    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); if (a.kind === 'font') await MC.fonts.add(new File([blob], a.name, { type: a.type }), a.id); else if (a.kind === 'audio' || /^audio\//.test(a.type || blob.type)) await MC.audio.add(blob, a.name, a.id); else await MC.assets.add(blob, a.name, a.id); }
+    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); if (a.kind === 'font') await MC.fonts.add(new File([blob], a.name, { type: a.type }), a.id); else if (a.kind === 'video') await MC.video.add(new File([blob], a.name, { type: a.type }), a.name, a.id); else if (a.kind === 'audio' || /^audio\//.test(a.type || blob.type)) await MC.audio.add(blob, a.name, a.id); else await MC.assets.add(blob, a.name, a.id); }
     const p = data.project;
     if ((await MC.db.get('projects', p.id))) { p.id = MC.uid(); p.name += ' (importado)'; }
     p.updated = Date.now();

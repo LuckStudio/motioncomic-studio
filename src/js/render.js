@@ -6,7 +6,7 @@
 
   const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t),
     back: (t) => { const c = 1.70158, u = t - 1; return 1 + (c + 1) * u * u * u + c * u * u; }, snap: (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)) };
-  MC.ease = (k, t) => (EASE[k] || EASE.smooth)(clamp(t, 0, 1));
+  MC.ease = (k, t) => (k && k.b && MC.curveFn ? MC.curveFn(k)(clamp(t, 0, 1)) : (EASE[k] || EASE.smooth)(clamp(t, 0, 1)));
   const noise = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
   MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
 
@@ -131,14 +131,18 @@
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
     const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
     const pan = fr ? MC.panelGeom(fr, W, H) : null;
+    const shotStart = o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0;
     const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
       if (!img) return;
+      if (MC.rigShow && !MC.rigShow(shot, layer, tl, shotStart, o.project)) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
-      const camx = W / 2 + (cam.x + cam.sx) * W * g.f, camy = H / 2 + (cam.y + cam.sy) * H * g.f;
+      const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.f, -lim, lim) : (cam.x + cam.sx) * g.f, cys = lim ? clamp((cam.y + cam.sy) * g.f, -lim, lim) : (cam.y + cam.sy) * g.f;
+      const camx = W / 2 + cxs * W, camy = H / 2 + cys * H;
+      const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl, shot.duration) : null;
       ctx.save();
-      ctx.globalAlpha = layer.opacity == null ? 1 : layer.opacity;
+      ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1);
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
       if (blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (blur * W / 1920).toFixed(2) + 'px)';
@@ -147,7 +151,14 @@
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
-      ctx.drawImage(img.bitmap, ix, iy, iw, ih);
+      if (ia) {
+        /* movimiento propio de la capa, alrededor de su pivote (por defecto el centro) */
+        const pv = layer.pivot || { x: 0.5, y: 0.5 }, pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
+        ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1) ctx.scale(ia.sc, ia.sc); ctx.translate(-pxx, -pyy);
+      }
+      let src = img.bitmap;
+      if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
+      ctx.drawImage(src, ix, iy, iw, ih);
       /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
       const pg = shot.page;
       if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {
@@ -210,7 +221,7 @@
     MC.renderShot(ctx, cur, tl, o);
   };
 
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
