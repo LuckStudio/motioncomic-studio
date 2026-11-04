@@ -1324,7 +1324,7 @@
     }
     function resourcesPanel() {
       const p = S.project, ids = [...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))], aud = [...new Set(p.clips.map((c) => c.assetId))];
-      const row = (thumb, name, meta) => h('div', { class: 'layer', style: { cursor: 'default' } }, thumb ? h('img', { class: 'lt', src: thumb, alt: '' }) : h('span', { class: 'lt' }), h('span', { class: 'ln' }, name), h('span', { class: 'lz' }, meta));
+      const row = (thumb, name, meta, drag) => h('div', Object.assign({ class: 'layer', style: { cursor: drag ? 'grab' : 'default' }, title: drag ? t('Arrástralo a la línea de tiempo o a las capas', 'Drag it to the timeline or the layers') : null }, drag ? { draggable: 'true', onDragstart: (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([drag])); e.dataTransfer.effectAllowed = 'copy'; } } : {}), thumb ? h('img', { class: 'lt', src: thumb, alt: '' }) : h('span', { class: 'lt' }), h('span', { class: 'ln' }, name), h('span', { class: 'lz' }, meta));
       const dirIn = h('input', { type: 'file', webkitdirectory: '', directory: '', multiple: true, hidden: true, onChange: (e) => { const fs = [...e.target.files].filter((f) => !/(^|\/)\./.test(f.webkitRelativePath || f.name)); e.target.value = ''; if (fs.length) importFiles(fs, 'layers'); } });
       const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, onChange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { const rec = await MC.fonts.add(f); p.fonts.push(rec); commit(); MC.toast(t('Tipografía añadida: ', 'Font added: ') + rec.name); } catch (err) { MC.toast(t('No se pudo leer esa tipografía.', 'Could not read that font.')); } } });
       return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
@@ -1333,8 +1333,8 @@
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => fontIn.click() }, MC.icon('text', 20), t('Tipografía', 'Font')),
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileShots.click() }, MC.icon('film', 20), t('Planos', 'Shots')),
         h('button', { class: 'btn btn-s', type: 'button', title: t('Importa todas las imágenes de una carpeta', 'Import every image in a folder'), onClick: () => dirIn.click() }, MC.icon('folder', 20), t('Carpeta', 'Folder'))), fontIn, dirIn),
-      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Imágenes del proyecto · ', 'Project images · ') + ids.length), ids.length ? h('div', { style: { display: 'grid', gap: '2px' } }, ids.map((id) => { const a = MC.assets.get(id); return a ? row(a.thumb, a.name, a.w + '×' + a.h + (a.proxy ? ' · ' + t('proxy', 'proxy') : '')) : null; })) : h('p', { class: 'cap' }, t('Aún no hay imágenes.', 'No images yet.'))),
-      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Audio · ', 'Audio · ') + aud.length), aud.length ? h('div', { style: { display: 'grid', gap: '2px' } }, aud.map((id) => { const a = MC.audio.get(id); return a ? row(null, a.name, a.dur.toFixed(1) + ' s') : null; })) : h('p', { class: 'cap' }, t('Aún no hay audio.', 'No audio yet.'))),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Imágenes del proyecto · ', 'Project images · ') + ids.length), ids.length ? h('div', { style: { display: 'grid', gap: '2px' } }, ids.map((id) => { const a = MC.assets.get(id); return a ? row(a.thumb, a.name, (a.video ? t('vídeo · ', 'video · ') : '') + a.w + '×' + a.h + (a.proxy ? ' · ' + t('proxy', 'proxy') : ''), { id, kind: a.video ? 'video' : 'image' }) : null; })) : h('p', { class: 'cap' }, t('Aún no hay imágenes.', 'No images yet.'))),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Audio · ', 'Audio · ') + aud.length), aud.length ? h('div', { style: { display: 'grid', gap: '2px' } }, aud.map((id) => { const a = MC.audio.get(id); return a ? row(null, a.name, a.dur.toFixed(1) + ' s', { id, kind: 'audio' }) : null; })) : h('p', { class: 'cap' }, t('Aún no hay audio.', 'No audio yet.'))),
       p.fonts.length ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Tipografías propias', 'Your fonts')), h('div', { style: { display: 'grid', gap: '2px' } }, p.fonts.map((f) => row(null, f.name, 'TTF/OTF')))) : null];
     }
     /* ---------- biblioteca compartida entre proyectos ---------- */
@@ -1373,7 +1373,7 @@
             : [h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => useFromLibrary(it, 'layer') }, MC.icon('layersx', 13), t('Como capa', 'As layer')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => useFromLibrary(it, 'overlay') }, MC.icon('image', 13), t('Superpuesto', 'As overlay'))],
           h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Carpeta y etiquetas', 'Folder and tags'), 'aria-label': t('Editar ', 'Edit ') + it.name, onClick: () => editItem(it) }, MC.icon('gear', 13)),
           h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Quitar de la biblioteca (no borra el archivo de tus proyectos)', 'Remove from the library (does not delete it from your projects)'), 'aria-label': t('Quitar ', 'Remove ') + it.name, onClick: async () => { await MC.library.remove(it.id); loadLib(); } }, MC.icon('trash', 13)));
-        return h('div', { class: 'libcard' }, it.thumb ? h('img', { class: 'lt', src: it.thumb, alt: '' }) : h('span', { class: 'lt' + (it.kind === 'audio' ? ' au' : '') }, it.kind === 'audio' ? MC.icon('note', 18) : null),
+        return h('div', { class: 'libcard', draggable: 'true', title: t('Arrástralo a la línea de tiempo o a las capas', 'Drag it to the timeline or the layers'), onDragstart: (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([{ id: it.id, kind: it.kind }])); e.dataTransfer.effectAllowed = 'copy'; } }, it.thumb ? h('img', { class: 'lt', src: it.thumb, alt: '' }) : h('span', { class: 'lt' + (it.kind === 'audio' ? ' au' : '') }, it.kind === 'audio' ? MC.icon('note', 18) : null),
           h('div', { style: { minWidth: 0 } }, h('b', { class: 'ln' }, it.name), h('span', { class: 'cap' }, ({ image: t('imagen', 'image'), video: t('vídeo', 'video'), audio: t('audio', 'audio') })[it.kind] + (it.folder ? ' · ' + it.folder : '') + ((it.tags || []).length ? ' · #' + it.tags.join(' #') : '')), menu));
       };
       return [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca · ', 'Library · ') + items.length),
@@ -2111,6 +2111,10 @@
         const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
       });
+      el.tlContent.querySelectorAll('.lyrbar').forEach((c) => {
+        const i = +c.dataset.si, sh = p.shots[i]; if (!sh) return;
+        c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
+      });
       el.tlContent.querySelectorAll('.clip[data-tr]').forEach((c) => {
         const i = +c.dataset.tr, sh = p.shots[i]; if (!sh) return;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, Math.min(sh.transition.dur, sh.duration * 0.9) * pps - 2) + 'px';
@@ -2148,6 +2152,7 @@
       updateTime();
     }
     /* Si varios clips de una misma pista se solapan, pasan a una segunda (tercera…) fila dentro de esa pista. */
+    const p0 = () => S.project;
     function layoutLanes() {
       const LH0 = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34;
       el.tlContent.querySelectorAll('.tl-track').forEach((row) => {
@@ -2156,7 +2161,13 @@
         const items = clips.map((c) => ({ c, a: parseFloat(c.style.left) || 0, b: (parseFloat(c.style.left) || 0) + (parseFloat(c.style.width) || 0) })).sort((x, y) => x.a - y.a || x.b - y.b);
         const ends = [];
         items.forEach((it) => { let l = ends.findIndex((e2) => e2 <= it.a + 0.5); if (l < 0) { l = ends.length; ends.push(0); } ends[l] = it.b; it.c.style.top = (l * LH + 4) + 'px'; it.c.style.bottom = 'auto'; it.c.style.height = (LH - 8) + 'px'; });
-        const n = Math.max(1, ends.length); row.style.height = n * LH + 'px';
+        let n = Math.max(1, ends.length);
+        if (row.dataset.k === 'shots') {
+          const ex = Math.max(0, ...p0().shots.filter((q) => S.expand[q.id] && !(q.page || q.webtoon)).map((q) => q.layers.length)); if (ex) n = Math.max(n, 1 + ex);
+          row.querySelectorAll('.lyrbar').forEach((b2) => { const sh2 = p0().shots[+b2.dataset.si]; if (!sh2) return; const k = sh2.layers.length - 1 - +b2.dataset.li; b2.style.top = (LH * (1 + k) + 3) + 'px'; b2.style.height = (LH - 6) + 'px'; });
+          row.querySelectorAll('.clip.thin').forEach((c) => { c.style.top = (LH - 7) + 'px'; c.style.bottom = 'auto'; });
+        }
+        row.style.height = n * LH + 'px';
         const lab = el.tlLabels.querySelector('[data-k="' + row.dataset.k + '"]'); if (lab) lab.style.height = n * LH + 'px';
         row.classList.toggle('multi', n > 1);
       });
@@ -2178,7 +2189,7 @@
       return Math.max(0, Math.round(best * 100) / 100);
     }
     /* ---------- línea de tiempo avanzada: ripple, selección múltiple, grupos y marcadores ---------- */
-    S.ripple = MC.store.get('ripple', '0') === '1';
+    S.ripple = MC.store.get('ripple', '0') === '1'; S.expand = S.expand || {};
     const rippleBegin = (fromT) => {
       const p = S.project, snap = [];
       p.clips.forEach((c) => { if (c.start >= fromT - 0.001) snap.push([c, 'start', c.start]); });
@@ -2293,6 +2304,7 @@
         el.tlContent.append(R[k]);
       });
       p.shots.forEach((sh, i) => {
+        const expd = !!S.expand[sh.id] && !(sh.page || sh.webtoon);
         let thumbU = ''; if (p.shots.length <= 40) { try { thumbU = shotThumbURL(sh); } catch (e) { thumbU = ''; } }
         const clip = h('div', { class: 'clip shotc' + (thumbU ? ' th' : '') + (i === S.si ? ' on' : ''), 'data-i': i, style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
           onClick: () => { if (!clip._moved) selectShot(i, true); },
@@ -2304,6 +2316,7 @@
               MC.announce(sh.name + ', ' + sh.duration.toFixed(1) + ' s'); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-i="' + i + '"]'); if (n) n.focus(); }, 0);
             }
           } },
+          (sh.page || sh.webtoon) ? null : h('button', { type: 'button', class: 'cvx', 'aria-expanded': String(expd), title: expd ? t('Plegar las capas del plano', 'Fold the shot’s layers') : t('Ver las capas del plano', 'Show the shot’s layers'), 'aria-label': (expd ? t('Plegar las capas de ', 'Fold the layers of ') : t('Ver las capas de ', 'Show the layers of ')) + sh.name, onPointerdown: (e) => e.stopPropagation(), onClick: (e) => { e.stopPropagation(); S.expand[sh.id] = !expd; renderTimeline(); } }, expd ? '▾' : '▸'),
           h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = clip.querySelector('.rz');
         if (sh.page || sh.webtoon) rz.remove();
@@ -2315,6 +2328,19 @@
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', endd); rz.addEventListener('pointercancel', endd);
         });
         R.shots.append(clip);
+        if (expd) sh.layers.forEach((l, li) => {
+          const a = MC.assets.get(l.assetId);
+          const bar = h('div', { class: 'lyrbar' + (i === S.si && li === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), 'data-si': i, 'data-li': li, role: 'button', tabindex: '0', title: l.name + ' · z ' + l.z.toFixed(2), 'aria-label': l.name + ', ' + t('capa ', 'layer ') + (sh.layers.length - li) + t(' de ', ' of ') + sh.layers.length },
+            a && a.thumb ? h('img', { src: a.thumb, alt: '' }) : null, h('span', null, l.name), l.locked ? h('i', null, '🔒') : null);
+          bar.addEventListener('pointerdown', (e) => {
+            e.stopPropagation(); bar.setPointerCapture(e.pointerId); if (S.si !== i) selectShot(i, false); S.li = li; S.tx = null; S.ov = null; S.cl = null; S.multi = [];
+            const y0 = e.clientY, LHx = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34; let moved = false, tgt = li;
+            const mv = (ev) => { if (Math.abs(ev.clientY - y0) > 4) moved = true; if (!moved || l.locked) return; tgt = clamp(li - Math.round((ev.clientY - y0) / LHx), 0, sh.layers.length - 1); R.shots.querySelectorAll('.lyrbar[data-si="' + i + '"]').forEach((n) => n.classList.toggle('tgt', +n.dataset.li === tgt && tgt !== li)); };
+            const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); if (moved && tgt !== li && !l.locked) { S.li = reorderLayer(sh, li, tgt); commit(); } else { renderLayers(); renderInspector(); R.shots.querySelectorAll('.lyrbar').forEach((n) => n.classList.toggle('on', +n.dataset.si === S.si && +n.dataset.li === S.li)); S.dirty = true; } };
+            bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+          });
+          R.shots.append(bar);
+        });
         if (i > 0 && sh.transition.type !== 'cut') {
           const tr = MC.TRANSITIONS.find((x) => x.v === sh.transition.type);
           R.shots.append(h('div', { class: 'clip fx thin', 'data-tr': i, title: t('Transición de entrada: ', 'Entry transition: ') + t(tr.es, tr.en) }));
@@ -2472,8 +2498,63 @@
       el.tlContent.querySelectorAll('.clip[data-c], .clip[data-x], .clip[data-o]').forEach((n) => { const it = itemOfKey(keyEl(n)); n.classList.toggle('grp', !!(it && it.group)); });
       markMulti(); stripPending();
     }
+    /* arrastrar recursos (o archivos) a la línea de tiempo: en el hueco crea un plano; sobre un plano lo añade como capa; en una pista de superposición o de audio, lo coloca ahí */
+    const kindOfFile = (f) => (MC.video.isFile(f) ? 'video' : /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg)$/i.test(f.name) ? 'audio' : /^image\/(png|jpeg|webp|svg)/.test(f.type) || /\.(png|jpe?g|webp|svg)$/i.test(f.name) ? 'image' : 'other');
+    async function storeFiles(files) {
+      const out = [], rest = [];
+      for (const f0 of await MC.expandInputs(files)) {
+        const k = kindOfFile(f0);
+        try {
+          if (k === 'video') { const a = await MC.video.add(f0, f0.name); out.push({ id: a.id, kind: 'video' }); }
+          else if (k === 'audio') { const a = await MC.audio.add(f0, f0.name); out.push({ id: a.id, kind: 'audio' }); }
+          else if (k === 'image') { const f = /\.svg$/i.test(f0.name) || f0.type === 'image/svg+xml' ? await MC.rasterSvg(f0) : f0; const a = await MC.assets.add(f, f.name); out.push({ id: a.id, kind: 'image' }); }
+          else rest.push(f0);
+        } catch (e) { MC.toast(t('No se pudo leer ', 'Could not read ') + f0.name); }
+      }
+      return { items: out, rest };
+    }
+    async function newShotFromAsset(a, at) {
+      const p = S.project, sh = MC.newShot(a.name.replace(/\.[a-z0-9]+$/i, '')); const L = MC.newLayer(a, { z: 0.1, role: 'fondo' }); if (a.video) { L.vloop = true; sh.duration = clamp(Math.round(a.dur * 10) / 10, 1, 30); }
+      sh.layers.push(L); MC.applyPreset(sh.camera, a.video ? 'none' : 'zoomin', 0.8);
+      if (S.ripple) rippleApply(rippleBegin(at < p.shots.length ? MC.shotStarts(p)[at] : MC.totalTime(p)), sh.duration);
+      p.shots.splice(at, 0, sh); return sh;
+    }
+    function dropInfo(e) {
+      const row = e.target.closest && e.target.closest('.tl-track'); if (!row) return null; const key = row.dataset.k, p = S.project, pps = S.pps;
+      const time = Math.max(0, Math.round(((e.clientX - el.tlContent.getBoundingClientRect().left) / pps) * 100) / 100);
+      const bar = e.target.closest('.lyrbar'), clip = e.target.closest('.clip[data-i]');
+      return { row, key, time, bar, clip, si: bar ? +bar.dataset.si : clip ? +clip.dataset.i : null };
+    }
+    async function dropOnTimeline(e) {
+      const info = dropInfo(e); if (!info) return; const dt = e.dataTransfer, p = S.project; let items = [], rest = [];
+      if (dt.types.includes(MIME_ASSET)) { try { items = JSON.parse(dt.getData(MIME_ASSET)); } catch (x) { items = []; } }
+      else if (dt.files && dt.files.length) { const fs = await MC.collectDropped(dt); MC.toast(t('Leyendo los archivos…', 'Reading the files…')); const r = await storeFiles(fs); items = r.items; rest = r.rest; }
+      const imgs = items.filter((q) => q.kind !== 'audio'), auds = items.filter((q) => q.kind === 'audio'), key = info.key;
+      if (auds.length && (key === 'voz' || key === 'sfx' || key === 'musica' || key === 'shots' || key === 'text')) {
+        for (const q of auds) { const a = MC.audio.get(q.id) || (await MC.audio.load(q.id)); if (!a) continue; const c = MC.audio.newClip(AU.includes(key) ? key : a.dur >= 20 ? 'musica' : 'sfx', a, info.time); p.clips.push(c); S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; }
+        commit(); return;
+      }
+      if (/^o\d+$/.test(key) && imgs.length) { let at = info.time; for (const q of imgs) { const a = await MC.assets.load(q.id); if (!a) continue; const it = MC.newOverlay(a, { track: +key.slice(1), start: at, dur: 4 }); it.scale = 0.6; if (!a.video) it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; p.overlays.push(it); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1; at += it.dur; } commit(); return; }
+      if (key === 'shots' && imgs.length) {
+        if (info.si != null) { /* sobre un plano: capas */
+          selectShot(info.si, false); let idx = null;
+          if (info.bar) { const li = +info.bar.dataset.li, r = info.bar.getBoundingClientRect(); idx = e.clientY < r.top + r.height / 2 ? li + 1 : li; }
+          await assetsToLayers(imgs.map((q) => q.id), idx); return;
+        }
+        const starts = MC.shotStarts(p); let at = p.shots.length; for (let i = 0; i < p.shots.length; i++) if (info.time < starts[i] + p.shots[i].duration / 2) { at = i; break; }
+        let first = -1; for (const q of imgs) { const a = await MC.assets.load(q.id); if (!a) continue; await newShotFromAsset(a, at); if (first < 0) first = at; at++; }
+        if (first >= 0) { commit(); selectShot(first, true); checkMemory(); MC.toast(imgs.length > 1 ? t(imgs.length + ' planos creados', imgs.length + ' shots created') : t('Plano creado', 'Shot created')); }
+        return;
+      }
+      if (rest.length) { await importFiles(rest, 'shots'); return; }
+      if (imgs.length || auds.length) MC.toast(t('Suéltalo en la pista de planos, de superposición o de audio.', 'Drop it on the shots, overlay or audio track.'));
+    }
     function wireTimeline() {
       let down = false, marq = null;
+      const okDrag = (e) => { const ty = e.dataTransfer.types; return ty.includes(MIME_ASSET) || ty.includes('Files'); };
+      el.tlContent.addEventListener('dragover', (e) => { if (!okDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; const info = dropInfo(e); el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); if (info) { (info.bar || info.clip || info.row).classList.add('dropt'); } });
+      el.tlContent.addEventListener('dragleave', (e) => { if (!el.tlContent.contains(e.relatedTarget)) el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); });
+      el.tlContent.addEventListener('drop', (e) => { if (!okDrag(e)) return; e.preventDefault(); el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); dropOnTimeline(e); });
       const at = (e) => (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps;
       /* selección múltiple (Mayús o Ctrl + clic), mover varios a la vez y grupos: se atiende antes que los controladores de cada clip */
       el.tlContent.addEventListener('pointerdown', (e) => {

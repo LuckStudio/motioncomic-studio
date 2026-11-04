@@ -519,3 +519,13 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .pickcard img, .pickcard .ph0 { width: 100%; height: 72px; object-fit: contain; background: var(--raised); }
 .pickcard b { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pickcard small { color: var(--muted); }
 .pickcard[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ---------- arrastrar recursos a la línea de tiempo y capas desplegadas ---------- */
+.tl-track.dropt, .clip.dropt, .lyrbar.dropt { outline: 2px solid var(--accent); outline-offset: -2px; background-color: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
+.clip .cvx { flex: none; width: 16px; height: 18px; padding: 0; margin-right: 4px; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; cursor: pointer; z-index: 3; }
+.lyrbar { position: absolute; display: flex; align-items: center; gap: 6px; padding: 0 6px; background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border: 1px solid var(--line); border-left: 3px solid var(--accent); color: var(--fg); font-size: 11px; overflow: hidden; cursor: grab; touch-action: none; }
+.lyrbar img { height: 70%; width: auto; max-width: 28px; object-fit: cover; }
+.lyrbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lyrbar.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 38%, var(--panel)); font-weight: 600; }
+.lyrbar.off { opacity: .45; }
+.lyrbar.tgt { box-shadow: 0 -3px 0 var(--accent); }
