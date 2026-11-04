@@ -46,17 +46,17 @@
       { sel: '.p-layers .pbody', act: 'selectLayer', es: ['Elige una capa', 'Haz clic en una capa de la lista. Arriba está lo que queda delante.'], en: ['Pick a layer', 'Click a layer in the list. The top is what sits in front.'] },
       { sel: '.sec[data-id="capa"]', es: ['Profundidad', 'Ajusta la profundidad (z) con los botones o el deslizador. Las capas cercanas se mueven más que las lejanas cuando la cámara se desplaza.'], en: ['Depth', 'Set the depth (z) with the chips or the slider. Near layers move more than far ones when the camera moves.'] },
       { sel: '.play', es: ['Míralo en movimiento', 'Reproduce el plano. Si ves huecos en el fondo, activa «Huecos» en el visor o deja el sobreescalado automático.'], en: ['See it move', 'Play the shot. If you see gaps in the background, turn on “Gaps” in the viewer or keep automatic overscale.'] },
-      { sel: '.sec[data-id="proyecto"]', es: ['Intensidad', 'En «Formato y parallax» eliges si el efecto es sutil, normal o exagerado para todo el proyecto.'], en: ['Intensity', 'In “Format and parallax” you choose whether the effect is subtle, normal or exaggerated for the whole project.'] },
+      { sel: '[data-id="proyecto"]', act: 'proyectoTab', es: ['Intensidad', 'En el panel «Proyecto» eliges si el efecto es sutil, normal o exagerado para todo el proyecto.'], en: ['Intensity', 'In the Project panel you choose whether the effect is subtle, normal or exaggerated for the whole project.'] },
     ] },
     { id: 'voz', es: ['Voz', 'Sincroniza los planos con la locución'], en: ['Voice', 'Sync the shots with the voice-over'], steps: [
       { sel: '.tl-labels .trl:nth-child(4)', es: ['Pista de locución', 'Con «+» importas un audio y con el micrófono grabas, con cuenta atrás, mientras se reproduce la imagen.'], en: ['Voice track', 'Use “+” to import audio and the microphone to record, with a countdown, while the picture plays.'] },
-      { sel: '.sec[data-id="mezcla"]', act: 'openMix', es: ['Marcar pausas', '«Marcar pausas de la voz» pone marcas en la regla donde la voz se detiene. No hay reconocimiento de voz: tu audio no sale del equipo.'], en: ['Mark pauses', '“Mark voice pauses” puts marks on the ruler where the voice stops. There is no speech recognition: your audio never leaves the device.'] },
-      { sel: '.sec[data-id="mezcla"]', es: ['Ajustar planos a la voz', '«Ajustar planos a la voz» reparte la duración de cada plano según las pausas. Después puedes retocar a mano.'], en: ['Fit shots to voice', '“Fit shots to voice” splits each shot’s length using the pauses. You can fine-tune by hand afterwards.'] },
+      { sel: '[data-id="mezcla"]', act: 'openMix', es: ['Marcar pausas', '«Marcar pausas de la voz» pone marcas en la regla donde la voz se detiene. No hay reconocimiento de voz: tu audio no sale del equipo.'], en: ['Mark pauses', '“Mark voice pauses” puts marks on the ruler where the voice stops. There is no speech recognition: your audio never leaves the device.'] },
+      { sel: '[data-id="mezcla"]', es: ['Ajustar planos a la voz', '«Ajustar planos a la voz» reparte la duración de cada plano según las pausas. Después puedes retocar a mano.'], en: ['Fit shots to voice', '“Fit shots to voice” splits each shot’s length using the pauses. You can fine-tune by hand afterwards.'] },
       { sel: '.vbar', es: ['Texto con la voz', 'Coloca el cabezal sobre la locución y añade un bocadillo: queda vinculado, aparece cuando suena su línea y se va cuando termina.'], en: ['Text with the voice', 'Place the playhead over the voice-over and add a bubble: it stays linked, appears when its line plays and leaves when it ends.'] },
     ] },
     { id: 'exportar', es: ['Exportar', 'Del montaje al vídeo listo para subir'], en: ['Export', 'From the edit to a ready-to-post video'], steps: [
       { sel: '.vbar', es: ['Simulador', 'Con «Simulador» ves el vídeo con una interfaz de red social encima para comprobar qué tapa. Las zonas seguras también ayudan.'], en: ['Simulator', 'With “Simulator” you see the video under a social app interface to check what it covers. Safe zones help too.'] },
-      { sel: '.s-top .btn-p', es: ['Exportar', 'Elige plataforma o varios formatos a la vez, calidad e idioma. También saca la portada y los subtítulos en SRT. Puedes seguir editando mientras exporta.'], en: ['Export', 'Pick a platform or several formats at once, quality and language. It also gives you the cover and SRT subtitles. You can keep editing while it exports.'] },
+      { sel: '.s-tabs button:last-child', act: 'openExportWs', es: ['Exportar', 'La pestaña Exportar es un espacio propio. Elige plataforma o varios formatos a la vez, calidad e idioma. También saca la portada y los subtítulos en SRT. Puedes seguir editando mientras exporta.'], en: ['Export', 'The Export tab is its own workspace. Pick a platform or several formats at once, quality and language. It also gives you the cover and SRT subtitles. You can keep editing while it exports.'] },
       { sel: '.s-top .status', es: ['Guardado en este equipo', 'Tu proyecto vive en este navegador. Desde el inicio, «Exportar copia» guarda un archivo con todo para otro equipo.'], en: ['Saved on this device', 'Your project lives in this browser. From the home screen, “Export backup” saves a file with everything for another device.'] },
     ] },
   ];
@@ -139,30 +139,9 @@
           h('p', { class: 'cap' }, t('Fijos: Esc cierra o cancela, Intro cierra un polígono, Tab y Mayús+Tab recorren los controles.', 'Fixed: Esc closes or cancels, Enter closes a polygon, Tab and Shift+Tab move through controls.')));
         return wrap;
       },
-      settings: () => {
-        const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system', bench = (() => { try { return JSON.parse(MC.store.get('bench', '')); } catch (e) { return null; } })();
-        const lim = MC.limits(), out = h('div', { class: 'calc' });
-        const showBench = (b) => {
-          MC.clear(out);
-          if (!b) { MC.put(out, h('span', { class: 'cap' }, t('Tu equipo', 'Your device')), h('span', null, t('Aún no se ha medido.', 'Not measured yet.'))); return; }
-          const fps = 1000 / b.ms1080, ok4k = b.ms4k < 90;
-          MC.put(out, h('span', { class: 'cap' }, t('Tu equipo', 'Your device')),
-            h('span', { class: 'big' }, '≈ ' + Math.min(60, Math.round(fps)) + ' fps · 1080p'),
-            h('span', null, t('Fotograma 1080p: ', '1080p frame: ') + b.ms1080.toFixed(1) + ' ms · 4K: ' + b.ms4k.toFixed(0) + ' ms'),
-            h('span', { class: fps >= 30 ? 'good' : 'warn' }, fps >= 30 ? t('La previsualización debería ir fluida.', 'Preview should run smoothly.') : t('Baja la calidad de previsualización y trabaja con menos capas a la vez.', 'Lower the preview quality and work with fewer layers at once.')),
-            h('span', { class: ok4k ? 'good' : 'warn' }, ok4k ? t('Exportar en 4K es razonable.', 'Exporting at 4K is reasonable.') : t('En 4K la exportación será lenta: prueba antes en 1080p.', 'At 4K export will be slow: try 1080p first.')),
-            h('span', { class: 'cap' }, (b.cores ? b.cores + t(' núcleos', ' cores') + ' · ' : '') + (b.dm ? b.dm + ' GB' + t(' de memoria (aprox.)', ' of memory (approx.)') : t('memoria no informada por el navegador', 'memory not reported by the browser'))));
-        };
-        showBench(bench);
-        return h('div', { style: { display: 'grid', gap: '16px' } },
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tamaño de la interfaz', 'Interface size')), MC.ui.seg([['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %'], ['1.5', '150 %']].map((q) => ({ v: q[0], l: q[1] })), z, (v) => { MC.store.set('uizoom', v); MC.applyPrefs(); if (MC.studioApi) MC.studioApi.refit(); }, t('Tamaño de la interfaz', 'Interface size'))),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations'))),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.seg([{ v: 'system', l: t('Sistema', 'System') }, { v: 'dark', l: t('Oscuro', 'Dark') }, { v: 'light', l: t('Claro', 'Light') }], th, (v) => { if (v === 'system') { document.documentElement.removeAttribute('data-theme'); MC.store.set('theme', ''); } else { document.documentElement.setAttribute('data-theme', v); MC.store.set('theme', v); } }, t('Tema', 'Theme'))),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idioma', 'Language')), MC.ui.seg([{ v: 'es', l: 'Español' }, { v: 'en', l: 'English' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); modal.close(); MC.app.render(); }, t('Idioma', 'Language'))),
-          out,
-          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = t('Midiendo…', 'Measuring…'); const r = await MC.benchmark(); showBench(r); b.disabled = false; b.textContent = t('Medir mi equipo', 'Measure my device'); } }, bench ? t('Medir de nuevo', 'Measure again') : t('Medir mi equipo', 'Measure my device')),
-          h('p', { class: 'cap' }, t('Límites recomendados para este equipo: ≈ ' + Math.round(lim.editMB) + ' MB de imágenes en edición y ≈ ' + Math.round(lim.exportMB) + ' MB al exportar' + (lim.known ? '.' : ' (estimados: el navegador no informa de la memoria).'), 'Recommended limits for this device: ≈ ' + Math.round(lim.editMB) + ' MB of images while editing and ≈ ' + Math.round(lim.exportMB) + ' MB when exporting' + (lim.known ? '.' : ' (estimated: the browser does not report memory).'))));
-      },
+      settings: () => h('div', { style: { display: 'grid', gap: '12px' } },
+        h('p', { class: 'cap' }, t('Tema, tamaño de la interfaz, animaciones, idioma, datos guardados en este equipo, instalación y rendimiento están en las preferencias.', 'Theme, interface size, animations, language, data stored on this device, installation and performance are in the preferences.')),
+        h('button', { class: 'btn btn-p', type: 'button', style: { justifySelf: 'start' }, onClick: () => { modal.close(); MC.openPrefs(); } }, MC.icon('gear', 15), t('Abrir las preferencias', 'Open preferences'))),
       about: () => h('div', { style: { display: 'grid', gap: '10px' } },
         h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
         h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),

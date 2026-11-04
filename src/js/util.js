@@ -93,6 +93,20 @@
     bookmark: '<path d="M6 3h12v18l-6-4.500L6 21z"/>',
     dots: '<circle cx="5" cy="12" r="1.600" fill="currentColor"/><circle cx="12" cy="12" r="1.600" fill="currentColor"/><circle cx="19" cy="12" r="1.600" fill="currentColor"/>',
     page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 10h16M11 3v7M11 10v11"/>',
+    film: '<rect x="3" y="4" width="18" height="16"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+    camera: '<path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/>',
+    text: '<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+    sparkle: '<path d="M12 3l2.200 6.300L21 12l-6.800 2.700L12 21l-2.200-6.300L3 12l6.800-2.700z"/>',
+    speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 010 6M18.500 6.500a8 8 0 010 11"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    sliders: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 5v4M8 15v4"/>',
+    star: '<path d="M12 3l2.700 5.600 6.100.9-4.400 4.300 1 6.100L12 17l-5.400 2.900 1-6.100L3.200 9.500l6.100-.9z"/>',
+    folder: '<path d="M3 6h7l2 2h9v11H3z"/>',
+    layersx: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    gear: '<circle cx="12" cy="12" r="3.500"/><path d="M10 3h4l.5 2.500 2 1 2.300-1.300 2.800 2.800-1.300 2.300 1 2 2.500.5v4l-2.500.5-1 2 1.300 2.300-2.800 2.800-2.300-1.300-2 1-.5 2.500h-4l-.5-2.500-2-1-2.300 1.300-2.800-2.800 1.300-2.300-1-2L2 14v-4l2.500-.5 1-2L4.200 5.200 7 2.400l2.300 1.300 2-1z"/>',
+    search: '<circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/>',
+    mixer: '<path d="M5 4v16M12 4v16M19 4v16M3 9h4M10 15h4M17 8h4"/>',
+    export: '<path d="M12 3v12M7 8l5-5 5 5M4 17v4h16v-4"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
   };
   MC.icon = (name, size) => {
@@ -153,7 +167,7 @@
     setTimeout(() => { live.textContent = msg; }, 40);
   };
   /* Ventana: lleva el foco dentro, lo recorre con Tab sin salirse, se cierra con Esc y devuelve el foco a quien la abrió. */
-  MC.modal = (title, body, actions) => {
+  MC.modal = (title, body, actions, o) => {
     const prev = document.activeElement, tid = 'mt-' + MC.uid();
     const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); if (prev && prev.focus && document.contains(prev)) prev.focus(); };
     const focusables = () => [...dlg.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')].filter((n) => n.offsetParent !== null);
@@ -165,7 +179,7 @@
       if (e.shiftKey && (document.activeElement === first || !dlg.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && (document.activeElement === last || !dlg.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     };
-    const dlg = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid }, h('h2', { id: tid }, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null);
+    const dlg = h('div', { class: 'modal' + (o && o.wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid }, h('h2', { id: tid }, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null);
     const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } }, dlg);
     document.addEventListener('keydown', onKey);
     document.body.append(scrim);

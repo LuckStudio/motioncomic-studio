@@ -189,7 +189,7 @@
     ctx.restore();
     if (o.collect) o.collect.push({ id: it.id, cx, cy, bounds, tip, rot: it.rot || 0 });
   }
-  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function rr(ctx, x, y, w, h) { ctx.beginPath(); ctx.rect(x, y, w, h); } // cajas y fondo de subtítulos rectos; los bocadillos siguen siendo óvalos
 
   /* Subtítulos SRT */
   const ts = (s) => { const ms = Math.round(s * 1000), pad = (n, l) => String(n).padStart(l || 2, '0'); return pad(Math.floor(ms / 3600000)) + ':' + pad(Math.floor(ms / 60000) % 60) + ':' + pad(Math.floor(ms / 1000) % 60) + ',' + pad(ms % 1000, 3); };

@@ -8,8 +8,8 @@
     h('div', { class: 'top-actions' }, extra,
       MC.installEvt && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); await ev.userChoice.catch(() => {}); MC.app.render(); } }, MC.icon('download', 14), t('Instalar la aplicación', 'Install the app')) : null,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
-      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), 'aria-label': t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
-      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Cambiar tema', 'Toggle theme'), 'aria-label': t('Cambiar tema', 'Toggle theme'), onClick: () => MC.toggleTheme() }, MC.icon(MC.isLight() ? 'moon' : 'sun'))));
+      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), 'aria-label': t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
+      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear'))));
 
   MC.isLight = () => {
     const a = document.documentElement.getAttribute('data-theme');
@@ -75,8 +75,8 @@
     return root;
   };
 
-  MC.newProjectDialog = () => {
-    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free', dir: 'ltr' };
+  MC.newProjectDialog = (mode) => {
+    const st = { name: '', ratio: mode === 'free' || !mode ? '9:16' : '9:16', res: '1080p', zoom: 1.5, mode: mode || 'free', dir: 'ltr' };
     const nameId = 'np-' + MC.uid();
     const body = h('div', { style: { display: 'grid', gap: '16px' } },
       MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Tráiler', 'Chapter 1 · Trailer'), onInput: (e) => { st.name = e.target.value; } }), nameId),
@@ -122,75 +122,141 @@
     });
   };
 
+  const MODE_LABEL = { free: ['Libre', 'Free'], page: ['Página', 'Page'], webtoon: ['Webtoon', 'Webtoon'] };
+  const ago = (ts) => {
+    const m = Math.round((Date.now() - ts) / 60000), rtf = new Intl.RelativeTimeFormat(MC.lang === 'en' ? 'en' : 'es', { numeric: 'auto' });
+    if (m < 1) return t('ahora mismo', 'just now');
+    if (m < 60) return rtf.format(-m, 'minute');
+    if (m < 1440) return rtf.format(-Math.round(m / 60), 'hour');
+    return rtf.format(-Math.round(m / 1440), 'day');
+  };
+
+  /* Escena del inicio: capas reales del ejemplo con parallax que sigue al ratón. */
+  async function heroScene(canvas, caption) {
+    let p = (await MC.db.all('projects')).find((q) => q.sampleV === 4 && !q.samplePage);
+    if (!p || !canvas.isConnected) return;
+    MC.normalizeProject(p);
+    await Promise.all(p.shots[0].layers.map((l) => MC.assets.load(l.assetId)));
+    const sh = p.shots[0], o = MC.renderOpts(p, { W: 1280, H: 720, fx: false, noLook: true }), ctx = canvas.getContext('2d');
+    let mx = 0, my = 0, tx = 0, ty = 0, raf = 0;
+    const move = (e) => { const r = canvas.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; };
+    window.addEventListener('pointermove', move);
+    const still = MC.store.get('motion', 'auto') === 'reduce' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const frame = (now) => {
+      if (!canvas.isConnected) { window.removeEventListener('pointermove', move); return; }
+      raf = requestAnimationFrame(frame);
+      const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 1.5), w = Math.round(r.width * dpr), hh = Math.round(r.height * dpr);
+      if (!w || !hh) return;
+      if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
+      mx += (tx - mx) * 0.06; my += (ty - my) * 0.06;
+      const drift = still ? 0 : Math.sin(now / 2600) * 0.25;
+      const cam = { x: (mx + drift) * 0.05, y: my * 0.03, zoom: 1.14, rot: 0, sx: 0, sy: 0 };
+      const k = Math.max(w / 1280, hh / 720);
+      ctx.setTransform(k, 0, 0, k, (w - 1280 * k) / 2, (hh - 720 * k) / 2);
+      MC.renderShot(ctx, sh, 0, Object.assign({}, o, { cam }));
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    };
+    raf = requestAnimationFrame(frame);
+    if (caption) caption.hidden = false;
+  }
+
   MC.renderHome = async (root) => {
     const projects = (await MC.db.all('projects')).sort((a, b) => b.updated - a.updated);
     const usage = await MC.db.usage();
+    const q = { text: '', sort: 'recent' };
     const fileIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'imp-file', onChange: async (e) => {
       const f = e.target.files[0]; if (!f) return;
       try { await MC.importProject(f); MC.toast(t('Proyecto importado', 'Project imported')); MC.app.render(); }
       catch (err) { MC.toast(t('Ese archivo no es una copia de MotionComic Studio.', 'That file is not a MotionComic Studio backup.')); }
     } });
     const grid = h('div', { class: 'grid' });
-    projects.forEach((p) => grid.append(card(p)));
+    const drawGrid = () => {
+      MC.clear(grid);
+      let list = projects.filter((p) => p.name.toLowerCase().includes(q.text.toLowerCase()));
+      if (q.sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+      else if (q.sort === 'mode') list = list.slice().sort((a, b) => (a.mode || 'free').localeCompare(b.mode || 'free') || b.updated - a.updated);
+      list.forEach((p, i) => { const c = card(p); c.style.animationDelay = Math.min(i, 8) * 45 + 'ms'; grid.append(c); });
+      if (!list.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1' } }, h('p', null, t('Ningún proyecto coincide con la búsqueda.', 'No project matches the search.'))));
+    };
+    const scene = h('canvas', { 'aria-hidden': 'true' }), sceneCap = h('span', { class: 'cap', hidden: true }, t('El parallax responde a tu ratón', 'The parallax follows your mouse'));
+    const last = projects[0];
+    const resume = last ? h('button', { class: 'resume', type: 'button', onClick: (e) => MC.app.openProject(last, e.currentTarget.querySelector('.th')) },
+      h('div', { class: 'th' }, last.thumb ? h('img', { src: last.thumb, alt: '' }) : MC.icon('image', 32)),
+      h('div', { class: 'tx' }, h('span', { class: 'eyebrow' }, t('Continúa donde lo dejaste', 'Pick up where you left off')), h('h3', null, last.name),
+        h('div', { class: 'meta', style: { display: 'flex', gap: '8px', flexWrap: 'wrap', color: 'var(--muted)', fontSize: '14px' } }, h('span', { class: 'tag' }, t(MODE_LABEL[last.mode || 'free'][0], MODE_LABEL[last.mode || 'free'][1])), h('span', { class: 'tag' }, last.ratio + ' · ' + last.res), h('span', null, t('Editado ', 'Edited ') + ago(last.updated))),
+        h('span', { class: 'btn btn-p', style: { justifySelf: 'start', marginTop: '6px' } }, t('Abrir el estudio', 'Open the studio'), MC.icon('chevron', 16)))) : null;
+    const tile = (ic, title, desc, fn) => h('button', { class: 'tile', type: 'button', onClick: fn }, h('div', { class: 'pic' }, MC.icon(ic, 30)), h('b', null, title), h('span', { class: 'd' }, desc));
+    const openMode = (mode) => MC.newProjectDialog(mode);
     MC.put(MC.clear(root), h('div', { class: 'home' },
       MC.topBar(),
-      h('div', { class: 'home-head' },
-        h('div', null, h('h1', null, t('Tus proyectos', 'Your projects')),
-          h('p', null, t('Un cuarto oscuro para que el arte brille. Todo se guarda en este equipo y funciona sin conexión.', 'A dark room where the art shines. Everything is saved on this device and works offline.'))),
-        h('div', { class: 'top-actions' },
-          h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileIn.click() }, MC.icon('upload'), t('Importar copia', 'Import backup')), fileIn,
-          h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('frame'), t('Borrador en un clic', 'One-click draft')),
-          h('button', { class: 'btn btn-p', type: 'button', onClick: MC.newProjectDialog }, MC.icon('plus'), t('Proyecto nuevo', 'New project')))),
-      MC.swWaiting ? h('div', { class: 'notice' }, h('span', { style: { color: 'var(--fg)' } }, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
+      MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Actualizar ahora', 'Update now'))) : null,
-      h('div', { class: 'notice' },
-        h('span', { class: 'cap', style: { color: 'var(--fg)' } }, MC.db.persistent
-          ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.')
-          : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar. Exporta una copia.', 'This browser does not allow saving here: changes will be lost on close. Export a backup.')),
-        usage ? h('span', { class: 'status' }, h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)) : null),
-      projects.length ? grid : h('div', { class: 'empty' }, h('p', null, t('Aún no hay proyectos. Crea uno con «Proyecto nuevo».', 'No projects yet. Create one with “New project”.')),
-        h('button', { class: 'btn btn-s', type: 'button', onClick: async () => { MC.toast(t('Preparando el ejemplo…', 'Preparing the example…')); const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); MC.app.render(); } }, t('Crear el proyecto de ejemplo', 'Create the example project'))),
-      h('section', { 'aria-label': t('Primeros pasos', 'First steps') },
-        h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, t('Primeros pasos', 'First steps')),
-        h('div', { class: 'steps' },
-          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.'), 'importar'),
-          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.'), 'parallax'),
-          step(t('Voz', 'Voice'), t('Graba o importa la locución y ajusta los planos a sus pausas.', 'Record or import the voice-over and fit the shots to its pauses.'), 'voz'),
-          step(t('Exportar', 'Export'), t('Elige plataforma, mira el simulador y exporta en segundo plano.', 'Pick a platform, check the simulator and export in the background.'), 'exportar')))));
+      h('section', { class: 'hero' },
+        h('div', { class: 'hero-copy' },
+          h('div', { class: 'hero-logo' }, h('span', { style: { animation: 'slide-a .7s cubic-bezier(.2,.8,.2,1) both', display: 'inline-flex' } }, MC.mark(46)), h('span', { class: 'eyebrow', style: { animation: 'rise .6s .2s both' } }, t('Estudio de vídeo-cómic', 'Motion-comic studio'))),
+          h('h1', { style: { animation: 'rise .6s .1s both' } }, t('Un cuarto oscuro para que el arte brille', 'A dark room for your art to shine')),
+          h('p', { style: { animation: 'rise .6s .2s both' } }, t('Convierte tus páginas en vídeo animado sin pasar por After Effects. Todo ocurre en este equipo: tus dibujos no salen de aquí.', 'Turn your pages into animated video without After Effects. Everything happens on this device: your art never leaves it.')),
+          h('div', { class: 'hero-cta', style: { animation: 'rise .6s .3s both' } },
+            h('button', { class: 'btn btn-p', type: 'button', onClick: () => MC.newProjectDialog() }, MC.icon('plus'), t('Proyecto nuevo', 'New project')),
+            h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('sparkle'), t('Borrador en un clic', 'One-click draft')),
+            h('button', { class: 'btn btn-g', type: 'button', onClick: () => MC.app.openSample() }, t('Abrir el ejemplo', 'Open the example')))),
+        h('div', { class: 'hero-scene' }, scene, sceneCap)),
+      h('section', { class: 'pipeline', 'aria-label': t('Cómo funciona', 'How it works') },
+        [['01', t('Importa', 'Import'), t('Arrastra PSD, páginas, PDF o imágenes. Las capas y las viñetas se reconocen solas.', 'Drag PSD, pages, PDF or images. Layers and panels are recognised automatically.')],
+          ['02', t('Anima', 'Animate'), t('Cámara, parallax, texto, efectos y voz con presets pensados para cómic.', 'Camera, parallax, text, effects and voice with presets made for comics.')],
+          ['03', t('Publica', 'Publish'), t('Exporta MP4 para TikTok, Reels, Shorts o YouTube y comprueba el resultado con el simulador.', 'Export MP4 for TikTok, Reels, Shorts or YouTube and check the result with the simulator.')]].map((s, i) => h('div', { style: { animationDelay: 0.25 + i * 0.1 + 's' } }, h('span', { class: 'n' }, s[0]), h('b', null, s[1]), h('span', null, s[2])))),
+      resume,
+      h('section', { 'aria-label': t('Tus proyectos', 'Your projects'), style: { display: 'grid', gap: '16px' } },
+        h('div', { class: 'sec-head' }, h('h2', null, t('Tus proyectos', 'Your projects') + (projects.length ? ' · ' + projects.length : '')),
+          h('div', { class: 'tools' },
+            h('label', { class: 'search' }, MC.icon('search', 16), h('input', { type: 'search', 'aria-label': t('Buscar proyectos', 'Search projects'), placeholder: t('Buscar', 'Search'), onInput: (e) => { q.text = e.target.value; drawGrid(); } })),
+            MC.ui.seg([{ v: 'recent', l: t('Recientes', 'Recent') }, { v: 'name', l: t('Nombre', 'Name') }, { v: 'mode', l: t('Modo', 'Mode') }], 'recent', (v) => { q.sort = v; drawGrid(); }, t('Ordenar', 'Sort')))),
+        projects.length ? grid : h('div', { class: 'empty' }, h('p', null, t('Aún no hay proyectos. Crea uno con «Proyecto nuevo» o abre el ejemplo.', 'No projects yet. Create one with “New project” or open the example.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => MC.app.openSample() }, t('Abrir el proyecto de ejemplo', 'Open the example project')))),
+      h('section', { 'aria-label': t('Crear', 'Create'), style: { display: 'grid', gap: '12px' } },
+        h('div', { class: 'sec-head' }, h('h2', null, t('Empezar algo nuevo', 'Start something new'))),
+        h('div', { class: 'create' },
+          tile('film', t('Modo Libre', 'Free mode'), t('Plano a plano, con capas, parallax y cámara propia.', 'Shot by shot, with layers, parallax and its own camera.'), () => openMode('free')),
+          tile('page', t('Página completa', 'Full page'), t('La cámara recorre las viñetas de cada página.', 'The camera walks through each page’s panels.'), () => openMode('page')),
+          tile('layersx', 'Webtoon', t('Scroll vertical con pausas y zooms.', 'Vertical scroll with pauses and zooms.'), () => openMode('webtoon')),
+          tile('sparkle', t('Borrador en un clic', 'One-click draft'), t('Sube las páginas y sale un primer montaje.', 'Upload the pages and get a first assembly.'), MC.draftDialog),
+          tile('upload', t('Importar una copia', 'Import a backup'), t('Recupera un proyecto exportado desde otro equipo.', 'Recover a project exported from another device.'), () => fileIn.click()))),
+      fileIn,
+      h('footer', { class: 'foot' },
+        h('span', null, MC.db.persistent ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.') : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar.', 'This browser does not allow saving here: changes will be lost on close.')),
+        h('span', null, usage ? [h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)] : null),
+        h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('data') }, t('Datos guardados', 'Stored data')),
+        h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('install') }, t('Instalar la aplicación', 'Install the app')))));
+    drawGrid();
+    heroScene(scene, sceneCap).catch(() => {});
   };
-  const step = (a, b, tour) => h('div', null, h('b', null, a), h('span', null, b), tour ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start', marginTop: '6px' }, onClick: () => MC.startTour(tour) }, t('Ver el tutorial', 'Watch the tutorial')) : null);
 
   function card(p) {
     const el = h('div', { class: 'card' });
     const draw = (mode) => {
       MC.clear(el);
-      const info = h('div', { class: 'info' });
-      const nm = h('div', { class: 'nm', title: p.name }, p.name);
-      el.append(
-        h('button', { class: 'thumb', type: 'button', 'aria-label': t('Abrir ', 'Open ') + p.name, onClick: () => MC.app.openProject(p) },
-          p.thumb ? h('img', { src: p.thumb, alt: '' }) : MC.icon('image', 28)),
-        info);
+      const info = h('div', { class: 'info' }), nm = h('div', { class: 'nm', title: p.name }, p.name);
+      MC.put(el, h('button', { class: 'thumb', type: 'button', 'aria-label': t('Abrir ', 'Open ') + p.name, onClick: (e) => MC.app.openProject(p, e.currentTarget) }, p.thumb ? h('img', { src: p.thumb, alt: '' }) : MC.icon('image', 28)),
+        mode ? null : h('button', { class: 'btn btn-g btn-ic more', type: 'button', 'aria-haspopup': 'menu', 'aria-label': t('Más acciones de ', 'More actions for ') + p.name, onClick: (e) => openMenu(e.currentTarget) }, MC.icon('dots')), info);
       if (mode === 'rename') {
-        const inp = h('input', { class: 'input', 'aria-label': t('Nombre', 'Name'), value: p.name, onKeydown: (e) => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = p.name; inp.blur(); } }, onBlur: async () => {
-          p.name = inp.value.trim() || p.name; p.updated = Date.now(); await MC.db.put('projects', p); draw();
-        } });
+        const inp = h('input', { class: 'input', 'aria-label': t('Nombre', 'Name'), value: p.name, onKeydown: (e) => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = p.name; inp.blur(); } }, onBlur: async () => { p.name = inp.value.trim() || p.name; p.updated = Date.now(); await MC.db.put('projects', p); draw(); } });
         info.append(inp); setTimeout(() => { inp.focus(); inp.select(); }, 0);
       } else info.append(nm);
-      const [rw, rh] = MC.parseRatio(p.ratio), sz = MC.frameSize(p.ratio, p.res);
-      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), p.mode === 'page' ? h('span', { class: 'tag' }, t('Página', 'Page')) : null, h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
-      if (mode === 'delete') {
-        info.append(h('div', { class: 'confirm' }, h('span', null, t('¿Eliminar este proyecto?', 'Delete this project?')),
-          h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: async () => { await MC.deleteProject(p); MC.app.render(); } }, t('Eliminar', 'Delete')),
-          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => draw() }, t('Cancelar', 'Cancel'))));
-      } else {
-        const b = (ic, title, fn) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, onClick: fn }, MC.icon(ic));
-        info.append(h('div', { class: 'acts' },
-          b('edit', t('Renombrar', 'Rename'), () => draw('rename')),
-          b('copy', t('Duplicar', 'Duplicate'), async () => { await MC.duplicateProject(p); MC.app.render(); }),
-          b('download', t('Exportar copia', 'Export backup'), async () => { await MC.exportProject(p); MC.toast(t('Copia exportada', 'Backup exported')); }),
-          b('trash', t('Eliminar', 'Delete'), () => draw('delete'))));
-      }
+      const sz = MC.frameSize(p.ratio, p.res), dur = (p.shots || []).reduce((a, s) => a + s.duration, 0);
+      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, t(MODE_LABEL[p.mode || 'free'][0], MODE_LABEL[p.mode || 'free'][1])), h('span', { class: 'tag' }, p.ratio), h('span', null, sz.w + '×' + sz.h)),
+        h('div', { class: 'meta' }, h('span', null, (p.shots || []).length + t(' planos', ' shots') + ' · ' + dur.toFixed(0) + ' s'), h('span', null, '· ' + ago(p.updated))));
+      if (mode === 'delete') info.append(h('div', { class: 'confirm' }, h('span', null, t('¿Eliminar este proyecto?', 'Delete this project?')),
+        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: async () => { await MC.deleteProject(p); MC.app.render(); } }, t('Eliminar', 'Delete')), h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => draw() }, t('Cancelar', 'Cancel'))));
     };
+    function openMenu(btn) {
+      document.querySelectorAll('.card .tmenu').forEach((m) => m.remove());
+      const item = (ic, label, fn) => h('button', { type: 'button', role: 'menuitem', onClick: () => { menu.remove(); fn(); } }, MC.icon(ic, 16), label);
+      const menu = h('div', { class: 'tmenu', role: 'menu', style: { top: '44px', right: '8px', minWidth: '190px' }, onKeydown: (e) => { if (e.key === 'Escape') { menu.remove(); btn.focus(); } } },
+        item('chevron', t('Abrir', 'Open'), () => MC.app.openProject(p, el.querySelector('.thumb'))), item('edit', t('Renombrar', 'Rename'), () => draw('rename')), item('copy', t('Duplicar', 'Duplicate'), async () => { await MC.duplicateProject(p); MC.app.render(); }),
+        item('download', t('Exportar copia', 'Export backup'), async () => { await MC.exportProject(p); MC.toast(t('Copia exportada', 'Backup exported')); }), item('trash', t('Eliminar…', 'Delete…'), () => draw('delete')));
+      el.append(menu); menu.querySelector('button').focus();
+      const off = (e) => { if (!menu.contains(e.target) && e.target !== btn) { menu.remove(); document.removeEventListener('pointerdown', off, true); } };
+      setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+    }
     draw();
     return el;
   }

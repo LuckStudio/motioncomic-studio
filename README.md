@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 8 · listo para publicar
+## Estado: paso 9 · rediseño de la interfaz
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -68,6 +68,20 @@ Paso 8 (hecho, sin archivos reales):
 - **Rendimiento en móvil y equipos modestos**: calidad de previsualización media o completa (media por defecto en móviles y equipos con poca memoria), con bajada automática si la reproducción va lenta; pantalla completa del visor (F); guías de tercios y margen de título; barra del visor en una sola fila en pantallas pequeñas.
 - **Textos**: revisión completa en español e inglés (sin mezclas) y proyecto de ejemplo traducido.
 - **Cobertura del PRD**: qué está hecho y qué falta, sección por sección, en [`docs/COBERTURA_PRD.md`](docs/COBERTURA_PRD.md).
+
+Paso 9 · rediseño de la interfaz (hecho):
+- **Esquinas rectas** en toda la interfaz (el logo conserva las suyas); los bocadillos siguen siendo óvalos y las cajas de texto y el fondo de los subtítulos son rectos.
+- **Cinco espacios de trabajo**, cada uno con su disposición: Montaje, Cámara, Capas y profundidad, Texto-FX-audio y Exportar (ya no hay botón Exportar ni modo Simple/Avanzado).
+- **Carril de pestañas grandes** a la izquierda con paneles separados: Planos o Páginas, Recursos, Proyecto, Aspecto, Mi estilo, Cámara, Rack focus, Texto, Efectos, Sonidos, Mezclador e Idiomas.
+- **Columna derecha** con Capas y Propiedades contextuales: solo se ve lo que corresponde a la selección (nada, plano, capa, texto, clip de audio, efecto, viñeta o pausa), con ruta Proyecto › Plano › Capa y resumen si no hay selección. Esc deselecciona.
+- **Selector de formato** en la barra superior, con las proporciones dibujadas a escala, resolución y tamaño en píxeles.
+- **Superposiciones** del visor en un menú (guías, zonas seguras, huecos, simulador) con chips de las activas.
+- **Inicio nuevo**: escena en vivo con parallax que sigue al ratón, «Continúa donde lo dejaste», tarjetas de proyecto con menú, buscador y orden, y tarjetas para crear.
+- **Animaciones**: entrada al inicio, la miniatura se expande al abrir un proyecto, la interfaz entra por sus lados y los clips se dibujan; cambio de espacio con un fundido corto. Respetan «animaciones reducidas».
+- **Preferencias de MotionComic Studio** (engranaje): apariencia (tema, tamaño, animaciones, idioma), datos guardados en este equipo (tamaños, almacenamiento persistente, borrar todo), instalación según dispositivo, rendimiento, atajos y ayuda.
+- Plan completo en [`docs/REDISENO_UI.md`](docs/REDISENO_UI.md).
+
+Quedan para una vuelta posterior: zoom del visor con mano, vista lateral de profundidad, medidores del mezclador y silenciar/solo por pista, miniaturas dentro de los clips, tablas de traducción y una pista propia de efectos.
 
 Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 

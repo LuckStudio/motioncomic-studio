@@ -157,7 +157,9 @@
     draw();
 
     const progress = h('div', { style: { display: 'none', gap: '8px' } });
-    const modal = MC.modal(t('Exportar', 'Export'), h('div', { style: { display: 'grid', gap: '16px' } }, body, progress), (close) => {
+    const content = h('div', { style: { display: 'grid', gap: '16px' } }, body, progress);
+    const hostMount = (actions) => { const foot = h('div', { class: 'row-end', style: { position: 'sticky', bottom: 0, background: 'var(--panel)', padding: '10px 0' } }, actions(() => {})); api.host.append(content, foot); return { close() { offJob(); } }; };
+    const build = (close) => {
       const go = h('button', { class: 'btn btn-p', type: 'button', disabled: !E.supported() }, t('Exportar vídeo', 'Export video'));
       const still = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
         const sz = MC.frameSize(p.ratio, p.res), c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
@@ -174,7 +176,7 @@
           if (shown !== 'running') {
             shown = 'running'; bar = h('i', { style: { display: 'block', height: '100%', width: '0%', background: 'var(--accent)' } }); label = h('span', { class: 'cap' }, '');
             MC.clear(progress);
-            MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', borderRadius: '99px', overflow: 'hidden' } }, bar), label,
+            MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', overflow: 'hidden' } }, bar), label,
               h('p', { class: 'cap' }, t('Puedes cerrar esta ventana y seguir editando: la exportación usa una copia del proyecto de ahora.', 'You can close this window and keep editing: the export uses a copy of the project as it is now.')),
               h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => job.ctl.abort() }, t('Cancelar exportación', 'Cancel export')));
           }
@@ -185,7 +187,7 @@
         shown = job.state; MC.clear(progress);
         const back = h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { (job.items || []).forEach((it) => URL.revokeObjectURL(it.url)); MC.exportJob = null; emit(); } }, t('Volver a los ajustes', 'Back to settings'));
         if (job.state === 'done') {
-          const items = job.items, first = items[0].result, vid = h('video', { src: items[0].url, controls: true, style: { width: '100%', maxHeight: '40vh', background: '#000', borderRadius: '8px' } });
+          const items = job.items, first = items[0].result, vid = h('video', { src: items[0].url, controls: true, style: { width: '100%', maxHeight: '40vh', background: '#000' } });
           const rows = items.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, it.label), h('span', { class: 'lz' }, it.result.W + '×' + it.result.H + ' · ' + (it.result.blob.size / 1e6).toFixed(1) + ' MB'),
             items.length > 1 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { vid.src = it.url; } }, t('Ver', 'View')) : null,
             h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { download(it.result.blob, it.file); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 13), t('Descargar', 'Download'))));
@@ -224,8 +226,8 @@
         if (!txt) { MC.toast(t('Aún no hay subtítulos con texto.', 'There are no subtitles with text yet.')); return; }
         download(new Blob([txt], { type: 'text/plain' }), p.name.replace(/[^\w\- ]+/g, '') + '-' + st.lang + '.srt'); MC.toast(t('Subtítulos exportados (SRT)', 'Subtitles exported (SRT)'));
       } }, t('Subtítulos (SRT)', 'Subtitles (SRT)'));
-      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { offJob(); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
-    });
-    return modal;
+      return [api.host ? null : h('button', { class: 'btn btn-g', type: 'button', onClick: () => { offJob(); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
+    };
+    return api.host ? hostMount(build) : MC.modal(t('Exportar', 'Export'), content, build);
   };
 })();

@@ -14,9 +14,11 @@
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], guides: false, ema: 0, slow: 0, quality: MC.store.get('pq', (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
-      hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
+    const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop' };
+    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
+      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
+      hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
+      { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
     const el = {};
     const shot = () => S.project.shots[S.si];
     const layer = () => (shot() ? shot().layers[S.li] : null);
@@ -65,7 +67,9 @@
       if (mb > lim.editMB) { S.memWarned = true; MC.toast(t('Las imágenes ocupan ≈ ' + Math.round(mb) + ' MB en edición y para este equipo se recomienda no pasar de ≈ ' + Math.round(lim.editMB) + ' MB. Reduce capas o tamaño.', 'Images take ≈ ' + Math.round(mb) + ' MB while editing and about ' + Math.round(lim.editMB) + ' MB is recommended for this device. Reduce layers or size.')); }
     }
     function selectShot(i, seek) {
-      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null;
+      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null; S.fxsel = null;
+      if (S.ws === 'camara') S.view = editView(); else if (['cam', 'page', 'strip'].includes(S.view)) S.view = 'out';
+      S.selKind = 'shot';
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
       MC.announce(t('Plano ', 'Shot ') + (S.si + 1) + ': ' + (shot() ? shot().name : ''));
@@ -241,7 +245,7 @@
       const buf = await MC.audio.renderLibrary(item), a = await MC.audio.add(MC.audio.wav(buf), t(item.es, item.en) + '.wav'), c = MC.audio.newClip(item.kind === 'music' ? 'musica' : 'sfx', a, start);
       S.project.clips.push(c); return c;
     }
-    const openExport = () => MC.openExport({ project: S.project, time: () => S.time, shotIndex: () => S.si, applyFormat: (r, res) => { S.project.ratio = r; S.project.res = res; fit(); commit(); } });
+    const exportApi = (host) => ({ host, project: S.project, time: () => S.time, shotIndex: () => S.si, applyFormat: (r, res) => { S.project.ratio = r; S.project.res = res; fit(); commit(); renderTop(); } });
 
     /* ---------- calidad y huecos ---------- */
     function quality(l) {
@@ -265,25 +269,71 @@
     }
 
     /* ---------- barra superior ---------- */
+    /* ---------- espacios de trabajo ---------- */
+    const WS = {
+      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'recursos', 'proyecto', 'aspecto', 'estilo'] },
+      camara: { icon: 'camera', es: 'Cámara', en: 'Camera', tl: 'strip', tabs: ['planos', 'camara'] },
+      capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'rack', 'aspecto'] },
+      creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
+      exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
+    };
+    const TABS = { planos: ['film'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sonidos: ['note', 'Sonidos', 'Sounds'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
+    const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
+    const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
+    const editView = () => { const sh = shot(); return sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam'; };
+    function setWs(v) {
+      if (S.ws === v || !WS[v]) return;
+      S.ws = v; studio.dataset.ws = v; studio.dataset.tl = WS[v].tl;
+      if (v === 'camara') S.view = editView(); else if (['cam', 'page', 'strip'].includes(S.view)) S.view = 'out';
+      if (v === 'exportar') { togglePlay(false); S.view = 'out'; if (!S.sim && opts().W / opts().H < 0.8) S.sim = 'tiktok'; buildExportPanel(); }
+      S.fmtOpen = false; S.ovMenu = false;
+      renderTop(); renderRail(); renderPanels(); renderVbar(); buildSim(); renderTimeline(); fit();
+      [el.leftEl, el.rightEl].forEach((n) => { if (n) { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); } });
+      MC.announce(t(WS[v].es, WS[v].en));
+    }
+    const openExport = () => setWs('exportar');
+
+    /* ---------- barra superior ---------- */
     function renderTop() {
-      const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; if (v === 'audio') S.open.mezcla = true; renderTop(); renderInspector(); fit(); } }, l);
+      const wsBtn = (v) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), title: t(WS[v].es, WS[v].en), onClick: () => setWs(v) }, MC.icon(WS[v].icon, 18), h('span', null, t(WS[v].es, WS[v].en)));
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
       el.jobChip = h('button', { class: 'btn btn-s btn-sm', type: 'button', hidden: true, onClick: openExport });
       updateJobChip(MC.exportJob);
       el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
-      MC.put(MC.clear(el.top), 
+      const sz = MC.parseRatio(S.project.ratio), rw = sz[0] >= sz[1] ? 16 : Math.round(16 * sz[0] / sz[1]), rh = sz[0] >= sz[1] ? Math.round(16 * sz[1] / sz[0]) : 16;
+      el.fmt = h('button', { class: 'fmt', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.fmtOpen), title: t('Cambiar proporción y resolución', 'Change aspect ratio and resolution'), onClick: () => { S.fmtOpen = !S.fmtOpen; renderFmtPop(); el.fmt.setAttribute('aria-expanded', String(!!S.fmtOpen)); } },
+        h('i', { style: { width: rw + 'px', height: rh + 'px' } }), S.project.ratio + ' · ' + S.project.res);
+      MC.put(MC.clear(el.top),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Volver a tus proyectos', 'Back to your projects'), 'aria-label': t('Volver a tus proyectos', 'Back to your projects'), onClick: close }, MC.icon('back')),
         MC.mark(24),
         h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
-        h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') },
-          wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onClick: openExport }, t('Exportación', 'Export'))),
-        h('span', { class: 'sp' }),
+        el.fmt,
+        h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).map(wsBtn)),
         el.jobChip, el.status, el.undo, el.redo,
-        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda y atajos (?)', 'Help and shortcuts (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
-        MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
-        h('button', { class: 'btn btn-p', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
-      setStatus(true); updateHistBtns();
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales (?)', 'Help, shortcuts and tutorials (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear')));
+      setStatus(true); updateHistBtns(); renderFmtPop();
+    }
+    /* selector de formato: proporciones dibujadas a escala */
+    function renderFmtPop() {
+      if (el.fmtPop) { el.fmtPop.remove(); el.fmtPop = null; }
+      if (!S.fmtOpen) return;
+      const p = S.project, ratios = ['16:9', '9:16', '4:5', '3:4', '1:1', '2:1'], isPreset = ratios.includes(p.ratio), cur = MC.parseRatio(p.ratio);
+      const apply = (r, res) => { if (r) p.ratio = r; if (res) p.res = res; commit(); fit(); renderTop(); };
+      const sw = (r) => { const q = MC.parseRatio(r), w = q[0] >= q[1] ? 44 : Math.round(44 * q[0] / q[1]), hh = q[0] >= q[1] ? Math.round(44 * q[1] / q[0]) : 44; return h('button', { class: 'sw', type: 'button', 'aria-pressed': String(p.ratio === r), onClick: () => apply(r) }, h('i', { style: { width: w + 'px', height: hh + 'px' } }), r); };
+      const size = MC.frameSize(p.ratio, p.res), idW = 'fw-' + MC.uid(), idH = 'fh-' + MC.uid();
+      el.fmtPop = h('div', { class: 'fmtpop', role: 'dialog', 'aria-label': t('Formato del proyecto', 'Project format'), onKeydown: (e) => { if (e.key === 'Escape') { S.fmtOpen = false; renderFmtPop(); el.fmt.setAttribute('aria-expanded', 'false'); el.fmt.focus(); } } },
+        h('div', { class: 'eyebrow' }, t('Proporción', 'Aspect ratio')), h('div', { class: 'sw-row' }, ratios.map(sw)),
+        h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, h('span', { class: 'cap' }, t('Personalizada', 'Custom')),
+          h('input', { class: 'input', id: idW, type: 'number', min: 1, max: 40, value: cur[0], 'aria-label': t('Ancho', 'Width'), style: { width: '70px' }, onChange: (e) => apply(Math.max(1, Math.round(+e.target.value || 1)) + ':' + cur[1]) }), h('span', null, ':'),
+          h('input', { class: 'input', id: idH, type: 'number', min: 1, max: 40, value: cur[1], 'aria-label': t('Alto', 'Height'), style: { width: '70px' }, onChange: (e) => apply(cur[0] + ':' + Math.max(1, Math.round(+e.target.value || 1))) })),
+        h('div', { class: 'eyebrow' }, t('Resolución de salida', 'Output resolution')), MC.ui.seg(Object.keys(MC.RES).map((r) => ({ v: r, l: r })), p.res, (v) => apply(null, v), t('Resolución', 'Resolution')),
+        h('div', { class: 'calc' }, h('span', { class: 'big' }, size.w + ' × ' + size.h + ' px'), h('span', { class: 'cap' }, isPreset && MC.RATIO_HINT[p.ratio] ? t(MC.RATIO_HINT[p.ratio][0], MC.RATIO_HINT[p.ratio][1]) : t('El encuadre se reajusta solo: corrige a mano lo que haga falta.', 'The framing readjusts itself: fix by hand whatever needs it.'))));
+      studio.append(el.fmtPop);
+      const off = (e) => { if (el.fmtPop && !el.fmtPop.contains(e.target) && !el.fmt.contains(e.target)) { S.fmtOpen = false; renderFmtPop(); el.fmt.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', off, true); } };
+      setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
     }
     function updateJobChip(job) {
       const c = el.jobChip; if (!c) return;
@@ -317,16 +367,15 @@
     }
 
     /* ---------- inspector ---------- */
-    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-id': id, 'data-open': String(!!S.open[id]) },
-      h('button', { class: 'sh', type: 'button', 'aria-expanded': String(!!S.open[id]), onClick: () => { S.open[id] = !S.open[id]; renderInspector(); } }, h('span', { class: 'eyebrow' }, title), MC.icon(S.open[id] ? 'up' : 'down', 14)),
-      h('div', { class: 'sb' }, nodes));
+    const secDom = (d) => { const open = S.open[d.id] !== false; return h('div', { class: 'sec', 'data-id': d.id, 'data-open': String(open) },
+      h('button', { class: 'sh', type: 'button', 'aria-expanded': String(open), onClick: () => { S.open[d.id] = !open; renderPanels(); } }, h('span', { class: 'eyebrow' }, d.title), MC.icon(open ? 'up' : 'down', 14)),
+      h('div', { class: 'sb' }, d.nodes)); };
+    const boxDom = (d) => h('div', { class: 'box', 'data-id': d.id }, h('div', { class: 'eyebrow' }, d.title), d.nodes);
     const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
 
-    function renderInspector() {
-      const b = el.inspBody, sh = shot(), l = layer(), p = S.project;
-      if (!sh) return;
-      const top = b.scrollTop;
-      MC.clear(b);
+    function buildSections() {
+      const sh = shot(), l = layer(), p = S.project;
+      const sec = (id, title, nodes) => ({ id, title, nodes });
 
       /* plano */
       const planoNodes = [
@@ -518,7 +567,8 @@
           h('div', { style: { display: 'grid', gap: '2px' } }, rowsP),
           h('p', { class: 'cap' }, t('En la vista «Página» arrastra una viñeta para moverla, sus esquinas para cambiarla, o dibuja en un hueco para crear otra. Para viñetas con forma libre usa «Polígono» o «Convertir en polígono».', 'In the “Page” view drag a panel to move it, its corners to resize it, or draw in an empty spot to create another. For free-shaped panels use “Polygon” or “Turn into polygon”.')),
         ];
-        if (selP) nodes.push(
+        const selNodes = [];
+        if (selP) selNodes.push(
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, selP.pts
             ? [h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { selP.pts = null; S.pv = null; edit(); commit(); } }, t('Volver a rectángulo', 'Back to rectangle')),
               S.pv != null && selP.pts.length > 3 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { selP.pts.splice(S.pv, 1); S.pv = null; MC.syncPanel(selP); edit(); commit(); } }, t('Quitar vértice', 'Remove vertex')) : null]
@@ -529,6 +579,7 @@
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const a = await MC.cropPanel(sh, selP), ns = MC.newShot(t('Viñeta ', 'Panel ') + (pg.panels.indexOf(selP) + 1)); ns.layers.push(MC.newLayer(a, { z: 0.1, role: 'fondo' })); MC.applyPreset(ns.camera, 'zoomin', 0.8); p.shots.splice(S.si + 1, 0, ns); commit(); MC.toast(t('Viñeta convertida en un plano libre después de esta página', 'Panel turned into a free shot after this page')); } }, t('Convertir en plano libre', 'Turn into free shot')),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { pg.panels = pg.panels.filter((q) => q !== selP); S.pn = null; edit(); commit(); } }, MC.icon('trash', 14), t('Quitar viñeta', 'Remove panel'))));
         pageSecs.push(sec('pagina', t('Página', 'Page') + ' · ' + pg.panels.length + ' ' + t('viñetas', 'panels'), nodes));
+        pageSecs.push(sec('pagina_sel', t('Viñeta ', 'Panel ') + (selP ? pg.panels.indexOf(selP) + 1 : ''), selNodes));
       }
       if (sh.webtoon) {
         const wt = sh.webtoon, selS = wt.stops.find((q) => q.id === S.sp), L = sh.layers.find((l) => l.strip), asset = L && MC.assets.get(L.assetId);
@@ -548,12 +599,14 @@
             h('span', { class: 'ln' }, t('Pausa ', 'Pause ') + (i + 1)), h('span', { class: 'lz' }, Math.round(sp.y * 100) + ' % · ' + sp.hold.toFixed(1) + ' s' + (sp.zoom > 1.01 ? ' · ×' + sp.zoom.toFixed(1) : ''))))),
           h('p', { class: 'cap' }, t('En la vista «Tira» haz clic para añadir una pausa y arrástrala para moverla. Una pausa con zoom enseña un detalle.', 'In the “Strip” view click to add a pause and drag it to move it. A pause with zoom shows a detail.')),
         ];
-        if (selS) nodes.push(
+        const selNodes2 = [];
+        if (selS) selNodes2.push(
           MC.ui.slider({ label: t('Permanencia', 'Hold'), min: 0.3, max: 10, step: 0.1, value: selS.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selS.hold = v; touch(); S.dirty = true; }, onChange: commit }),
           MC.ui.slider({ label: 'Zoom', min: 1, max: 3, step: 0.05, value: selS.zoom, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selS.zoom = v; touch(); }, onChange: commit }),
           selS.zoom > 1.01 ? MC.ui.slider({ label: t('Desplazamiento lateral', 'Sideways offset'), min: -0.4, max: 0.4, step: 0.01, value: selS.x || 0, fmt: (v) => v.toFixed(2), onInput: (v) => { selS.x = v; touch(); }, onChange: commit }) : null,
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { wt.stops = wt.stops.filter((q) => q !== selS); S.sp = null; commit(); } }, MC.icon('trash', 14), t('Quitar pausa', 'Remove pause')));
         pageSecs.push(sec('tira', t('Tira', 'Strip') + ' · ' + wt.stops.length + ' ' + t('pausas', 'pauses'), nodes));
+        pageSecs.push(sec('tira_sel', t('Pausa', 'Pause'), selNodes2));
       }
       const styleIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-style', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -632,10 +685,11 @@
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
+        const propNodes = [];
         if (selF) {
           const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
-          nodes.push(
+          propNodes.push(
             h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
             sh.page ? h('div', { class: 'field' }, h('label', { for: selA }, t('Empieza', 'Starts')), h('select', { id: selA, class: 'input', onChange: (e) => { selF.panel = e.target.value === '' ? null : +e.target.value; selF.start = 0; commit(); } }, [h('option', { value: '' }, t('En un momento del plano', 'At a time in the shot'))].concat(sh.page.panels.map((q, i) => h('option', { value: String(i), selected: selF.panel === i }, t('Al llegar a la viñeta ', 'On reaching panel ') + (i + 1)))))) : null,
             MC.ui.slider({ label: selF.panel != null ? t('Desfase', 'Offset') : t('Empieza en', 'Starts at'), min: 0, max: Math.max(0.5, sh.duration), step: 0.05, value: clamp(selF.start, 0, Math.max(0.5, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.start = v; touch(); }, onChange: commit }),
@@ -648,6 +702,7 @@
               h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { sh.fx = sh.fx.filter((q) => q !== selF); S.fxsel = null; commit(); } }, MC.icon('trash', 14), t('Quitar efecto', 'Remove effect'))));
         }
         fxSecs.push(sec('efectos', t('Efectos y animación', 'Effects and animation') + ' · ' + list.length, nodes));
+        fxSecs.push(sec('efecto', selF ? MC.fxName(selF.type) : t('Efecto', 'Effect'), propNodes));
       }
       /* rack focus */
       {
@@ -693,34 +748,146 @@
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !allP.length, onClick: () => MC.download(new Blob([MC.presets.exportAll()], { type: 'application/json' }), 'mis-presets.motioncomic-presets.json') }, MC.icon('download', 14), t('Exportar presets', 'Export presets')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => presIn.click() }, MC.icon('upload', 14), t('Importar presets', 'Import presets')), presIn)));
-      const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
-      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), [idiomasSec, lookSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), audioSecs, [idiomasSec, lookSec], ordered.slice(3), [estiloSec]));
-      b.scrollTop = top;
+      const estiloSec = sec('estilo', t('Mi estilo y presets', 'My style and presets'), styleNodes);
+      const D = {};
+      [].concat(ordered, textSecs, pageSecs, fxSecs, audioSecs, [idiomasSec, lookSec, estiloSec]).forEach((d) => { D[d.id] = d; });
+      return D;
+    }
+
+    /* ---------- carril y paneles ---------- */
+    function renderRail() {
+      MC.clear(el.rail);
+      MC.put(el.rail, WS[S.ws].tabs.map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
+    }
+    const thumbCache = new Map();
+    function shotThumb(sh) {
+      const key = sh.id + ':' + S.thumbV, c = document.createElement('canvas'); c.width = 172; c.height = 112;
+      if (!thumbCache.has(key)) {
+        const tc = document.createElement('canvas'), o = opts({ fx: false, noLook: true, lang: S.project.lang });
+        const k = Math.min(172 / o.W, 112 / o.H); tc.width = Math.max(1, Math.round(o.W * k)); tc.height = Math.max(1, Math.round(o.H * k));
+        const g = tc.getContext('2d'); g.setTransform(k, 0, 0, k, 0, 0);
+        try { MC.renderShot(g, sh, Math.min(sh.duration * 0.15, 0.6), o); } catch (e) { /* sin miniatura */ }
+        if (thumbCache.size > 80) thumbCache.clear();
+        thumbCache.set(key, tc);
+      }
+      const tc = thumbCache.get(key), g = c.getContext('2d');
+      g.drawImage(tc, (172 - tc.width) / 2, (112 - tc.height) / 2);
+      return c;
+    }
+    function shotsPanel() {
+      const p = S.project, mode = p.mode;
+      const list = h('div', { style: { display: 'grid', gap: '8px' } }, p.shots.map((sh, i) => h('div', { class: 'shotcard' + (i === S.si ? ' on' : ''), role: 'button', tabindex: '0', 'aria-label': sh.name + ', ' + sh.duration.toFixed(1) + ' s', onClick: () => selectShot(i, true), onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
+        shotThumb(sh), h('div', { style: { minWidth: 0 } }, h('b', null, sh.name), h('span', { class: 'cap' }, sh.duration.toFixed(1) + ' s' + (sh.page ? ' · ' + sh.page.panels.length + t(' viñetas', ' panels') : sh.webtoon ? ' · ' + sh.webtoon.stops.length + t(' pausas', ' pauses') : ''))),
+        h('div', { style: { display: 'grid' } },
+          h('button', { class: 'btn btn-g', type: 'button', style: { padding: '2px', width: '26px', height: '24px' }, disabled: i === 0, title: t('Subir', 'Move up'), 'aria-label': t('Subir', 'Move up'), onClick: (e) => { e.stopPropagation(); p.shots.splice(i - 1, 0, p.shots.splice(i, 1)[0]); S.si = i - 1; commit(); } }, MC.icon('up', 14)),
+          h('button', { class: 'btn btn-g', type: 'button', style: { padding: '2px', width: '26px', height: '24px' }, disabled: i === p.shots.length - 1, title: t('Bajar', 'Move down'), 'aria-label': t('Bajar', 'Move down'), onClick: (e) => { e.stopPropagation(); p.shots.splice(i + 1, 0, p.shots.splice(i, 1)[0]); S.si = i + 1; commit(); } }, MC.icon('down', 14))))));
+      return [h('div', { class: 'box' }, h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 15), mode === 'page' ? t('Añadir páginas', 'Add pages') : mode === 'webtoon' ? t('Añadir una tira', 'Add a strip') : t('Añadir planos desde imágenes', 'Add shots from images')), h('p', { class: 'cap' }, t('Acepta PNG, JPEG, WebP, PSD y PDF. Selecciona uno para editarlo; arrástralo en la línea de tiempo para estirarlo.', 'Accepts PNG, JPEG, WebP, PSD and PDF. Select one to edit it; stretch it on the timeline.'))), list];
+    }
+    function resourcesPanel() {
+      const p = S.project, ids = [...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))], aud = [...new Set(p.clips.map((c) => c.assetId))];
+      const row = (thumb, name, meta) => h('div', { class: 'layer', style: { cursor: 'default' } }, thumb ? h('img', { class: 'lt', src: thumb, alt: '' }) : h('span', { class: 'lt' }), h('span', { class: 'ln' }, name), h('span', { class: 'lz' }, meta));
+      const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, onChange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { const rec = await MC.fonts.add(f); p.fonts.push(rec); commit(); MC.toast(t('Tipografía añadida: ', 'Font added: ') + rec.name); } catch (err) { MC.toast(t('No se pudo leer esa tipografía.', 'Could not read that font.')); } } });
+      return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileLayers.click() }, MC.icon('image', 20), t('Capas o páginas', 'Layers or pages')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('speaker', 20), t('Audio', 'Audio')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => fontIn.click() }, MC.icon('text', 20), t('Tipografía', 'Font')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileShots.click() }, MC.icon('film', 20), t('Planos', 'Shots'))), fontIn),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Imágenes del proyecto · ', 'Project images · ') + ids.length), ids.length ? h('div', { style: { display: 'grid', gap: '2px' } }, ids.map((id) => { const a = MC.assets.get(id); return a ? row(a.thumb, a.name, a.w + '×' + a.h + (a.proxy ? ' · ' + t('proxy', 'proxy') : '')) : null; })) : h('p', { class: 'cap' }, t('Aún no hay imágenes.', 'No images yet.'))),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Audio · ', 'Audio · ') + aud.length), aud.length ? h('div', { style: { display: 'grid', gap: '2px' } }, aud.map((id) => { const a = MC.audio.get(id); return a ? row(null, a.name, a.dur.toFixed(1) + ' s') : null; })) : h('p', { class: 'cap' }, t('Aún no hay audio.', 'No audio yet.'))),
+      p.fonts.length ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Tipografías propias', 'Your fonts')), h('div', { style: { display: 'grid', gap: '2px' } }, p.fonts.map((f) => row(null, f.name, 'TTF/OTF')))) : null];
+    }
+    function textPanel() {
+      const p = S.project, KINDS = [['bubble', t('Bocadillo', 'Bubble'), 'chat'], ['box', t('Caja de texto', 'Text box'), 'text'], ['sfx', t('Onomatopeya', 'Sound word'), 'sparkle'], ['sub', t('Subtítulo', 'Subtitle'), 'film']];
+      const label = (x) => (MC.textOf(x, p) || t('(sin texto)', '(no text)')).replace(/\n/g, ' ');
+      return [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Añadir en el cabezal', 'Add at the playhead')), h('div', { class: 'big-btns' }, KINDS.map((k) => h('button', { class: 'btn btn-s', type: 'button', onClick: () => addText(k[0]) }, MC.icon(k[2], 20), k[1]))),
+        h('p', { class: 'cap' }, t('Si el cabezal está sobre una locución, el texto se vincula a ella y aparece y se va con la voz. Los bocadillos son óvalos; las cajas y los subtítulos, rectos.', 'If the playhead is over a voice-over, the text links to it and appears and leaves with the voice. Bubbles are ovals; boxes and subtitles are straight.'))),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Textos del proyecto · ', 'Project texts · ') + p.texts.length),
+        p.texts.length ? h('div', { style: { display: 'grid', gap: '2px' } }, p.texts.slice().sort((a, b) => MC.textSpan(a, p).start - MC.textSpan(b, p).start).map((x) => h('div', { class: 'layer' + (x.id === S.tx ? ' on' : ''), onClick: () => { S.tx = x.id; S.li = -1; S.cl = null; const sp = MC.textSpan(x, p); setTime(sp.start + Math.min(0.5, sp.dur / 2)); renderPanels(); renderLayers(); S.dirty = true; } },
+          h('span', { class: 'ln' }, label(x)), h('span', { class: 'lz' }, { bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: 'sfx', sub: t('subt.', 'sub') }[x.kind] + ' · ' + MC.fmtTime(MC.textSpan(x, p).start)))))
+          : h('p', { class: 'cap' }, t('Aún no hay textos.', 'No texts yet.')))];
+    }
+    function soundsPanel() {
+      let cur = null; const stopPrev = () => { if (cur) { try { cur.stop(); } catch (e) { /* parado */ } cur = null; } };
+      const rows = MC.audio.LIBRARY.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-label': t('Oír ', 'Play ') + t(it.es, it.en), onClick: async () => { stopPrev(); cur = await MC.audio.preview(await MC.audio.renderLibrary(it)); } }, MC.icon('play', 12)),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', 'aria-label': t('Añadir ', 'Add ') + t(it.es, it.en), onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(it, S.time); S.cl = c.id; commit(); MC.toast(t('Añadido en el cabezal', 'Added at the playhead')); } }, MC.icon('plus', 12))));
+      return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('upload', 20), t('Importar audio', 'Import audio')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: recordVoice }, MC.icon('mic', 20), t('Grabar locución', 'Record voice-over')))),
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca de sonidos', 'Sound library')), h('p', { class: 'cap' }, t('Efectos y música ambiente generados por código, sin licencias. Se añaden donde está el cabezal.', 'Effects and ambient music generated by code, no licences. They are added at the playhead.')), h('div', { style: { display: 'grid', gap: '2px' } }, rows))];
+    }
+    function summaryPanel() {
+      const p = S.project, total = MC.totalTime(p), me = MC.memEstimate(p), size = MC.frameSize(p.ratio, p.res);
+      const cell = (b, sp) => h('div', null, h('b', null, b), h('span', null, sp));
+      return [h('div', { class: 'box' }, h('div', { class: 'sumgrid' }, cell(p.shots.length, t('planos', 'shots')), cell(total.toFixed(1) + ' s', t('duración', 'duration')), cell(p.ratio, size.w + '×' + size.h), cell(p.langs.map((l) => l.toUpperCase()).join(' '), t('idiomas', 'languages')),
+        cell(p.clips.length, t('clips de audio', 'audio clips')), cell(p.texts.length, t('textos', 'texts')), cell(Math.round(me.edit / 1048576) + ' MB', t('imágenes en edición', 'images in editing')), cell(t(({ free: 'Libre', page: 'Página', webtoon: 'Webtoon' })[p.mode || 'free'], ({ free: 'Free', page: 'Page', webtoon: 'Webtoon' })[p.mode || 'free']), t('modo', 'mode')))),
+      h('div', { class: 'box' }, h('p', { class: 'cap' }, t('No hay nada seleccionado. Elige un plano, una capa, un texto o un clip para ver sus propiedades aquí. Pulsa Esc para volver a este resumen.', 'Nothing is selected. Pick a shot, layer, text or clip to see its properties here. Press Esc to come back to this summary.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => selectShot(S.si, false) }, t('Seleccionar el plano actual', 'Select the current shot')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); } }, t('Formato y parallax', 'Format and parallax')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.openPrefs() }, t('Preferencias', 'Preferences'))))];
+    }
+    const selection = () => {
+      const k = S.selKind, sh = shot();
+      if (k === 'layer' && layer()) return 'layer';
+      if (k === 'text' && S.tx && txById(S.tx)) return 'text';
+      if (k === 'clip' && S.cl && clipById(S.cl)) return 'clip';
+      if (k === 'fx' && S.fxsel && sh.fx.find((f) => f.id === S.fxsel)) return 'fx';
+      if (k === 'panel' && S.pn && sh.page && sh.page.panels.find((q) => q.id === S.pn)) return 'panel';
+      if (k === 'stop' && S.sp && sh.webtoon && sh.webtoon.stops.find((q) => q.id === S.sp)) return 'stop';
+      return k === 'shot' || k === 'layer' || k === 'text' || k === 'clip' || k === 'fx' || k === 'panel' || k === 'stop' ? 'shot' : 'project';
+    };
+    function crumbs(kind) {
+      const p = S.project, sh = shot(), parts = [[t('Proyecto', 'Project'), () => { clearSel(); }]];
+      if (kind !== 'project') parts.push([sh.name, () => { S.selKind = 'shot'; S.li = -1; S.tx = null; S.cl = null; S.fxsel = null; renderPanels(); renderLayers(); }]);
+      const leaf = { layer: layer() && layer().name, text: S.tx && txById(S.tx) && (MC.textOf(txById(S.tx), p) || t('Texto', 'Text')).slice(0, 18), clip: S.cl && clipById(S.cl) && clipById(S.cl).name, fx: S.fxsel && sh.fx.find((f) => f.id === S.fxsel) && MC.fxName(sh.fx.find((f) => f.id === S.fxsel).type), panel: t('Viñeta', 'Panel'), stop: t('Pausa', 'Pause') }[kind];
+      if (leaf) parts.push([leaf, null]);
+      const box = h('div', { class: 'crumbs', 'aria-label': t('Ruta de la selección', 'Selection path') });
+      parts.forEach((q, i) => { if (i) box.append(h('span', { 'aria-hidden': 'true' }, '›')); box.append(h('button', { type: 'button', disabled: !q[1], onClick: q[1] || undefined }, q[0])); });
+      return box;
+    }
+    function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
+    function renderPanels() {
+      const DL = buildSections(), DP = buildSections(), tab = curTab();
+      /* panel izquierdo */
+      const L = {
+        planos: shotsPanel, recursos: resourcesPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
+        camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
+        rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sonidos: soundsPanel, mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
+      };
+      if (tab) { const lt = el.leftBody.scrollTop; el.leftTitle.textContent = tabLabel(tab); MC.put(MC.clear(el.leftBody), L[tab] ? L[tab]() : null); el.leftBody.scrollTop = lt; }
+      /* propiedades según la selección */
+      const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
+      const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
+        layer: () => [secDom(DP.capa)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
+      MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
+    }
+    function renderInspector() { renderPanels(); }
+    function buildExportPanel() {
+      MC.clear(el.exportHost);
+      el.exportApi = MC.openExport(exportApi(el.exportHost));
     }
 
     /* ---------- visor ---------- */
     function renderVbar() {
-      const tog = (key, label, title) => h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S[key]), title, onClick: () => { S[key] = !S[key]; renderVbar(); S.dirty = true; } }, label);
-      const portrait = opts().W / opts().H < 0.8;
-      MC.put(MC.clear(el.vbar), 
-        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : shot() && shot().webtoon ? [{ v: 'strip', l: t('Tira', 'Strip') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
-        S.view === 'cam' && !(shot() && shot().camera.path && shot().camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
+      const portrait = opts().W / opts().H < 0.8, sh = shot(), edit = sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam';
+      const ovOn = [S.guides && ['guides', t('Guías', 'Guides')], S.safe && ['safe', t('Zonas seguras', 'Safe zones')], S.holes && ['holes', t('Huecos', 'Gaps')], S.sim && ['sim', t('Simulador', 'Simulator')]].filter(Boolean);
+      const off = (k) => { if (k === 'sim') { S.sim = null; buildSim(); } else S[k] = false; renderVbar(); S.dirty = true; };
+      const chk = (key, label, disabled) => h('label', null, h('input', { type: 'checkbox', checked: !!S[key], disabled: !!disabled, onChange: (e) => { S[key] = e.target.checked; renderVbar(); S.dirty = true; } }), label);
+      MC.put(MC.clear(el.vbar),
+        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: edit, l: edit === 'page' ? t('Página', 'Page') : edit === 'strip' ? t('Tira', 'Strip') : t('Cámara', 'Camera') }], S.view === 'out' ? 'out' : edit, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
+        S.view === 'cam' && !(sh && sh.camera.path && sh.camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
         S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
         S.view === 'strip' ? h('span', { class: 'status' }, t('Clic en la tira para añadir una pausa; arrástrala para moverla', 'Click the strip to add a pause; drag it to move')) : null,
-        S.view !== 'page' ? tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')) : null,
-        portrait && S.view === 'out' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(!!S.sim), title: t('Vista previa con la interfaz de una red social encima', 'Preview with a social app interface on top'), onClick: () => { S.sim = S.sim ? null : 'tiktok'; renderVbar(); buildSim(); } }, t('Simulador', 'Simulator')) : null,
-        S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
-        S.view === 'out' ? tog('guides', t('Guías', 'Guides'), t('Tercios, centro y margen de título', 'Thirds, centre and title margin')) : null,
-        portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
-        S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
-        S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.tmenu), title: t('Añadir texto en el cabezal', 'Add text at the playhead'), onClick: (e) => { S.tmenu = !S.tmenu; renderVbar(); if (S.tmenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu button'); if (f) f.focus(); }, 0); } }, MC.icon('plus', 12), t('Texto', 'Text')),
-          S.tmenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.tmenu = false; renderVbar(); } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const bs = [...e.currentTarget.querySelectorAll('button')], i = bs.indexOf(document.activeElement); bs[(i + (e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); e.preventDefault(); } } },
-            [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja de texto', 'Text box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { type: 'button', role: 'menuitem', onClick: () => { S.tmenu = false; renderVbar(); addText(k[0]); } }, k[1]))) : null) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
+        S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.ovMenu), title: t('Guías, zonas seguras, huecos y simulador', 'Guides, safe zones, gaps and simulator'), onClick: () => { S.ovMenu = !S.ovMenu; renderVbar(); if (S.ovMenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu input'); if (f) f.focus(); }, 0); } }, MC.icon('layersx', 14), t('Superposiciones', 'Overlays')),
+          S.ovMenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.ovMenu = false; renderVbar(); } } },
+            chk('guides', t('Guías (tercios y margen)', 'Guides (thirds and margin)')), chk('safe', t('Zonas seguras de redes', 'Social safe zones'), !portrait), chk('holes', t('Marcar huecos en rojo', 'Mark gaps in red')),
+            h('label', null, h('input', { type: 'checkbox', checked: !!S.sim, disabled: !portrait, onChange: (e) => { S.sim = e.target.checked ? 'tiktok' : null; renderVbar(); buildSim(); } }), t('Simulador de plataformas', 'Platform simulator')),
+            S.sim ? h('div', { style: { padding: '4px 10px 8px' } }, MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network'))) : null,
+            !portrait ? h('span', { class: 'cap', style: { padding: '4px 10px' } }, t('Zonas seguras y simulador son para formatos verticales.', 'Safe zones and the simulator are for vertical formats.')) : null) : null) : null,
+        S.view === 'out' ? ovOn.map((q) => h('button', { class: 'tag', type: 'button', title: t('Quitar ', 'Turn off ') + q[1], onClick: () => off(q[0]) }, q[1] + ' ×')) : null,
         h('span', { style: { flex: 1 } }),
-        MC.ui.seg([{ v: 'media', l: t('Media', 'Medium') }, { v: 'full', l: t('Completa', 'Full') }], S.quality, (v) => { S.quality = v; MC.store.set('pq', v); S.slow = 0; fit(); }, t('Calidad de la previsualización', 'Preview quality')),
-        h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
+        MC.ui.seg([{ v: 'media', l: t('Media', 'Medium') }, { v: 'full', l: t('Completa', 'Full') }], S.quality, (v) => { S.quality = v; MC.store.set('pq', v); S.slow = 0; fit(); }, t('Calidad de la previsualización', 'Preview quality')));
     }
     /* Simulador: interfaz genérica de una app de vídeo vertical encima del visor, para ver qué tapa. No usa marcas ni logos. */
     function buildSim() {
@@ -1225,28 +1392,36 @@
     el.tlLabels = h('div', { class: 'tl-labels' });
     el.tlContent = h('div', { class: 'tl-content' });
 
+    el.rail = h('div', { class: 'rail', role: 'tablist', 'aria-label': t('Paneles', 'Panels'), 'aria-orientation': 'vertical' });
+    el.leftTitle = h('h3', null, '');
+    el.leftBody = h('div', { class: 'pbody' });
+    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle), el.leftBody);
+    el.propsTitle = h('h3', null, '');
+    el.exportHost = h('div', { class: 'exp-panel' });
     const layersPanel = h('div', { class: 'panel-col p-layers' },
-      h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, t('Capas', 'Layers')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))), el.layersBody);
+      h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))),
+      h('div', { style: { display: 'contents' }, onClick: (e) => { if (e.target === e.currentTarget || e.target === el.layersBody) { S.selKind = 'shot'; S.li = -1; renderLayers(); renderPanels(); S.dirty = true; } } }, el.layersBody));
+    const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle), el.inspBody);
+    el.rightEl = h('div', { class: 'rightcol' }, layersPanel, propsPanel);
+    const exportPanel = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
     const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage,
       h('div', { class: 'tbar' },
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
         el.play, el.loop, el.time,
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame'))));
-    const inspector = h('div', { class: 'panel-col p-inspector' }, h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, 'Inspector')), el.inspBody);
     const timeline = h('div', { class: 'p-timeline' },
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: openLibrary }, MC.icon('note', 14), t('Sonidos', 'Sounds')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime),
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
-    const mtabs = h('div', { class: 'mtabs' }, [['layers', t('Capas', 'Layers')], ['inspector', 'Inspector'], ['timeline', t('Línea', 'Timeline')]].map((x) =>
+    const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
-    const studio = h('div', { class: 'studio', 'data-ws': S.ws, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, layersPanel, viewer, inspector), mtabs, timeline, fileLayers, fileShots, fileAudio);
+    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, el.rail, el.leftEl, viewer, el.rightEl, exportPanel), mtabs, timeline, fileLayers, fileShots, fileAudio);
+    setTimeout(() => studio.classList.remove('enter'), 1400);
 
-    function renderAll() { renderTop(); renderLayers(); renderInspector(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
+    function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline();
     MC.ensureFonts().then(() => { S.dirty = true; });
@@ -1308,7 +1483,7 @@
     function onKey(e) {
       if (!S.alive || document.querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Enter' && S.poly) { closePoly(); return; }
-      if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.tmenu) { S.tmenu = false; renderVbar(); } return; }
+      if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.fmtOpen || S.ovMenu) { S.fmtOpen = false; S.ovMenu = false; renderFmtPop(); renderVbar(); } else clearSel(); return; }
       const id = MC.keys.match(e), c = MC.keys.combo(e);
       if (!id || !ACT[id]) return;
       if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa
@@ -1324,8 +1499,12 @@
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       selectLayer: () => { const sh = shot(); if (sh && sh.layers.length && S.li < 0) { S.li = sh.layers.length - 1; S.tx = null; renderLayers(); renderInspector(); } },
-      openMix: () => { S.open.mezcla = true; renderInspector(); },
-      refit: () => { fit(); },
+      openMix: () => { setWs('creativo'); S.tab.creativo = 'mezclador'; renderRail(); renderPanels(); },
+      openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
+      proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
+      openExportWs: () => { setWs('exportar'); },
+      refit: () => { fit(); }, redraw: () => { S.dirty = true; renderPanels(); },
+      applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
   };
