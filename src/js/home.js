@@ -24,7 +24,8 @@
 
   /* Copia de seguridad: un solo archivo con proyecto e imágenes. */
   const blobToDataUrl = (b) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
-  MC.exportProject = async (p) => {
+  MC.exportProject = async (p) => { await MC.downloadProjectFile(p); };
+  MC.exportProjectJson = async (p) => {
     const assets = [];
     for (const id of MC.projectAssetIds(p)) {
       const rec = await MC.db.get('assets', id);
@@ -55,7 +56,9 @@
     await MC.db.del('projects', p.id);
     const used = new Set();
     (await MC.db.all('projects')).forEach((q) => MC.projectAssetIds(q).forEach((id) => used.add(id)));
-    for (const id of MC.projectAssetIds(p)) if (!used.has(id)) { await MC.db.del('assets', id); MC.assets.cache.delete(id); }
+    const keep = await MC.protectedAssetIds();
+    for (const id of MC.projectAssetIds(p)) if (!used.has(id) && !keep.has(id)) { await MC.db.del('assets', id); MC.assets.cache.delete(id); }
+    await MC.versions.removeAll(p.id);
   };
 
   /* Selector de modo reutilizable: Libre, Página completa, Webtoon (segunda versión). */
@@ -164,9 +167,9 @@
     const projects = (await MC.db.all('projects')).sort((a, b) => b.updated - a.updated);
     const usage = await MC.db.usage();
     const q = { text: '', sort: 'recent' };
-    const fileIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'imp-file', onChange: async (e) => {
+    const fileIn = h('input', { type: 'file', accept: '.motioncomic,.json,application/json,application/zip', hidden: true, id: 'imp-file', onChange: async (e) => {
       const f = e.target.files[0]; if (!f) return;
-      try { await MC.importProject(f); MC.toast(t('Proyecto importado', 'Project imported')); MC.app.render(); }
+      try { await MC.openProjectFile(f); MC.toast(t('Proyecto importado', 'Project imported')); MC.app.render(); }
       catch (err) { MC.toast(t('Ese archivo no es una copia de MotionComic Studio.', 'That file is not a MotionComic Studio backup.')); }
     } });
     const grid = h('div', { class: 'grid' });
@@ -191,6 +194,14 @@
       MC.topBar(),
       MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Actualizar ahora', 'Update now'))) : null,
+      (() => {
+        const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+        if (standalone || MC.store.get('hintInstall', '') === '1') return null;
+        return h('div', { class: 'notice hint', role: 'note' }, h('span', null, h('b', null, t('Funciona mejor instalado. ', 'Works best installed. ')), t('Instálalo en tu ordenador o tableta: tiene más memoria para vídeo y PSD pesados, el navegador no borra tus proyectos y funciona sin conexión.', 'Install it on your computer or tablet: more memory for video and heavy PSDs, the browser will not clear your projects and it works offline.')),
+          h('span', { style: { display: 'inline-flex', gap: '8px', flexWrap: 'wrap' } },
+            MC.installEvt ? h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); try { await ev.userChoice; } catch (e) { /* nada */ } MC.app.render(); } }, MC.icon('download', 14), t('Instalar', 'Install')) : h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.openPrefs('install') }, t('Cómo instalarlo', 'How to install')),
+            h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { MC.store.set('hintInstall', '1'); MC.app.render(); } }, t('Ocultar', 'Hide'))));
+      })(),
       h('section', { class: 'hero' },
         h('div', { class: 'hero-copy' },
           h('div', { class: 'hero-logo' }, h('span', { style: { animation: 'slide-a .7s cubic-bezier(.2,.8,.2,1) both', display: 'inline-flex' } }, MC.mark(46)), h('span', { class: 'eyebrow', style: { animation: 'rise .6s .2s both' } }, t('Estudio de vídeo-cómic', 'Motion-comic studio'))),

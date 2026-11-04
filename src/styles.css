@@ -460,3 +460,13 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .mkn { position: absolute; bottom: 0; width: 11px; height: 14px; padding: 0; border: 0; background: currentColor; clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); cursor: ew-resize; z-index: 4; touch-action: none; }
 .mkn.beat { height: 11px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .mkn.on { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+/* ---------- biblioteca y versiones ---------- */
+.libcard { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px; border: 1px solid var(--line); background: var(--bg); }
+.libcard .lt { width: 56px; height: 56px; object-fit: contain; background: var(--raised); display: grid; place-items: center; }
+.libcard .lt.au { color: var(--aux); }
+.libcard .ln { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.libact { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.vers { display: grid; gap: 6px; max-height: 52vh; overflow: auto; }
+.verrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); }
+.verrow b, .verrow .cap { display: block; }

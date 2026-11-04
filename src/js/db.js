@@ -1,7 +1,7 @@
 /* Guardado local: IndexedDB para proyectos e imágenes (PRD 13). Si el navegador no lo permite, trabaja en memoria y avisa. */
 (function () {
   const MC = window.MC;
-  const mem = { projects: new Map(), assets: new Map() };
+  const mem = { projects: new Map(), assets: new Map(), versions: new Map(), library: new Map() };
   let dbp = null;
   const db = (MC.db = { persistent: true });
 
@@ -9,10 +9,9 @@
     if (dbp) return dbp;
     dbp = new Promise((res) => {
       try {
-        const r = indexedDB.open('motioncomic', 1);
+        const r = indexedDB.open('motioncomic', 2);
         r.onupgradeneeded = () => {
-          r.result.createObjectStore('projects', { keyPath: 'id' });
-          r.result.createObjectStore('assets', { keyPath: 'id' });
+          ['projects', 'assets', 'versions', 'library'].forEach((n) => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: 'id' }); });
         };
         r.onsuccess = () => res(r.result);
         r.onerror = r.onblocked = () => { db.persistent = false; res(null); };

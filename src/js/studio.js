@@ -46,7 +46,7 @@
       if (!el.status) return;
       MC.put(MC.clear(el.status), h('i'), !MC.db.persistent ? t('Sin guardado local', 'Not saved locally') : saved ? t('Guardado en este equipo · ', 'Saved on this device · ') + MC.fmtClock(S.savedAt) : t('Guardando…', 'Saving…'));
     }
-    function touch() { S.dirty = true; scheduleSave(); }
+    function touch() { S.dirty = true; S.dirtySinceVer = true; scheduleSave(); }
     function commit() {
       S.project.shots.forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
       MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
@@ -147,7 +147,14 @@
         } catch (e) { MC.toast(t('No se pudo leer ese vídeo. Prueba con MP4 (H.264) o WebM.', 'Could not read that video. Try MP4 (H.264) or WebM.')); }
       }
     }
+    /* consejo de instalación (una vez) y aviso si queda poco espacio en el navegador */
+    function installTip() {
+      const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+      if (!standalone && !S.tipShown) { S.tipShown = true; setTimeout(() => MC.toast(t('Consejo: con vídeo y archivos pesados MotionComic Studio va mejor instalado en tu ordenador o tableta.', 'Tip: with video and heavy files MotionComic Studio works best installed on your computer or tablet.')), 3400); }
+      MC.db.usage().then((u) => { if (u && u.quota && u.used / u.quota > 0.7) setTimeout(() => MC.toast(t('Queda poco espacio en el navegador. Guarda una copia en archivo desde el menú de carpeta.', 'The browser is running low on space. Save a file copy from the folder menu.')), 6200); });
+    }
     function videoNote(a) {
+      installTip();
       if (a.w * a.h > 2200 * 1250) MC.toast(t('Es un vídeo muy grande: para ir fluido en el visor usa la calidad «Media» o un vídeo de 1080p.', 'This is a very large video: use the “Medium” preview quality or a 1080p video to stay smooth.'));
       else MC.toast(t('Vídeo añadido' + (a.hasAudio ? ' con su audio' : ''), 'Video added' + (a.hasAudio ? ' with its audio' : '')));
     }
@@ -331,13 +338,13 @@
     /* ---------- barra superior ---------- */
     /* ---------- espacios de trabajo ---------- */
     const WS = {
-      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'transiciones', 'recursos', 'proyecto', 'aspecto', 'estilo'] },
+      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'transiciones', 'recursos', 'biblioteca', 'proyecto', 'aspecto', 'estilo'] },
       camara: { icon: 'camera', es: 'Cámara', en: 'Camera', tl: 'strip', tabs: ['planos', 'camara'] },
-      capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'rack', 'aspecto'] },
+      capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'biblioteca', 'rack', 'aspecto'] },
       creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
-    const TABS = { planos: ['film'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+    const TABS = { planos: ['film'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
       texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sonidos: ['note', 'Sonidos', 'Sounds'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
@@ -438,10 +445,11 @@
         el.fmt,
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).map(wsBtn)),
         el.jobChip, el.status, el.undo, el.redo,
-        h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; renderTop(); } }, MC.icon('sliders'))),
+        h('span', { class: 'vwrap' }, el.fileBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.fileOpen), title: t('Archivo: copia en archivo, versiones y biblioteca', 'File: file copy, versions and library'), 'aria-label': t('Menú de archivo', 'File menu'), onClick: () => { S.fileOpen = !S.fileOpen; S.viewOpen = false; renderTop(); } }, MC.icon('folder'))),
+        h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; S.fileOpen = false; renderTop(); } }, MC.icon('sliders'))),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales (?)', 'Help, shortcuts and tutorials (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear')));
-      setStatus(true); updateHistBtns(); renderFmtPop(); renderViewMenu();
+      setStatus(true); updateHistBtns(); renderFmtPop(); renderViewMenu(); renderFileMenu();
     }
     /* selector de formato: proporciones dibujadas a escala */
     function renderFmtPop() {
@@ -469,7 +477,7 @@
       c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
     }
     const offJobChip = MC.onExportJob(updateJobChip);
-    async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
+    async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); try { await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
     function renderLayers() {
@@ -487,6 +495,7 @@
           const mv = (d) => { const j = idx + d; if (j < 0 || j >= sh.layers.length) return; sh.layers.splice(j, 0, sh.layers.splice(idx, 1)[0]); S.li = j; commit(); };
           const b2 = (ic, title, fn) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, onClick: fn }, MC.icon(ic));
           b.append(h('div', { class: 'lrow' }, b2('up', t('Traer adelante', 'Bring forward'), () => mv(1)), b2('down', t('Enviar atrás', 'Send back'), () => mv(-1)),
+            b2('bookmark', t('Guardar en la biblioteca', 'Save to the library'), () => toLibrary(l.assetId, l.name)),
             b2('copy', t('Duplicar capa', 'Duplicate layer'), () => { const c = JSON.parse(JSON.stringify(l)); c.id = MC.uid(); c.name += ' 2'; sh.layers.splice(idx + 1, 0, c); S.li = idx + 1; commit(); }),
             b2('trash', t('Eliminar capa', 'Delete layer'), () => { sh.layers.splice(idx, 1); S.li = -1; commit(); })));
         }
@@ -843,6 +852,7 @@
           MC.ui.slider({ label: t('Fundido de salida', 'Fade out'), min: 0, max: 5, step: 0.1, value: clip.fadeOut || 0, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => cs('fadeOut', v), onChange: commit }),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip }, MC.icon('cut', 14), t('Dividir en el cabezal (S)', 'Split at playhead (S)')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => toLibrary(clip.assetId, clip.name) }, MC.icon('bookmark', 14), t('Guardar en la biblioteca', 'Save to the library')),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { p.clips = p.clips.filter((c) => c !== clip); S.cl = null; commit(); } }, MC.icon('trash', 14), t('Eliminar clip', 'Delete clip'))),
           a ? h('p', { class: 'cap' }, t('Duración original: ', 'Original length: ') + a.dur.toFixed(1) + ' s') : null]));
       }
@@ -1039,6 +1049,7 @@
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: kx.spill !== false, onChange: (e) => { setK('spill', e.target.checked); commit(); } }), h('span', null, t('Quitar el reflejo del color en los bordes', 'Remove colour spill on the edges'))));
         ovNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(ovx)); c.id = MC.uid(); c.name += ' 2'; c.start = ovx.start + 0.5; c.audioClip = null; if (ovx.audioClip && clipById(ovx.audioClip)) { const k = JSON.parse(JSON.stringify(clipById(ovx.audioClip))); k.id = MC.uid(); c.audioClip = k.id; p.clips.push(k); } p.overlays.push(c); S.ov = c.id; syncOvAudio(c); commit(); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => toLibrary(ovx.assetId, ovx.name) }, MC.icon('bookmark', 14), t('Guardar en la biblioteca', 'Save to the library')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Se ve entera dentro del encuadre', 'Fits whole inside the frame'), onClick: () => { ovx.x = 0; ovx.y = 0; ovx.scale = 1; ovx.rot = 0; commit(); } }, t('Encajar', 'Fit')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Cubre todo el encuadre', 'Covers the whole frame'), onClick: () => { const o2 = opts(); if (oa) { ovx.scale = Math.max(o2.W / oa.w, o2.H / oa.h) / Math.min(o2.W / oa.w, o2.H / oa.h); ovx.x = 0; ovx.y = 0; ovx.rot = 0; commit(); } } }, t('Rellenar', 'Fill')),
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { removeOverlay(ovx); commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete'))));
@@ -1219,6 +1230,84 @@
       h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Audio · ', 'Audio · ') + aud.length), aud.length ? h('div', { style: { display: 'grid', gap: '2px' } }, aud.map((id) => { const a = MC.audio.get(id); return a ? row(null, a.name, a.dur.toFixed(1) + ' s') : null; })) : h('p', { class: 'cap' }, t('Aún no hay audio.', 'No audio yet.'))),
       p.fonts.length ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Tipografías propias', 'Your fonts')), h('div', { style: { display: 'grid', gap: '2px' } }, p.fonts.map((f) => row(null, f.name, 'TTF/OTF')))) : null];
     }
+    /* ---------- biblioteca compartida entre proyectos ---------- */
+    S.libItems = []; S.lib = { q: '', folder: '', tag: '' };
+    async function loadLib(rerender) { try { S.libItems = await MC.library.list(); } catch (e) { S.libItems = []; } if (rerender !== false && S.alive && curTab() === 'biblioteca') renderPanels(); }
+    async function toLibrary(assetId, label) {
+      try { const it = await MC.library.add(assetId); if (!it) { MC.toast(t('No se pudo guardar en la biblioteca.', 'Could not save to the library.')); return; } await loadLib(); MC.toast(t('Guardado en la biblioteca: ', 'Saved to the library: ') + (label || it.name)); } catch (e) { MC.toast(t('No se pudo guardar en la biblioteca.', 'Could not save to the library.')); }
+    }
+    async function useFromLibrary(it, how) {
+      const p = S.project;
+      try {
+        if (it.kind === 'audio') { const a = await MC.audio.load(it.id); const c = MC.audio.newClip(how === 'musica' ? 'musica' : how === 'sfx' ? 'sfx' : how === 'voz' ? 'voz' : (a.dur >= 20 ? 'musica' : 'sfx'), a, S.time); p.clips.push(c); S.cl = c.id; S.tx = null; commit(); return; }
+        const a = await MC.assets.load(it.id); if (!a) { MC.toast(t('Ese recurso ya no está disponible.', 'That asset is no longer available.')); return; }
+        if (how === 'overlay') { const o = MC.newOverlay(a, { track: 0, start: S.time, dur: 4 }); o.scale = 0.6; if (!a.video) o.dur = Math.max(1, Math.min(MC.totalTime(p) - S.time, 6)) || 4; p.overlays.push(o); S.ov = o.id; S.cl = null; S.tx = null; S.li = -1; commit(); return; }
+        const sh = shot(), empty = sh.layers.length === 0, L = MC.newLayer(a, empty ? { z: 0.1, role: 'fondo' } : { z: 0.5, role: '' }); if (a.video) L.vloop = true; sh.layers.push(L); S.li = sh.layers.length - 1; commit(); checkMemory();
+      } catch (e) { MC.toast(t('No se pudo usar ese recurso.', 'Could not use that asset.')); }
+    }
+    function libraryPanel() {
+      if (!S.libLoaded) { S.libLoaded = true; loadLib(); }
+      const items = S.libItems || [], q = (S.lib.q || '').toLowerCase().trim();
+      const folders = [...new Set(items.map((x) => x.folder || '').filter(Boolean))].sort(), tags = [...new Set(items.flatMap((x) => x.tags || []))].sort();
+      const shown = items.filter((x) => (!S.lib.folder || x.folder === S.lib.folder) && (!S.lib.tag || (x.tags || []).includes(S.lib.tag)) && (!q || (x.name + ' ' + (x.tags || []).join(' ') + ' ' + (x.folder || '')).toLowerCase().includes(q)));
+      const libIn = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,video/*,.mp4,.m4v,.mov,.webm,audio/*,.wav,.mp3,.m4a,.ogg', multiple: true, hidden: true, onChange: async (e) => {
+        const fs = [...e.target.files]; e.target.value = '';
+        for (const f of fs) { try { const isV = MC.video.isFile(f), isA = /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg)$/i.test(f.name); const a = isV ? await MC.video.add(f, f.name) : isA ? await MC.audio.add(f, f.name) : await MC.assets.add(f, f.name); await MC.library.add(a.id, { folder: S.lib.folder || '' }); } catch (err) { MC.toast(t('No se pudo leer ', 'Could not read ') + f.name); } }
+        await loadLib(); MC.toast(t('Añadido a la biblioteca', 'Added to the library'));
+      } });
+      const editItem = (it) => {
+        const nm = h('input', { class: 'input', value: it.name, id: 'lb-n' }), fo = h('input', { class: 'input', value: it.folder || '', id: 'lb-f', list: 'lb-fl', placeholder: t('Sin carpeta', 'No folder') }), tg = h('input', { class: 'input', value: (it.tags || []).join(', '), id: 'lb-t', placeholder: t('personaje, fondo, noche…', 'character, background, night…') });
+        MC.modal(t('Editar recurso de la biblioteca', 'Edit library asset'), h('div', { style: { display: 'grid', gap: '12px' } }, MC.ui.field(t('Nombre', 'Name'), nm, 'lb-n'), MC.ui.field(t('Carpeta', 'Folder'), fo, 'lb-f'), h('datalist', { id: 'lb-fl' }, folders.map((f) => h('option', { value: f }))), MC.ui.field(t('Etiquetas (separadas por comas)', 'Tags (comma separated)'), tg, 'lb-t')),
+          (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { await MC.library.update(it.id, { name: nm.value.trim() || it.name, folder: fo.value.trim(), tags: tg.value.split(',').map((x) => x.trim()).filter(Boolean) }); close(); loadLib(); } }, t('Guardar', 'Save'))]);
+      };
+      const card = (it) => {
+        const menu = h('div', { class: 'libact' },
+          it.kind === 'audio' ? [h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => useFromLibrary(it, 'auto') }, MC.icon('plus', 13), t('Añadir al audio', 'Add to audio'))]
+            : [h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => useFromLibrary(it, 'layer') }, MC.icon('layersx', 13), t('Como capa', 'As layer')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => useFromLibrary(it, 'overlay') }, MC.icon('image', 13), t('Superpuesto', 'As overlay'))],
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Carpeta y etiquetas', 'Folder and tags'), 'aria-label': t('Editar ', 'Edit ') + it.name, onClick: () => editItem(it) }, MC.icon('gear', 13)),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Quitar de la biblioteca (no borra el archivo de tus proyectos)', 'Remove from the library (does not delete it from your projects)'), 'aria-label': t('Quitar ', 'Remove ') + it.name, onClick: async () => { await MC.library.remove(it.id); loadLib(); } }, MC.icon('trash', 13)));
+        return h('div', { class: 'libcard' }, it.thumb ? h('img', { class: 'lt', src: it.thumb, alt: '' }) : h('span', { class: 'lt' + (it.kind === 'audio' ? ' au' : '') }, it.kind === 'audio' ? MC.icon('note', 18) : null),
+          h('div', { style: { minWidth: 0 } }, h('b', { class: 'ln' }, it.name), h('span', { class: 'cap' }, ({ image: t('imagen', 'image'), video: t('vídeo', 'video'), audio: t('audio', 'audio') })[it.kind] + (it.folder ? ' · ' + it.folder : '') + ((it.tags || []).length ? ' · #' + it.tags.join(' #') : '')), menu));
+      };
+      return [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca · ', 'Library · ') + items.length),
+        h('p', { class: 'cap' }, t('Tus recursos guardados para usar en cualquier proyecto: personajes, fondos, efectos de sonido… Se quedan en este equipo.', 'Your saved assets to use in any project: characters, backgrounds, sound effects… They stay on this device.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => libIn.click() }, MC.icon('upload', 14), t('Importar a la biblioteca', 'Import to the library')), libIn),
+        h('input', { class: 'input', type: 'search', 'aria-label': t('Buscar en la biblioteca', 'Search the library'), placeholder: t('Buscar por nombre, carpeta o etiqueta', 'Search by name, folder or tag'), value: S.lib.q, onInput: (e) => { S.lib.q = e.target.value; const pos = e.target.selectionStart; renderPanels(); const n = el.leftBody.querySelector('input[type=search]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } } }),
+        folders.length ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Carpeta', 'Folder')), MC.ui.chips([{ v: '', l: t('Todas', 'All') }].concat(folders.map((f) => ({ v: f, l: f }))), S.lib.folder, (v) => { S.lib.folder = v; renderPanels(); })) : null,
+        tags.length ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Etiqueta', 'Tag')), MC.ui.chips([{ v: '', l: t('Todas', 'All') }].concat(tags.map((x) => ({ v: x, l: '#' + x }))), S.lib.tag, (v) => { S.lib.tag = v; renderPanels(); })) : null),
+      h('div', { class: 'box' }, shown.length ? h('div', { style: { display: 'grid', gap: '6px' } }, shown.map(card)) : h('p', { class: 'cap' }, items.length ? t('Nada coincide con la búsqueda.', 'Nothing matches the search.') : t('La biblioteca está vacía. Importa archivos aquí, o usa «Guardar en la biblioteca» en una capa, una superposición o un clip de audio.', 'The library is empty. Import files here, or use “Save to the library” on a layer, overlay or audio clip.')))];
+    }
+    /* ---------- archivo del proyecto y versiones ---------- */
+    async function saveFile() {
+      try {
+        MC.toast(t('Preparando el archivo…', 'Preparing the file…')); await save();
+        const bytes = await MC.downloadProjectFile(S.project); MC.toast(t('Archivo guardado (', 'File saved (') + (bytes / 1048576).toFixed(1) + ' MB)');
+      } catch (e) { console.error(e); MC.toast(t('No se pudo crear el archivo. Prueba a exportar con menos recursos.', 'Could not create the file. Try with fewer assets.')); }
+    }
+    async function saveVersion(label) { try { const v = await MC.versions.save(S.project, label || '', false); MC.toast(v ? t('Versión guardada', 'Version saved') : t('No se pudo guardar la versión.', 'Could not save the version.')); } catch (e) { MC.toast(t('No se pudo guardar la versión.', 'Could not save the version.')); } }
+    async function openVersions() {
+      const list = await MC.versions.list(S.project.id), fmt = (d) => new Date(d).toLocaleString(MC.lang === 'en' ? 'en-GB' : 'es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+      const body = h('div', { class: 'vers' }, list.length ? list.map((v) => { const pj = MC.versions.parse(v);
+        return h('div', { class: 'verrow' }, h('div', { style: { minWidth: 0 } }, h('b', null, v.label || (v.auto ? t('Guardado automático', 'Autosave') : t('Versión', 'Version'))), h('span', { class: 'cap' }, fmt(v.t) + ' · ' + pj.shots.length + t(' planos', ' shots') + ' · ' + (v.size / 1024).toFixed(0) + ' KB')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { await MC.versions.save(S.project, t('Antes de restaurar', 'Before restoring'), false); const r = MC.versions.parse(v); r.id = S.project.id; r.updated = Date.now(); S.project = MC.normalizeProject(r); await MC.loadProjectAssets(S.project); S.si = 0; S.li = -1; S.selKind = 'project'; fit(); renderAll(); pushHist(); touch(); document.querySelector('.scrim') && document.querySelector('.scrim').remove(); MC.toast(t('Versión restaurada', 'Version restored')); } }, MC.icon('undo', 13), t('Restaurar', 'Restore')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-label': t('Eliminar esta versión', 'Delete this version'), onClick: async (e) => { await MC.versions.remove(v.id); e.currentTarget.closest('.verrow').remove(); } }, MC.icon('trash', 13))); })
+        : h('p', { class: 'cap' }, t('Aún no hay versiones guardadas. Se guardan solas cada pocos minutos mientras editas, y puedes guardar una a mano con un nombre.', 'No saved versions yet. They are saved automatically every few minutes while you edit, and you can save one by hand with a name.')));
+      MC.modal(t('Versiones guardadas', 'Saved versions'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: async () => { const n = prompt(t('Nombre de la versión', 'Version name'), ''); if (n === null) return; await saveVersion(n.trim()); close(); openVersions(); } }, MC.icon('bookmark', 14), t('Guardar una versión ahora', 'Save a version now')), h('button', { class: 'btn btn-p', type: 'button', onClick: close }, t('Cerrar', 'Close'))], { wide: true });
+    }
+    function renderFileMenu() {
+      if (el.fileMenu) { el.fileMenu.remove(); el.fileMenu = null; }
+      if (!S.fileOpen || !el.fileBtn) return;
+      const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+      const item = (ic, label, fn) => h('button', { type: 'button', onClick: () => { S.fileOpen = false; renderFileMenu(); el.fileBtn.setAttribute('aria-expanded', 'false'); fn(); } }, MC.icon(ic, 15), label);
+      el.fileMenu = h('div', { class: 'tmenu vmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.fileOpen = false; renderFileMenu(); el.fileBtn.focus(); } } },
+        item('download', t('Guardar una copia en un archivo (.motioncomic)', 'Save a copy to a file (.motioncomic)'), saveFile),
+        item('bookmark', t('Guardar una versión ahora…', 'Save a version now…'), () => { const n = prompt(t('Nombre de la versión (opcional)', 'Version name (optional)'), ''); if (n !== null) saveVersion(n.trim()); }),
+        item('undo', t('Versiones guardadas…', 'Saved versions…'), openVersions),
+        item('copy', t('Duplicar este proyecto', 'Duplicate this project'), async () => { await save(); await MC.duplicateProject(S.project); MC.toast(t('Proyecto duplicado: lo verás en el inicio', 'Project duplicated: you will find it on the home screen')); }),
+        h('p', { class: 'cap', style: { padding: '6px 10px', maxWidth: '300px' } }, standalone ? t('Tus proyectos viven en este equipo. Guarda copias en archivo de vez en cuando.', 'Your projects live on this device. Save file copies now and then.') : t('Consejo: MotionComic Studio funciona mejor instalado en tu ordenador o tableta: tiene más memoria, el navegador no borra tus datos y funciona sin conexión. Guarda también copias en archivo.', 'Tip: MotionComic Studio works best installed on your computer or tablet: more memory, the browser will not clear your data and it works offline. Also save file copies.')),
+        !standalone && MC.installEvt ? h('button', { type: 'button', onClick: async () => { S.fileOpen = false; renderFileMenu(); MC.installEvt.prompt(); } }, MC.icon('download', 15), t('Instalar la aplicación', 'Install the app')) : null);
+      el.fileBtn.parentNode.append(el.fileMenu);
+    }
     function textPanel() {
       const p = S.project, KINDS = [['bubble', t('Bocadillo', 'Bubble'), 'chat'], ['box', t('Caja de texto', 'Text box'), 'text'], ['sfx', t('Onomatopeya', 'Sound word'), 'sparkle'], ['sub', t('Subtítulo', 'Subtitle'), 'film']];
       const label = (x) => (MC.textOf(x, p) || t('(sin texto)', '(no text)')).replace(/\n/g, ' ');
@@ -1274,7 +1363,7 @@
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
-        planos: shotsPanel, recursos: resourcesPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
+        planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
         rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sonidos: soundsPanel, mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
@@ -2155,7 +2244,9 @@
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
-    const onDocDown = (e) => { if (S.viewOpen && el.viewMenu && !el.viewMenu.contains(e.target) && !(el.viewBtn && el.viewBtn.contains(e.target))) { S.viewOpen = false; renderViewMenu(); if (el.viewBtn) el.viewBtn.setAttribute('aria-expanded', 'false'); } };
+    const verTimer = setInterval(() => { if (S.alive && S.dirtySinceVer) { S.dirtySinceVer = false; MC.versions.save(S.project, '', true).catch(() => {}); } }, 300000);
+    const onDocDown = (e) => { if (S.fileOpen && el.fileMenu && !el.fileMenu.contains(e.target) && !(el.fileBtn && el.fileBtn.contains(e.target))) { S.fileOpen = false; renderFileMenu(); if (el.fileBtn) el.fileBtn.setAttribute('aria-expanded', 'false'); }
+      if (S.viewOpen && el.viewMenu && !el.viewMenu.contains(e.target) && !(el.viewBtn && el.viewBtn.contains(e.target))) { S.viewOpen = false; renderViewMenu(); if (el.viewBtn) el.viewBtn.setAttribute('aria-expanded', 'false'); } };
     document.addEventListener('pointerdown', onDocDown);
     MC.ensureFonts().then(() => { S.dirty = true; });
     MC.fonts.loadFor(S.project).then((miss) => { if (miss.length) MC.toast(t('Falta la tipografía: ', 'Missing font: ') + miss.join(', ') + t('. Se usa otra de reserva.', '. A fallback is used.')); S.dirty = true; });
@@ -2238,7 +2329,7 @@
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
-    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
