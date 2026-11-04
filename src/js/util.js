@@ -156,10 +156,13 @@
   ui.field = (label, input, id) => h('div', { class: 'field' }, h('label', { for: id }, label), input);
 
   let toastT = 0;
+  /* documento que tiene el foco: la ventana principal o una ventana separada del estudio */
+  MC.hostDoc = document;
   MC.toast = (msg) => {
-    document.querySelectorAll('.toast').forEach((n) => n.remove());
+    const D = MC.hostDoc || document;
+    D.querySelectorAll('.toast').forEach((n) => n.remove());
     const n = h('div', { class: 'toast', role: 'status' }, msg);
-    document.body.append(n);
+    D.body.append(n);
     clearTimeout(toastT);
     toastT = setTimeout(() => n.remove(), 2800);
   };
@@ -172,21 +175,21 @@
   };
   /* Ventana: lleva el foco dentro, lo recorre con Tab sin salirse, se cierra con Esc y devuelve el foco a quien la abrió. */
   MC.modal = (title, body, actions, o) => {
-    const prev = document.activeElement, tid = 'mt-' + MC.uid();
-    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); if (prev && prev.focus && document.contains(prev)) prev.focus(); };
+    const D = MC.hostDoc || document, prev = D.activeElement, tid = 'mt-' + MC.uid();
+    const close = () => { scrim.remove(); D.removeEventListener('keydown', onKey); if (prev && prev.focus && D.contains(prev)) prev.focus(); };
     const focusables = () => [...dlg.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')].filter((n) => n.offsetParent !== null);
     const onKey = (e) => {
       if (e.key === 'Escape') { close(); return; }
       if (e.key !== 'Tab') return;
       const f = focusables(); if (!f.length) return;
       const first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && (document.activeElement === first || !dlg.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && (document.activeElement === last || !dlg.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      if (e.shiftKey && (D.activeElement === first || !dlg.contains(D.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (D.activeElement === last || !dlg.contains(D.activeElement))) { e.preventDefault(); first.focus(); }
     };
     const dlg = h('div', { class: 'modal' + (o && o.wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid }, h('h2', { id: tid }, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null);
     const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } }, dlg);
-    document.addEventListener('keydown', onKey);
-    document.body.append(scrim);
+    D.addEventListener('keydown', onKey);
+    D.body.append(scrim);
     setTimeout(() => { const f = focusables(); (f.find((n) => n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') || f[0] || dlg).focus(); }, 30);
     return { close };
   };

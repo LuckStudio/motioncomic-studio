@@ -107,3 +107,8 @@ Quedan para una vuelta posterior: zoom del visor con mano, vista lateral de prof
 
 Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 
+
+## Paneles acoplables y ventanas separadas
+
+- Cada panel (visor, línea de tiempo, herramientas, capas, propiedades) se puede mover de lado, ocultar o **sacar a otra ventana** (varias pantallas), con menú ⋮, asa ⠿ de arrastre (a un lado o fuera de la ventana) y disposiciones predefinidas en el menú de Vista.
+- La ventana separada recibe el propio panel (mismos controles, atajos y reproducción), copia los estilos y las fuentes, y devuelve el panel al cerrarse. Con la API de gestión de ventanas se elige el monitor y se recuerda la posición.

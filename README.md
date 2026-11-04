@@ -293,6 +293,8 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 ### Interfaz ajustable
 
 - **Arrastra los bordes** del panel izquierdo, de la columna derecha y de la línea de tiempo para cambiar su tamaño; **doble clic** en un borde para ocultarlo.
+- **Paneles acoplables, como en Premiere o Photoshop**: cada panel (Visor, Línea de tiempo, Herramientas, Capas y Propiedades) tiene un menú ⋮ para **moverlo a la izquierda o a la derecha** (la línea de tiempo, arriba o abajo) u ocultarlo, y un asa ⠿ para **arrastrarlo** a un lado. Hay disposiciones listas (Estándar, Todo a la izquierda, Todo a la derecha, Línea de tiempo arriba, Solo visor y línea) en el menú de Vista; se recuerdan en tu equipo.
+- **Varias ventanas y varias pantallas**: «Sacar a otra ventana» (o arrastrar el asa ⠿ fuera de la ventana) abre el panel en una ventana propia, por ejemplo el **visor en un segundo monitor** y el resto del estudio en el primero. Funciona con los mismos atajos, edición y reproducción; si cierras la ventana el panel vuelve solo. Con «Sacar a otra pantalla…» eliges el monitor (Chrome y Edge piden permiso de gestión de ventanas) y «Reabrir las ventanas de la última vez» las recupera. Requiere permitir las ventanas emergentes.
 - **Tamaño de la interfaz** del 70 % al 150 % para adaptarla a cada pantalla (menú de la barra superior).
 - **Zoom y desplazamiento del visor** (Ctrl + rueda; rueda pulsada o Alt + arrastrar), **reglas** en píxeles y **vista lateral de profundidad** para colocar las capas en el eje Z arrastrándolas.
 - **Tabla de traducción** con todos los textos y una columna por idioma.

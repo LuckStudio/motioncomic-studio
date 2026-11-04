@@ -370,71 +370,267 @@
       if (v === 'exportar') { togglePlay(false); S.view = 'out'; if (!S.sim && opts().W / opts().H < 0.8) S.sim = 'tiktok'; buildExportPanel(); }
       S.fmtOpen = false; S.ovMenu = false; S.viewOpen = false; applyLayout();
       renderTop(); renderRail(); renderPanels(); renderVbar(); buildSim(); renderTimeline(); fit();
-      [el.leftEl, el.rightEl].forEach((n) => { if (n) { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); } });
+      [el.leftEl, el.colL, el.colR].forEach((n) => { if (n) { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); } });
       MC.announce(t(WS[v].es, WS[v].en));
     }
     const openExport = () => setWs('exportar');
 
-    /* ---------- disposición ajustable ---------- */
-    const LAYOUT_DEF = { left: null, right: null, tl: null, hl: false, hr: false, ht: false };
-    const loadLayout = () => { try { return Object.assign({}, LAYOUT_DEF, JSON.parse(MC.store.get('layout', '{}')) || {}); } catch (e) { return Object.assign({}, LAYOUT_DEF); } };
+    /* ---------- disposición ajustable: paneles acoplables y ventanas separadas ---------- */
+    const DEF_DOCK = { tools: 'l', layers: 'r', props: 'r', tl: 'b' };
+    const LAYOUT_DEF = { left: null, right: null, cl: null, tl: null, hl: false, hr: false, ht: false, hy: false, hp: false, dock: Object.assign({}, DEF_DOCK), geo: {}, last: [] };
+    const loadLayout = () => {
+      let o = {}; try { o = JSON.parse(MC.store.get('layout', '{}')) || {}; } catch (e) { o = {}; }
+      if (o.hr) { o.hy = o.hp = true; o.hr = false; }
+      const r = Object.assign({}, LAYOUT_DEF, o); r.dock = Object.assign({}, DEF_DOCK, o.dock || {}); r.geo = Object.assign({}, o.geo || {}); return r;
+    };
     const LY = loadLayout();
     const saveLayout = () => MC.store.set('layout', JSON.stringify(LY));
+    const PANEL_NAME = { viewer: ['Visor', 'Viewer'], timeline: ['Línea de tiempo', 'Timeline'], tools: ['Herramientas', 'Tools'], layers: ['Capas', 'Layers'], props: ['Propiedades', 'Properties'] };
+    const HIDE_KEY = { tools: 'hl', layers: 'hy', props: 'hp', timeline: 'ht' };
+    const POP = {}; // id → { win, host, ro, closing }
+    const PNODES = () => ({ viewer: [viewer], timeline: [timeline], tools: [el.rail, el.leftEl], layers: [layersPanel], props: [propsPanel] });
+    const docsOpen = () => [document].concat(Object.keys(POP).map((k) => POP[k].win.document));
+    const qAll = (sel) => docsOpen().reduce((a, d) => a.concat([...d.querySelectorAll(sel)]), []);
+    const dockOf = (id) => (id === 'timeline' ? LY.dock.tl : LY.dock[id]);
+    const colOf = (id) => (innerWidth <= 900 ? DEF_DOCK[id] : LY.dock[id]);
+    const hiddenP = (id) => !!LY[HIDE_KEY[id]];
+    const zf = (n) => (n.offsetWidth ? n.getBoundingClientRect().width / n.offsetWidth : 1) || 1;
+
+    function placePanels(narrow) {
+      const main = el.sMain;
+      if (!POP.tools) { [el.rail, el.leftEl].forEach((n) => { if (n.parentNode !== main) main.append(n); }); }
+      if (!POP.viewer && viewer.parentNode !== main) main.append(viewer);
+      if (!POP.timeline && timeline.parentNode !== studio) studio.insertBefore(timeline, fileLayers);
+      const want = { l: [], r: [] };
+      [['layers', layersPanel], ['props', propsPanel]].forEach((x) => { if (!POP[x[0]]) want[narrow ? DEF_DOCK[x[0]] : LY.dock[x[0]]].push(x[1]); });
+      [['l', el.colL, el.hCl], ['r', el.colR, el.hCr]].forEach((c) => {
+        const cur = [...c[1].children].filter((n) => n !== c[2]);
+        if (cur.length !== want[c[0]].length || cur.some((n, i) => n !== want[c[0]][i])) { want[c[0]].forEach((n) => c[1].append(n)); c[1].append(c[2]); }
+      });
+      [layersPanel, propsPanel].forEach((n) => n.classList.toggle('solo', n.parentNode.querySelectorAll(':scope > .panel-col').length === 1));
+    }
     /* las medidas se guardan en píxeles de la interfaz (ya con la escala aplicada) */
     function applyLayout() {
       const st = studio.style, narrow = innerWidth <= 900;
       const set = (k, v) => (v == null ? st.removeProperty(k) : st.setProperty(k, v));
-      if (narrow) { ['--left-w', '--right-w', '--tl-h'].forEach((k) => st.removeProperty(k)); studio.dataset.hl = studio.dataset.hr = studio.dataset.ht = '0'; return; }
-      studio.dataset.hl = LY.hl ? '1' : '0'; studio.dataset.hr = LY.hr ? '1' : '0'; studio.dataset.ht = LY.ht ? '1' : '0';
-      set('--left-w', LY.hl ? '0px' : LY.left ? LY.left + 'px' : null);
-      set('--right-w', LY.hr ? '0px' : LY.right ? LY.right + 'px' : null);
-      set('--tl-h', WS[S.ws].tl === 'none' ? null : LY.ht ? '46px' : LY.tl ? LY.tl + 'px' : null);
+      placePanels(narrow);
+      const ts = narrow ? 'l' : LY.dock.tools, tlTop = !narrow && LY.dock.tl === 't', ex = S.ws === 'exportar';
+      studio.dataset.pviewer = POP.viewer ? '1' : '0';
+      Object.keys(POP).forEach((k) => syncDoc(POP[k].win.document, true));
+      if (narrow) {
+        ['--left-w', '--right-w', '--tl-h', '--g1', '--g2', '--g3', '--g5', '--g6', '--g7'].forEach((k) => st.removeProperty(k));
+        st.gridTemplateRows = ''; timeline.style.gridRow = ''; el.sMain.style.gridRow = '';
+        [el.rail, el.leftEl, el.colL, el.colR, viewer, el.vghost, el.exportEl].forEach((n) => { n.style.gridColumn = ''; n.style.gridRow = ''; n.style.display = ''; });
+        studio.dataset.hl = studio.dataset.hr = studio.dataset.ht = studio.dataset.hy = studio.dataset.hp = '0'; studio.dataset.ts = 'l'; studio.dataset.tlp = 'b';
+        return;
+      }
+      studio.dataset.hl = LY.hl ? '1' : '0'; studio.dataset.hy = LY.hy ? '1' : '0'; studio.dataset.hp = LY.hp ? '1' : '0'; studio.dataset.ht = LY.ht ? '1' : '0';
+      studio.dataset.hr = LY.hy && LY.hp ? '1' : '0'; studio.dataset.ts = ts; studio.dataset.tlp = tlTop ? 't' : 'b';
+      const tw = LY.left ? LY.left + 'px' : 'var(--left-w)', vis = (side) => ['layers', 'props'].some((id) => LY.dock[id] === side && !POP[id] && !LY[HIDE_KEY[id]]);
+      const onT = !POP.tools, lw = (LY.hl ? '0px' : tw), cw = (v) => (v ? v + 'px' : 'var(--right-w)');
+      const vl = vis('l'), vr = vis('r');
+      set('--g1', onT && ts === 'l' ? 'var(--rail-w)' : '0px'); set('--g2', onT && ts === 'l' ? lw : '0px');
+      set('--g3', vl ? cw(LY.cl) : '0px'); set('--g5', vr ? cw(LY.right) : '0px');
+      set('--g6', onT && ts === 'r' ? lw : '0px'); set('--g7', onT && ts === 'r' ? 'var(--rail-w)' : '0px');
+      el.colL.style.display = vl ? '' : 'none'; el.colR.style.display = vr ? '' : 'none';
+      [el.rail, el.leftEl, el.colL, el.colR, viewer, el.vghost, el.exportEl].forEach((n) => { n.style.gridRow = '1'; });
+      el.rail.style.gridColumn = ts === 'l' ? '1' : '7'; el.leftEl.style.gridColumn = ts === 'l' ? '2' : '6';
+      el.colL.style.gridColumn = '3'; el.colR.style.gridColumn = '5';
+      viewer.style.gridColumn = el.vghost.style.gridColumn = ex ? '1' : '4'; el.exportEl.style.gridColumn = ex ? '2' : '';
+      el.hTools.className = 'pz ' + (ts === 'l' ? 'pz-r' : 'pz-l'); el.hTools.hidden = LY.hl;
+      el.hTl.className = 'pz ' + (tlTop ? 'pz-b' : 'pz-t');
+      set('--tl-h', POP.timeline || WS[S.ws].tl === 'none' ? (POP.timeline ? '0px' : null) : LY.ht ? '46px' : LY.tl ? LY.tl + 'px' : null);
+      st.gridTemplateRows = tlTop ? 'auto var(--tl-h, 260px) minmax(0, 1fr)' : '';
+      timeline.style.gridRow = tlTop ? '2' : ''; el.sMain.style.gridRow = tlTop ? '3' : '';
       S.dirty = true; if (el.canvas) requestAnimationFrame(() => fit());
     }
-    const zf = (n) => (n.offsetWidth ? n.getBoundingClientRect().width / n.offsetWidth : 1) || 1;
     /* tirador para arrastrar el borde de un panel; doble clic lo oculta o lo restaura */
     function handle(kind, cls, label) {
+      const sgn = () => (kind === 'left' ? (LY.dock.tools === 'l' ? 1 : -1) : kind === 'cl' ? 1 : kind === 'right' ? -1 : (LY.dock.tl === 'b' ? -1 : 1));
+      const cur = () => (kind === 'left' ? el.leftEl.offsetWidth : kind === 'cl' ? el.colL.offsetWidth : kind === 'right' ? el.colR.offsetWidth : timeline.offsetHeight);
+      const put = (size) => {
+        if (kind === 'left') { LY.left = clamp(Math.round(size), 200, 620); LY.hl = false; }
+        else if (kind === 'cl') { LY.cl = clamp(Math.round(size), 220, 620); }
+        else if (kind === 'right') { LY.right = clamp(Math.round(size), 220, 620); }
+        else { LY.tl = clamp(Math.round(size), 120, Math.round(studio.offsetHeight * 0.7)); LY.ht = false; }
+        applyLayout();
+      };
       const hd = h('div', { class: 'pz pz-' + cls, role: 'separator', tabindex: '0', 'aria-label': label, 'aria-orientation': kind === 'tl' ? 'horizontal' : 'vertical',
         title: t('Arrastra para cambiar el tamaño · doble clic para ocultar', 'Drag to resize · double-click to hide'),
         onDblclick: () => toggleLayout(kind),
         onPointerdown: (e) => {
           if (e.button) return; e.preventDefault(); hd.setPointerCapture(e.pointerId); hd.classList.add('on');
-          const f = zf(studio), x0 = e.clientX, y0 = e.clientY, size = kind === 'left' ? el.leftEl.offsetWidth : kind === 'right' ? el.rightEl.offsetWidth : timeline.offsetHeight;
-          const move = (ev) => {
-            const dx = (ev.clientX - x0) / f, dy = (ev.clientY - y0) / f, H = studio.offsetHeight;
-            if (kind === 'left') { LY.left = clamp(Math.round(size + dx), 200, 620); LY.hl = false; }
-            else if (kind === 'right') { LY.right = clamp(Math.round(size - dx), 220, 620); LY.hr = false; }
-            else { LY.tl = clamp(Math.round(size - dy), 120, Math.round(H * 0.7)); LY.ht = false; }
-            applyLayout();
-          };
+          const f = zf(studio), x0 = e.clientX, y0 = e.clientY, size = cur(), sg = sgn();
+          const move = (ev) => put(size + sg * (kind === 'tl' ? (ev.clientY - y0) : (ev.clientX - x0)) / f);
           const up = () => { hd.classList.remove('on'); hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up); saveLayout(); renderTop(); };
           hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
         },
         onKeydown: (e) => {
           const st = e.shiftKey ? 40 : 10, k = e.key; let used = true;
-          if (kind === 'left' && (k === 'ArrowLeft' || k === 'ArrowRight')) { LY.left = clamp((LY.left || el.leftEl.offsetWidth) + (k === 'ArrowRight' ? st : -st), 200, 620); LY.hl = false; }
-          else if (kind === 'right' && (k === 'ArrowLeft' || k === 'ArrowRight')) { LY.right = clamp((LY.right || el.rightEl.offsetWidth) + (k === 'ArrowLeft' ? st : -st), 220, 620); LY.hr = false; }
-          else if (kind === 'tl' && (k === 'ArrowUp' || k === 'ArrowDown')) { LY.tl = clamp((LY.tl || timeline.offsetHeight) + (k === 'ArrowUp' ? st : -st), 120, Math.round(studio.offsetHeight * 0.7)); LY.ht = false; }
+          if (kind !== 'tl' && (k === 'ArrowLeft' || k === 'ArrowRight')) put(cur() + sgn() * (k === 'ArrowRight' ? st : -st));
+          else if (kind === 'tl' && (k === 'ArrowUp' || k === 'ArrowDown')) put(cur() + sgn() * (k === 'ArrowDown' ? st : -st));
           else if (k === 'Enter') toggleLayout(kind); else used = false;
-          if (used) { e.preventDefault(); applyLayout(); saveLayout(); }
+          if (used) { e.preventDefault(); saveLayout(); }
         } });
       return hd;
     }
     function toggleLayout(kind) {
-      const k = { left: 'hl', right: 'hr', tl: 'ht' }[kind]; LY[k] = !LY[k]; applyLayout(); saveLayout(); renderTop();
-      MC.announce(({ left: t('Panel izquierdo', 'Left panel'), right: t('Columna derecha', 'Right column'), tl: t('Línea de tiempo', 'Timeline') })[kind] + ': ' + (LY[k] ? t('oculto', 'hidden') : t('visible', 'visible')));
+      let on;
+      if (kind === 'left') { LY.hl = !LY.hl; on = LY.hl; }
+      else if (kind === 'tl') { LY.ht = !LY.ht; on = LY.ht; }
+      else {
+        const side = kind === 'cl' ? 'l' : 'r', ids = ['layers', 'props'].filter((id) => LY.dock[id] === side && !POP[id]);
+        on = ids.some((id) => !LY[HIDE_KEY[id]]); ids.forEach((id) => { LY[HIDE_KEY[id]] = on; });
+      }
+      applyLayout(); saveLayout(); renderTop();
+      MC.announce(({ left: t('Herramientas', 'Tools'), cl: t('Columna izquierda', 'Left column'), right: t('Columna derecha', 'Right column'), tl: t('Línea de tiempo', 'Timeline') })[kind] + ': ' + (on ? t('oculto', 'hidden') : t('visible', 'visible')));
     }
-    function resetLayout() { Object.assign(LY, LAYOUT_DEF); applyLayout(); saveLayout(); renderTop(); }
+    function resetLayout() { Object.keys(POP).forEach((k) => dockBack(k)); const g = LY.geo; Object.assign(LY, LAYOUT_DEF, { dock: Object.assign({}, DEF_DOCK), geo: g, last: [] }); applyLayout(); saveLayout(); renderTop(); }
+    function setDock(id, side) { if (id === 'timeline') LY.dock.tl = side; else LY.dock[id] = side; LY[HIDE_KEY[id]] = false; applyLayout(); saveLayout(); renderTop(); MC.announce(t(PANEL_NAME[id][0], PANEL_NAME[id][1]) + ': ' + side); }
+    function hidePanel(id) { LY[HIDE_KEY[id]] = true; applyLayout(); saveLayout(); renderTop(); }
+    const PRESETS = [
+      ['std', ['Estándar', 'Standard'], { tools: 'l', layers: 'r', props: 'r', tl: 'b' }, {}],
+      ['izq', ['Todo a la izquierda', 'All on the left'], { tools: 'l', layers: 'l', props: 'l', tl: 'b' }, {}],
+      ['der', ['Todo a la derecha', 'All on the right'], { tools: 'r', layers: 'r', props: 'r', tl: 'b' }, {}],
+      ['cruz', ['Capas a un lado, propiedades al otro', 'Layers one side, properties the other'], { tools: 'l', layers: 'l', props: 'r', tl: 'b' }, {}],
+      ['arriba', ['Línea de tiempo arriba', 'Timeline on top'], { tools: 'l', layers: 'r', props: 'r', tl: 't' }, {}],
+      ['foco', ['Solo visor y línea de tiempo', 'Viewer and timeline only'], { tools: 'l', layers: 'r', props: 'r', tl: 'b' }, { hl: true, hy: true, hp: true }],
+    ];
+    function applyPreset(p) {
+      LY.dock = Object.assign({}, p[2]); LY.left = LY.right = LY.cl = LY.tl = null;
+      LY.hl = LY.hy = LY.hp = LY.ht = false; Object.assign(LY, p[3]);
+      applyLayout(); saveLayout(); renderTop(); MC.announce(t(p[1][0], p[1][1]));
+    }
+
+    /* ----- ventanas separadas ----- */
+    function syncDoc(d, again) {
+      const r = document.documentElement, q = d.documentElement;
+      [...r.attributes].forEach((a) => { if (q.getAttribute(a.name) !== a.value) q.setAttribute(a.name, a.value); });
+      if (!again || !d.head.querySelector('[data-mcsync]')) {
+        d.head.querySelectorAll('[data-mcsync]').forEach((n) => n.remove());
+        document.head.querySelectorAll('style, link[rel="stylesheet"]').forEach((n) => { const c = d.importNode(n, true); c.setAttribute('data-mcsync', '1'); d.head.append(c); });
+      }
+      try { document.fonts.forEach((ff) => { try { d.fonts.add(ff); } catch (e) { /* ya estaba */ } }); } catch (e) { /* sin API de fuentes */ }
+    }
+    function popOut(id, o) {
+      o = o || {};
+      if (POP[id]) { try { POP[id].win.focus(); } catch (e) { /* cerrada */ } return; }
+      const g = LY.geo[id] || {}, dfl = { viewer: [1280, 760], timeline: [1280, 420], tools: [460, 760], layers: [360, 520], props: [380, 760] }[id];
+      const w = o.w || g.w || dfl[0], hh = o.h || g.h || dfl[1], x = o.x != null ? o.x : g.x != null ? g.x : (window.screenX || 0) + 60, y = o.y != null ? o.y : g.y != null ? g.y : (window.screenY || 0) + 60;
+      let win = null;
+      try { win = window.open('', 'mc-' + id, 'popup=yes,width=' + Math.round(w) + ',height=' + Math.round(hh) + ',left=' + Math.round(x) + ',top=' + Math.round(y)); } catch (e) { win = null; }
+      if (!win) { MC.toast(t('El navegador ha bloqueado la ventana. Permite las ventanas emergentes para este sitio y vuelve a intentarlo.', 'The browser blocked the window. Allow pop-ups for this site and try again.')); return; }
+      const d = win.document, base = /^(https?|file):/.test(document.baseURI) ? '<base href="' + document.baseURI + '">' : '';
+      d.open(); d.write('<!doctype html><html><head><meta charset="utf-8">' + base + '<meta name="viewport" content="width=device-width,initial-scale=1"><title></title></head><body class="pop"></body></html>'); d.close();
+      d.title = t(PANEL_NAME[id][0], PANEL_NAME[id][1]) + ' · ' + (S.project.name || 'MotionComic Studio');
+      syncDoc(d, false);
+      const host = d.createElement('div'); host.className = 'studio popped pop-' + id; host.dataset.ws = S.ws; host.dataset.pop = id;
+      d.body.append(host);
+      const rec = POP[id] = { win, host, closing: false, ro: null };
+      PNODES()[id].forEach((n) => host.append(n));
+      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true);
+      win.addEventListener('focus', () => { MC.hostDoc = d; });
+      win.addEventListener('pagehide', () => { if (!rec.closing) dockBack(id, true); });
+      let rt = 0; win.addEventListener('resize', () => { fit(); clearTimeout(rt); rt = setTimeout(() => saveGeo(id, win), 300); });
+      try { rec.ro = new win.ResizeObserver(() => fit()); rec.ro.observe(el.stage); } catch (e) { /* sin ResizeObserver */ }
+      MC.hostDoc = d; try { win.focus(); } catch (e) { /* sin foco */ }
+      LY.last = Array.from(new Set((LY.last || []).concat(id))); saveLayout();
+      applyLayout(); renderTop(); S.dirty = true; setTimeout(fit, 60);
+      MC.announce(t(PANEL_NAME[id][0], PANEL_NAME[id][1]) + ': ' + t('en otra ventana', 'in another window'));
+    }
+    function saveGeo(id, win) { try { LY.geo[id] = { x: win.screenX, y: win.screenY, w: win.outerWidth, h: win.outerHeight }; saveLayout(); } catch (e) { /* cerrada */ } }
+    function dockBack(id, fromClose) {
+      const rec = POP[id]; if (!rec) return;
+      rec.closing = true; delete POP[id];
+      if (!fromClose) saveGeo(id, rec.win);
+      try { if (rec.ro) rec.ro.disconnect(); } catch (e) { /* nada */ }
+      if (!Object.keys(POP).length || MC.hostDoc === rec.win.document) MC.hostDoc = document;
+      LY.last = (LY.last || []).filter((k) => k !== id);
+      applyLayout();
+      if (!fromClose) { try { rec.win.close(); } catch (e) { /* nada */ } }
+      saveLayout(); renderTop(); S.dirty = true; setTimeout(fit, 60);
+    }
+    function closePops() { Object.keys(POP).forEach((k) => { const keep = LY.last; dockBack(k, false); LY.last = keep; }); }
+    async function pickScreen(id) {
+      let det = null;
+      try { det = await window.getScreenDetails(); } catch (e) { det = null; }
+      if (!det || !det.screens || !det.screens.length) { MC.toast(t('No se pudo leer la lista de pantallas (hay que permitir «Gestión de ventanas»). Se abre en una ventana normal.', 'Could not read the screen list (“Window management” must be allowed). Opening a normal window.')); popOut(id); return; }
+      let m = null;
+      const body = h('div', { class: 'wlist' }, det.screens.map((s, i) => h('div', null, h('span', null, t('Pantalla ', 'Screen ') + (i + 1) + ' · ' + s.width + '×' + s.height + (s === det.currentScreen ? t(' (esta)', ' (this one)') : '')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { if (m) m.close(); popOut(id, { x: s.availLeft + 16, y: s.availTop + 16, w: s.availWidth - 32, h: s.availHeight - 32 }); } }, t('Abrir aquí', 'Open here')))));
+      m = MC.modal(t('¿En qué pantalla?', 'Which screen?'), body, (close) => [h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel'))]);
+    }
+    function closeDockMenu() { qAll('.dockmenu').forEach((n) => n.remove()); }
+    function panelMenu(id, btn) {
+      const had = btn.dataset.open === '1'; closeDockMenu(); qAll('.dockctl button[data-open]').forEach((b) => { b.dataset.open = ''; b.setAttribute('aria-expanded', 'false'); });
+      if (had) return;
+      const hostEl = btn.closest('.studio'); if (!hostEl) return;
+      const item = (ic, label, fn, dis) => h('button', { type: 'button', role: 'menuitem', disabled: !!dis, onClick: () => { closeDockMenu(); btn.dataset.open = ''; btn.setAttribute('aria-expanded', 'false'); fn(); } }, MC.icon(ic, 14), label);
+      const items = [h('div', { class: 'eyebrow' }, t(PANEL_NAME[id][0], PANEL_NAME[id][1]))];
+      if (POP[id]) items.push(item('undo', t('Devolver a la ventana principal', 'Return to the main window'), () => dockBack(id)));
+      else {
+        if (id === 'timeline') items.push(item('up', t('Mover arriba', 'Move to the top'), () => setDock(id, 't'), LY.dock.tl === 't'), item('down', t('Mover abajo', 'Move to the bottom'), () => setDock(id, 'b'), LY.dock.tl === 'b'));
+        else if (id !== 'viewer') items.push(item('back', t('Mover a la izquierda', 'Move to the left'), () => setDock(id, 'l'), dockOf(id) === 'l'), item('chevron', t('Mover a la derecha', 'Move to the right'), () => setDock(id, 'r'), dockOf(id) === 'r'));
+        items.push(item('frame', t('Sacar a otra ventana', 'Detach to a new window'), () => popOut(id)));
+        if ('getScreenDetails' in window) items.push(item('frame', t('Sacar a otra pantalla…', 'Detach to another screen…'), () => pickScreen(id)));
+        if (id !== 'viewer') items.push(item('close', t('Ocultar', 'Hide'), () => hidePanel(id)));
+      }
+      items.push(item('undo', t('Restablecer toda la disposición', 'Reset the whole layout'), resetLayout));
+      const menu = h('div', { class: 'dockmenu', role: 'menu', 'aria-label': t('Opciones del panel', 'Panel options'), onKeydown: (e) => { if (e.key === 'Escape') { closeDockMenu(); btn.dataset.open = ''; btn.focus(); } } }, items);
+      hostEl.append(menu); btn.dataset.open = '1'; btn.setAttribute('aria-expanded', 'true');
+      const f = zf(hostEl), hr = hostEl.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const right = Math.max(4, (hr.right - br.right) / f), up = br.top - hr.top > hr.height / 2;
+      menu.style.right = right + 'px'; if (up) menu.style.bottom = ((hr.bottom - br.top) / f + 4) + 'px'; else menu.style.top = ((br.bottom - hr.top) / f + 4) + 'px';
+      const first = menu.querySelector('button:not([disabled])'); if (first) first.focus();
+    }
+    function dockCtl(id) {
+      const more = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: t('Opciones del panel: mover, sacar a otra ventana, ocultar', 'Panel options: move, detach to a window, hide'), 'aria-label': t('Opciones del panel ', 'Panel options ') + t(PANEL_NAME[id][0], PANEL_NAME[id][1]), onClick: (e) => panelMenu(id, e.currentTarget) }, MC.icon('dots', 16));
+      const grip = h('button', { class: 'btn btn-g btn-ic grip-btn', type: 'button', tabindex: '-1', 'aria-hidden': 'true', title: t('Arrastra para mover el panel de lado; suéltalo fuera de la ventana para sacarlo a otra pantalla', 'Drag to move the panel to the other side; drop it outside the window to detach it to another screen'), onPointerdown: (e) => dragPanel(id, e) }, '⠿');
+      return h('span', { class: 'dockctl' }, grip, more);
+    }
+    function dragPanel(id, e) {
+      if (e.button || POP[id] || innerWidth <= 900) return; e.preventDefault();
+      const g = e.currentTarget; try { g.setPointerCapture(e.pointerId); } catch (er) { /* sin captura */ }
+      let hint = null, drop = null;
+      const out = (ev) => ev.clientX < 0 || ev.clientY < 0 || ev.clientX > innerWidth || ev.clientY > innerHeight;
+      const move = (ev) => {
+        const r = studio.getBoundingClientRect(), f = zf(studio), mr = el.sMain.getBoundingClientRect();
+        if (!hint) { hint = h('div', { class: 'dockhint' }); studio.append(hint); }
+        let box;
+        if (out(ev)) { drop = { pop: true }; box = [0, 0, r.width / f, r.height / f, t('Soltar: sacar a otra ventana', 'Drop: detach to a new window')]; }
+        else if (id === 'timeline') {
+          const top = ev.clientY < r.top + r.height / 2; drop = { side: top ? 't' : 'b' };
+          box = top ? [0, (mr.top - r.top) / f, r.width / f, r.height * 0.3 / f, t('Línea de tiempo arriba', 'Timeline on top')] : [0, (r.height * 0.7) / f, r.width / f, r.height * 0.3 / f, t('Línea de tiempo abajo', 'Timeline at the bottom')];
+        } else {
+          const left = ev.clientX < r.left + r.width / 2; drop = { side: left ? 'l' : 'r' };
+          box = [left ? 0 : r.width * 0.7 / f, (mr.top - r.top) / f, r.width * 0.3 / f, mr.height / f, left ? t('A la izquierda', 'On the left') : t('A la derecha', 'On the right')];
+        }
+        Object.assign(hint.style, { left: box[0] + 'px', top: box[1] + 'px', width: box[2] + 'px', height: box[3] + 'px' }); hint.textContent = box[4];
+      };
+      const up = (ev) => {
+        g.removeEventListener('pointermove', move); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up);
+        if (hint) hint.remove();
+        if (ev.type === 'pointercancel' || !drop) return;
+        if (drop.pop) popOut(id, { x: ev.screenX - 200, y: ev.screenY - 30 }); else setDock(id, drop.side);
+      };
+      g.addEventListener('pointermove', move); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+    }
     const UI_SCALES = [['0.7', '70 %'], ['0.8', '80 %'], ['0.9', '90 %'], ['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %']];
     function setUiScale(v) { MC.store.set('uizoom', v); MC.applyPrefs(); S.dirty = true; renderTop(); requestAnimationFrame(() => { applyLayout(); fit(); }); }
     function renderViewMenu() {
       if (el.viewMenu) { el.viewMenu.remove(); el.viewMenu = null; }
       if (!S.viewOpen || !el.viewBtn) return;
-      const z = MC.store.get('uizoom', '1'), cb = (key, kind, label) => h('label', null, h('input', { type: 'checkbox', checked: !LY[key], onChange: () => toggleLayout(kind) }), label);
+      const z = MC.store.get('uizoom', '1'), cb = (key, kind, label) => h('label', null, h('input', { type: 'checkbox', checked: !LY[key], onChange: () => toggleLayout(kind) }), label), pcb = (key, id, label) => h('label', null, h('input', { type: 'checkbox', checked: !LY[key], onChange: () => { LY[key] = !LY[key]; applyLayout(); saveLayout(); renderTop(); } }), label);
       el.viewMenu = h('div', { class: 'tmenu vmenu', role: 'dialog', 'aria-label': t('Vista de la interfaz', 'Interface view'), onKeydown: (e) => { if (e.key === 'Escape') { S.viewOpen = false; renderViewMenu(); el.viewBtn.focus(); } } },
         h('div', { class: 'eyebrow', style: { padding: '6px 10px 2px' } }, t('Paneles', 'Panels')),
-        cb('hl', 'left', t('Panel izquierdo', 'Left panel')), cb('hr', 'right', t('Columna derecha (capas y propiedades)', 'Right column (layers and properties)')), cb('ht', 'tl', t('Línea de tiempo', 'Timeline')),
-        h('p', { class: 'cap', style: { padding: '2px 10px' } }, t('Arrastra los bordes de los paneles para cambiar su tamaño. Doble clic en un borde para ocultarlo.', 'Drag the panel edges to resize. Double-click an edge to hide it.')),
+        cb('hl', 'left', t('Herramientas (panel izquierdo)', 'Tools (side panel)')), pcb('hy', 'layers', t('Capas', 'Layers')), pcb('hp', 'props', t('Propiedades', 'Properties')), cb('ht', 'tl', t('Línea de tiempo', 'Timeline')),
+        h('p', { class: 'cap', style: { padding: '2px 10px' } }, t('Arrastra los bordes para cambiar el tamaño (doble clic oculta). Cada panel tiene un menú ⋮ para moverlo de lado o sacarlo a otra ventana; también puedes arrastrar su asa ⠿ a un lado o fuera de la ventana.', 'Drag the edges to resize (double-click hides). Each panel has a ⋮ menu to move it or detach it to another window; you can also drag its ⠿ grip to a side or outside the window.')),
+        h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Disposición', 'Arrangement')),
+        h('div', { class: 'presets' }, PRESETS.map((p) => h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => applyPreset(p) }, t(p[1][0], p[1][1])))),
+        h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Ventanas (varias pantallas)', 'Windows (multi-screen)')),
+        h('div', { class: 'wlist' }, ['viewer', 'timeline', 'tools', 'layers', 'props'].map((id) => h('div', null, h('span', null, t(PANEL_NAME[id][0], PANEL_NAME[id][1])),
+          POP[id] ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { dockBack(id); S.viewOpen = false; renderViewMenu(); } }, t('Devolver', 'Return')) : h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { S.viewOpen = false; renderViewMenu(); popOut(id); } }, t('Sacar a otra ventana', 'Detach'))))),
+        (LY.last || []).filter((k) => !POP[k]).length ? h('button', { type: 'button', onClick: () => { S.viewOpen = false; renderViewMenu(); (LY.last || []).slice().forEach((k) => popOut(k)); } }, MC.icon('frame', 14), t('Reabrir las ventanas de la última vez', 'Reopen last session’s windows')) : null,
         h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Tamaño de la interfaz', 'Interface size')),
         h('div', { style: { padding: '2px 10px 6px' } }, MC.ui.seg(UI_SCALES.map((q) => ({ v: q[0], l: q[1] })), UI_SCALES.some((q) => q[0] === z) ? z : null, setUiScale, t('Tamaño de la interfaz', 'Interface size'))),
         h('button', { type: 'button', onClick: () => { resetLayout(); setUiScale('1'); } }, MC.icon('undo', 14), t('Restablecer disposición y tamaño', 'Reset layout and size')));
@@ -548,7 +744,7 @@
       const item = (ic, label, fn) => h('button', { type: 'button', onClick: () => { S.impOpen = false; renderImpMenu(); fn(); } }, MC.icon(ic, 15), label);
       el.impMenu = h('div', { class: 'tmenu vmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.impOpen = false; renderImpMenu(); el.impBtn.focus(); } } },
         item('upload', t('Desde el equipo…', 'From this device…'), () => fileLayers.click()), item('image', t('Del proyecto o la biblioteca…', 'From the project or library…'), () => openAssetPicker({ onPick: (ids) => assetsToLayers(ids, S.li >= 0 ? S.li + 1 : null) })),
-        item('plus', t('Capa de color liso', 'Solid colour layer'), addSolidLayer), item('folder', t('Carpeta o ZIP…', 'Folder or ZIP…'), () => document.querySelector('.leftpanel input[webkitdirectory]') ? document.querySelector('.leftpanel input[webkitdirectory]').click() : fileLayers.click()));
+        item('plus', t('Capa de color liso', 'Solid colour layer'), addSolidLayer), item('folder', t('Carpeta o ZIP…', 'Folder or ZIP…'), () => el.leftEl.querySelector('input[webkitdirectory]') ? el.leftEl.querySelector('input[webkitdirectory]').click() : fileLayers.click()));
       el.impBtn.parentNode.append(el.impMenu);
     }
     async function addSolidLayer() {
@@ -1752,11 +1948,12 @@
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
       if (el.simBar) el.simBar.style.width = (S.time / Math.max(0.1, total)) * 100 + '%';
     }
+    const dprNow = () => ((el.stage && el.stage.ownerDocument.defaultView) || window).devicePixelRatio || 1;
     function fit() {
       const c = el.canvas, st = el.stage, o = opts();
       const A = o.W / o.H, pw = st.clientWidth - 24, ph = st.clientHeight - 12;
       if (pw <= 0 || ph <= 0) return;
-      const w = Math.min(pw, ph * A), dpr = S.quality === 'full' ? Math.min(window.devicePixelRatio || 1, 2) : Math.min(window.devicePixelRatio || 1, 1) * 0.75;
+      const w = Math.min(pw, ph * A), dpr = S.quality === 'full' ? Math.min(dprNow(), 2) : Math.min(dprNow(), 1) * 0.75;
       c.style.width = w + 'px'; c.style.height = w / A + 'px';
       const cw = Math.round(w * dpr), chh = Math.round(cw / A);
       if (c.width !== cw || c.height !== chh) { c.width = cw; c.height = chh; }
@@ -2762,21 +2959,23 @@
     el.rail = h('div', { class: 'rail', role: 'tablist', 'aria-label': t('Paneles', 'Panels'), 'aria-orientation': 'vertical' });
     el.leftTitle = h('h3', null, '');
     el.leftBody = h('div', { class: 'pbody' });
-    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle), el.leftBody, handle('left', 'r', t('Ancho del panel izquierdo', 'Left panel width')));
+    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle, dockCtl('tools')), el.leftBody, el.hTools = handle('left', 'r', t('Ancho del panel izquierdo', 'Left panel width')));
     el.propsTitle = h('h3', null, '');
     el.exportHost = h('div', { class: 'exp-panel' });
     const layersPanel = h('div', { class: 'panel-col p-layers' },
-      h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('span', { class: 'vwrap' }, el.impBtn = h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => { S.impOpen = !S.impOpen; el.impBtn.setAttribute('aria-expanded', String(S.impOpen)); renderImpMenu(); } }, MC.icon('plus', 14), t('Importar', 'Import'), MC.icon('down', 12)))),
+      h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('span', { class: 'vwrap' }, el.impBtn = h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => { S.impOpen = !S.impOpen; el.impBtn.setAttribute('aria-expanded', String(S.impOpen)); renderImpMenu(); } }, MC.icon('plus', 14), t('Importar', 'Import'), MC.icon('down', 12))), dockCtl('layers')),
       h('div', { style: { display: 'contents' }, onClick: (e) => { if (e.target === e.currentTarget || e.target === el.layersBody) { S.selKind = 'shot'; S.li = -1; renderLayers(); renderPanels(); S.dirty = true; } } }, el.layersBody));
-    const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle), el.inspBody);
-    el.rightEl = h('div', { class: 'rightcol' }, layersPanel, propsPanel, handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
-    const exportPanel = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
+    const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle, dockCtl('props')), el.inspBody);
+    el.colL = h('div', { class: 'sidecol colL' }, el.hCl = handle('cl', 'l', t('Ancho de la columna izquierda', 'Left column width')));
+    el.colR = el.rightEl = h('div', { class: 'sidecol colR' }, layersPanel, propsPanel, el.hCr = handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
+    el.hCl.className = 'pz pz-r';
+    const exportPanel = el.exportEl = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
     const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage,
       h('div', { class: 'tbar' },
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
         el.play, el.loop, el.time,
-        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame'))));
-    const timeline = h('div', { class: 'p-timeline' }, handle('tl', 't', t('Alto de la línea de tiempo', 'Timeline height')),
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Pantalla completa (F)', 'Full screen (F)'), 'aria-label': t('Pantalla completa', 'Full screen'), onClick: () => ACT.fullscreen() }, MC.icon('frame')), dockCtl('viewer')));
+    const timeline = h('div', { class: 'p-timeline' }, el.hTl = handle('tl', 't', t('Alto de la línea de tiempo', 'Timeline height')),
       h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track'), onClick: () => { fileOv.dataset.track = 0; fileOv.click(); } }, MC.icon('layersx', 14), t('Superposición', 'Overlay')),
@@ -2787,11 +2986,11 @@
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)'), onClick: () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
-        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime),
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime, dockCtl('timeline')),
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
     const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
-    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, el.rail, el.leftEl, viewer, el.rightEl, exportPanel), mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
+    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 1400);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
@@ -2799,7 +2998,8 @@
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
     const verTimer = setInterval(() => { if (S.alive && S.dirtySinceVer) { S.dirtySinceVer = false; MC.versions.save(S.project, '', true).catch(() => {}); } }, 300000);
-    const onDocDown = (e) => { if (S.impOpen && el.impMenu && !el.impMenu.contains(e.target) && !(el.impBtn && el.impBtn.contains(e.target))) { S.impOpen = false; renderImpMenu(); if (el.impBtn) el.impBtn.setAttribute('aria-expanded', 'false'); }
+    const onDocDown = (e) => {
+      if (!e.target.closest || (!e.target.closest('.dockmenu') && !e.target.closest('.dockctl'))) { closeDockMenu(); qAll('.dockctl button[data-open]').forEach((b) => { b.dataset.open = ''; b.setAttribute('aria-expanded', 'false'); }); } if (S.impOpen && el.impMenu && !el.impMenu.contains(e.target) && !(el.impBtn && el.impBtn.contains(e.target))) { S.impOpen = false; renderImpMenu(); if (el.impBtn) el.impBtn.setAttribute('aria-expanded', 'false'); }
       if (S.fileOpen && el.fileMenu && !el.fileMenu.contains(e.target) && !(el.fileBtn && el.fileBtn.contains(e.target))) { S.fileOpen = false; renderFileMenu(); if (el.fileBtn) el.fileBtn.setAttribute('aria-expanded', 'false'); }
       if (S.viewOpen && el.viewMenu && !el.viewMenu.contains(e.target) && !(el.viewBtn && el.viewBtn.contains(e.target))) { S.viewOpen = false; renderViewMenu(); if (el.viewBtn) el.viewBtn.setAttribute('aria-expanded', 'false'); } };
     document.addEventListener('pointerdown', onDocDown);
@@ -2828,9 +3028,9 @@
         if (wrapped) MC.audio.play(S.project, 0);
       }
       if (S.playing && (now - (loop.mt || 0)) > 50) {
-        loop.mt = now; const mt = el.rightEl && el.rightEl.querySelectorAll('.meter, .meter'), lv = MC.audio.levels();
-        document.querySelectorAll('.studio .meter').forEach((m) => { const v = lv[m.dataset.m] || 0; m.firstChild.style.width = Math.round(v * 100) + '%'; m.setAttribute('aria-valuenow', Math.round(v * 100)); m.classList.toggle('hot', v > 0.92); });
-      } else if (!S.playing && loop.mt) { loop.mt = 0; document.querySelectorAll('.studio .meter i').forEach((i) => { i.style.width = '0'; }); }
+        loop.mt = now; const lv = MC.audio.levels();
+        qAll('.studio .meter').forEach((m) => { const v = lv[m.dataset.m] || 0; m.firstChild.style.width = Math.round(v * 100) + '%'; m.setAttribute('aria-valuenow', Math.round(v * 100)); m.classList.toggle('hot', v > 0.92); });
+      } else if (!S.playing && loop.mt) { loop.mt = 0; qAll('.studio .meter i').forEach((i) => { i.style.width = '0'; }); }
       if (S.dirty) {
         S.dirty = false; const t0 = performance.now();
         try { draw(); } catch (e) { console.error(e); }
@@ -2852,7 +3052,7 @@
       selectAll: () => { setMulti(allKeys()); },
       undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
       addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
-      fullscreen: () => { const v = el.viewerEl; if (!v) return; if (document.fullscreenElement) document.exitFullscreen(); else if (v.requestFullscreen) v.requestFullscreen().catch(() => MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.'))); else MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.')); },
+      fullscreen: () => { const v = el.viewerEl; if (!v) return; if (v.ownerDocument.fullscreenElement) v.ownerDocument.exitFullscreen(); else if (v.requestFullscreen) v.requestFullscreen().catch(() => MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.'))); else MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.')); },
       viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
       zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
       export: () => openExport(), help: () => MC.openHelp(), keys: () => MC.openHelp('keys'),
@@ -2873,7 +3073,7 @@
       },
     };
     function onKey(e) {
-      if (!S.alive || document.querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (!S.alive || ((e.target && e.target.ownerDocument) || document).querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Enter' && S.poly) { closePoly(); return; }
       if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.fmtOpen || S.ovMenu) { S.fmtOpen = false; S.ovMenu = false; renderFmtPop(); renderVbar(); } else clearSel(); return; }
       if (S.ws === 'creativo' && curTab() === 'subtitulos' && subById(S.sb) && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -2891,8 +3091,9 @@
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', save);
-    function cleanup() { clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
+    window.addEventListener('focus', () => { MC.hostDoc = document; });
+    function cleanup() { closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },

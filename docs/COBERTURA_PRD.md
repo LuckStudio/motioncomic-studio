@@ -70,6 +70,7 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | Función | Estado | Nota |
 | --- | --- | --- |
 | Visor, capas, inspector, línea de tiempo, Simple y Avanzado, espacios de trabajo | ✔ | |
+| Paneles acoplables (izquierda/derecha/arriba), disposiciones predefinidas y ventanas separadas para varias pantallas | ✔ | Menú ⋮ y asa ⠿ en cada panel; la ventana nueva recibe el panel con sus atajos y se devuelve al cerrarla |
 | Paneles acoplables y flotantes, barra de herramientas | ✘ | Disposición fija |
 | Atajos configurables con mapas de Premiere y Photoshop | ✔ | |
 | Calidad de previsualización, pantalla completa, guías, tema oscuro y claro | ✔ | Reglas ✔ |
