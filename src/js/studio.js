@@ -59,10 +59,16 @@
     pushHist();
 
     /* ---------- selección y tiempo ---------- */
+    function checkMemory() {
+      if (S.memWarned) return;
+      const me = MC.memEstimate(S.project), lim = MC.limits(), mb = me.edit / 1048576;
+      if (mb > lim.editMB) { S.memWarned = true; MC.toast(t('Las imágenes ocupan ≈ ' + Math.round(mb) + ' MB en edición y para este equipo se recomienda no pasar de ≈ ' + Math.round(lim.editMB) + ' MB. Reduce capas o tamaño.', 'Images take ≈ ' + Math.round(mb) + ' MB while editing and about ' + Math.round(lim.editMB) + ' MB is recommended for this device. Reduce layers or size.')); }
+    }
     function selectShot(i, seek) {
       S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null;
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
+      MC.announce(t('Plano ', 'Shot ') + (S.si + 1) + ': ' + (shot() ? shot().name : ''));
     }
     function setTime(tm) {
       S.time = clamp(tm, 0, Math.max(0, MC.totalTime(S.project) - 0.001));
@@ -108,14 +114,14 @@
             MC.applyPreset(sh.camera, 'zoomin', 0.8);
             S.project.shots.push(sh);
           }
-          commit(); selectShot(first, true);
+          commit(); selectShot(first, true); checkMemory();
         } else {
           const sh = shot(), empty = sh.layers.length === 0;
           for (let i = 0; i < list.length; i++) {
             const a = await MC.assets.add(list[i], list[i].name);
             sh.layers.push(MC.newLayer(a, empty && i === 0 ? { z: 0.1, role: 'fondo' } : { z: 0.5, role: '' }));
           }
-          S.li = sh.layers.length - 1; commit();
+          S.li = sh.layers.length - 1; commit(); checkMemory();
         }
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
@@ -132,7 +138,7 @@
         if (!empty) sh.transition = { type: 'fade', dur: 0.6 };
         const first = empty ? 0 : p.shots.length;
         if (empty) p.shots[0] = sh; else p.shots.push(sh);
-        S.view = 'strip'; S.sp = null; commit(); selectShot(first, true); fit();
+        S.view = 'strip'; S.sp = null; commit(); selectShot(first, true); fit(); checkMemory();
         MC.toast(t('Tira lista' + (sh.webtoon.stops.length ? ' con ' + sh.webtoon.stops.length + ' pausas sugeridas' : '') + (shrunk ? ' (se redujo para caber en memoria)' : '') + '. Ajusta las pausas en la vista «Tira».', 'Strip ready' + (sh.webtoon.stops.length ? ' with ' + sh.webtoon.stops.length + ' suggested pauses' : '') + (shrunk ? ' (reduced to fit in memory)' : '') + '. Adjust the pauses in the “Strip” view.'));
       } catch (e) { console.error(e); MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
@@ -149,7 +155,7 @@
           panels += sh.page.panels.length;
         }
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
-      S.view = 'page'; S.pn = null; commit(); selectShot(first, true); fit();
+      S.view = 'page'; S.pn = null; commit(); selectShot(first, true); fit(); checkMemory();
       MC.toast(t(list.length + ' página(s) · ' + panels + ' viñeta(s) detectadas. Revisa el orden en la vista «Página».', list.length + ' page(s) · ' + panels + ' panel(s) detected. Check the order in the “Page” view.'));
     }
     async function importPsd(file) {
@@ -262,7 +268,7 @@
     function renderTop() {
       const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; if (v === 'audio') S.open.mezcla = true; renderTop(); renderInspector(); fit(); } }, l);
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
-      el.jobChip = h('button', { class: 'btn btn-s btn-sm hide-n', type: 'button', hidden: true, onClick: openExport });
+      el.jobChip = h('button', { class: 'btn btn-s btn-sm', type: 'button', hidden: true, onClick: openExport });
       updateJobChip(MC.exportJob);
       el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
@@ -274,8 +280,9 @@
           wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onClick: openExport }, t('Exportación', 'Export'))),
         h('span', { class: 'sp' }),
         el.jobChip, el.status, el.undo, el.redo,
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda y atajos (?)', 'Help and shortcuts (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
         MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
-        h('button', { class: 'btn btn-p hide-n', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
+        h('button', { class: 'btn btn-p', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
       setStatus(true); updateHistBtns();
     }
     function updateJobChip(job) {
@@ -285,7 +292,7 @@
       c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
     }
     const offJobChip = MC.onExportJob(updateJobChip);
-    async function close() { S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
+    async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
     function renderLayers() {
@@ -310,7 +317,7 @@
     }
 
     /* ---------- inspector ---------- */
-    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-open': String(!!S.open[id]) },
+    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-id': id, 'data-open': String(!!S.open[id]) },
       h('button', { class: 'sh', type: 'button', 'aria-expanded': String(!!S.open[id]), onClick: () => { S.open[id] = !S.open[id]; renderInspector(); } }, h('span', { class: 'eyebrow' }, title), MC.icon(S.open[id] ? 'up' : 'down', 14)),
       h('div', { class: 'sb' }, nodes));
     const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
@@ -347,7 +354,20 @@
           MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; if (cam.path) cam.path.curve = v; commit(); })),
       ];
       const autoCam = !!(sh.page || sh.webtoon);
+      const presetBox = (kind, capture, apply, disabled, saveLabel) => {
+        const list = MC.presets.of(kind), nameId = 'pn-' + MC.uid();
+        return h('div', { class: 'field' }, h('span', { class: 'cap' }, kind === 'camera' ? t('Mis movimientos', 'My movements') : t('Mis efectos', 'My effects')),
+          list.length ? h('div', { class: 'chips' }, list.map((q) => h('button', { type: 'button', class: 'chip-b', disabled, title: t('Aplicar «' + q.name + '»', 'Apply “' + q.name + '”'), onClick: () => apply(q) }, q.name))) : h('span', { class: 'cap' }, t('Aún no has guardado ninguno.', 'You have not saved any yet.')),
+          h('div', { style: { display: 'flex', gap: '8px' } }, h('input', { class: 'input', id: nameId, placeholder: t('Nombre', 'Name'), 'aria-label': t('Nombre del preset', 'Preset name') }),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled, onClick: () => {
+              const nm = document.getElementById(nameId).value.trim();
+              if (!nm) { MC.toast(t('Ponle un nombre al preset.', 'Give the preset a name.')); return; }
+              const d = capture(); if (!d) { MC.toast(t('No hay nada que guardar todavía.', 'There is nothing to save yet.')); return; }
+              MC.presets.add(kind, nm, d); renderInspector(); MC.toast(t('Preset guardado: ', 'Preset saved: ') + nm);
+            } }, saveLabel)));
+      };
       if (autoCam) camNodes.length = 0;
+      if (!autoCam) camNodes.push(presetBox('camera', () => MC.captureCamera(sh), (q) => { MC.applyCameraPreset(sh, q.data); commit(); MC.announce(t('Movimiento aplicado: ', 'Movement applied: ') + q.name); }, false, t('Guardar este movimiento', 'Save this movement')));
       if (S.adv && !autoCam) {
         const kf = cam[S.kf];
         camNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Fotogramas clave', 'Keyframes')),
@@ -611,6 +631,7 @@
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
+        nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         if (selF) {
           const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
@@ -662,6 +683,16 @@
 
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
+      const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
+      } });
+      styleNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mis presets (cámara y efectos)', 'My presets (camera and effects)')),
+        allP.length ? h('div', { style: { display: 'grid', gap: '2px' } }, allP.map((q) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, q.name), h('span', { class: 'lz' }, q.kind === 'camera' ? t('cámara', 'camera') : t('efectos', 'effects')),
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Eliminar preset', 'Delete preset'), 'aria-label': t('Eliminar el preset ', 'Delete preset ') + q.name, onClick: () => { MC.presets.remove(q.id); renderInspector(); } }, MC.icon('trash', 14))))) : h('span', { class: 'cap' }, t('Guarda movimientos y pilas de efectos desde sus secciones.', 'Save movements and effect stacks from their sections.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !allP.length, onClick: () => MC.download(new Blob([MC.presets.exportAll()], { type: 'application/json' }), 'mis-presets.motioncomic-presets.json') }, MC.icon('download', 14), t('Exportar presets', 'Export presets')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => presIn.click() }, MC.icon('upload', 14), t('Importar presets', 'Import presets')), presIn)));
       const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
       MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), [idiomasSec, lookSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), audioSecs, [idiomasSec, lookSec], ordered.slice(3), [estiloSec]));
       b.scrollTop = top;
@@ -682,7 +713,9 @@
         S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
         portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
         S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
-        S.view === 'out' ? [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja', 'Box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Añadir ', 'Add ') + k[1].toLowerCase() + t(' en el cabezal', ' at the playhead'), onClick: () => addText(k[0]) }, MC.icon('plus', 12), k[1])) : null,
+        S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.tmenu), title: t('Añadir texto en el cabezal', 'Add text at the playhead'), onClick: (e) => { S.tmenu = !S.tmenu; renderVbar(); if (S.tmenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu button'); if (f) f.focus(); }, 0); } }, MC.icon('plus', 12), t('Texto', 'Text')),
+          S.tmenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.tmenu = false; renderVbar(); } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const bs = [...e.currentTarget.querySelectorAll('button')], i = bs.indexOf(document.activeElement); bs[(i + (e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); e.preventDefault(); } } },
+            [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja de texto', 'Text box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { type: 'button', role: 'menuitem', onClick: () => { S.tmenu = false; renderVbar(); addText(k[0]); } }, k[1]))) : null) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
         h('span', { style: { flex: 1 } }),
         h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
@@ -720,6 +753,7 @@
       el.time.textContent = MC.fmtTime(S.time) + ' ';
       el.time.append(h('span', null, '/ ' + MC.fmtTime(total)));
       el.tlTime.textContent = MC.fmtTime(S.time) + ' / ' + MC.fmtTime(total);
+      el.canvas.setAttribute('aria-label', t('Visor. Plano ' + (S.si + 1) + ' de ' + S.project.shots.length + ', ', 'Viewer. Shot ' + (S.si + 1) + ' of ' + S.project.shots.length + ', ') + MC.fmtTime(S.time));
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
       if (el.simBar) el.simBar.style.width = (S.time / Math.max(0.1, total)) * 100 + '%';
     }
@@ -1067,7 +1101,14 @@
       p.shots.forEach((sh, i) => {
         const clip = h('div', { class: 'clip' + (i === S.si ? ' on' : ''), 'data-i': i, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
           onClick: () => { if (!clip._moved) selectShot(i, true); },
-          onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
+          'aria-label': sh.name + ', ' + sh.duration.toFixed(1) + ' s', 'aria-pressed': String(i === S.si),
+          onKeydown: (e) => {
+            if (e.key === 'Enter') selectShot(i, true);
+            else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(sh.page || sh.webtoon)) {
+              e.preventDefault(); sh.duration = clamp(Math.round((sh.duration + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 10) / 10, 0.5, 60); commit();
+              MC.announce(sh.name + ', ' + sh.duration.toFixed(1) + ' s'); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-i="' + i + '"]'); if (n) n.focus(); }, 0);
+            }
+          } },
           h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = clip.querySelector('.rz');
         if (sh.page || sh.webtoon) rz.remove();
@@ -1086,7 +1127,8 @@
       });
       p.clips.forEach((c) => {
         const a = MC.audio.get(c.assetId);
-        const el2 = h('div', { class: 'clip au' + (c.id === S.cl ? ' on' : ''), 'data-c': c.id, role: 'button', tabindex: '0', title: c.name }, h('canvas'), h('span', null, c.name), h('div', { class: 'rz', 'aria-label': t('Recortar el final', 'Trim the end') }));
+        const el2 = h('div', { class: 'clip au' + (c.id === S.cl ? ' on' : ''), 'data-c': c.id, role: 'button', tabindex: '0', title: c.name, 'aria-label': c.name + ', ' + MC.fmtTime(c.start) + ', ' + c.dur.toFixed(1) + ' s', 'aria-pressed': String(c.id === S.cl),
+          onKeydown: (e) => { if (e.key === 'Enter') { S.cl = c.id; S.tx = null; commit(); } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); c.start = Math.max(0, Math.round((c.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 100) / 100); S.cl = c.id; commit(); MC.announce(c.name + ', ' + MC.fmtTime(c.start)); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-c="' + c.id + '"]'); if (n) n.focus(); }, 0); } } }, h('canvas'), h('span', null, c.name), h('div', { class: 'rz', 'aria-label': t('Recortar el final', 'Trim the end') }));
         const rz = el2.querySelector('.rz');
         el2.addEventListener('pointerdown', (e) => {
           if (e.target === rz) return;
@@ -1109,7 +1151,8 @@
       });
       p.texts.forEach((it) => {
         const sp = MC.textSpan(it, p), label = MC.textOf(it, p) || t('(sin texto)', '(no text)');
-        const el2 = h('div', { class: 'clip tx' + (it.kind === 'sub' ? ' sub' : '') + (it.id === S.tx ? ' on' : ''), 'data-x': it.id, role: 'button', tabindex: '0', title: label + (it.link ? t(' · vinculado a la voz', ' · linked to voice') : '') }, h('span', null, label.replace(/\n/g, ' ')), it.link ? null : h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const el2 = h('div', { class: 'clip tx' + (it.kind === 'sub' ? ' sub' : '') + (it.id === S.tx ? ' on' : ''), 'data-x': it.id, role: 'button', tabindex: '0', 'aria-label': label + ', ' + MC.fmtTime(sp.start) + ', ' + sp.dur.toFixed(1) + ' s', 'aria-pressed': String(it.id === S.tx),
+          onKeydown: (e) => { if (e.key === 'Enter') { S.tx = it.id; S.cl = null; S.li = -1; commit(); } else if (e.altKey && !it.link && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); it.start = Math.max(0, Math.round((it.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 100) / 100); S.tx = it.id; commit(); MC.announce(label + ', ' + MC.fmtTime(it.start)); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-x="' + it.id + '"]'); if (n) n.focus(); }, 0); } }, title: label + (it.link ? t(' · vinculado a la voz', ' · linked to voice') : '') }, h('span', null, label.replace(/\n/g, ' ')), it.link ? null : h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = el2.querySelector('.rz');
         el2.addEventListener('pointerdown', (e) => {
           if (e.target === rz) return;
@@ -1158,7 +1201,7 @@
     el.top = h('div', { class: 's-top' });
     el.layersBody = h('div', { class: 'pbody' });
     el.inspBody = h('div', { class: 'pbody insp' });
-    el.vbar = h('div', { class: 'vbar' });
+    el.vbar = h('div', { class: 'vbar', role: 'toolbar', 'aria-label': t('Herramientas del visor', 'Viewer tools') });
     el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer') });
     el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
       h('div', null, S.project.mode === 'page' ? t('Arrastra aquí tus páginas (PNG, JPEG, WebP, PSD o PDF). Se detectan las viñetas.', 'Drag your pages here (PNG, JPEG, WebP, PSD or PDF). Panels are detected.') : S.project.mode === 'webtoon' ? t('Arrastra aquí tu tira vertical, o varias imágenes para apilarlas.', 'Drag your vertical strip here, or several images to stack them.') : t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
@@ -1224,32 +1267,47 @@
     raf = requestAnimationFrame(loop);
 
     /* atajos de teclado */
+    const total = () => MC.totalTime(S.project);
+    const ACT = {
+      play: () => togglePlay(), pause: () => togglePlay(false), forward: () => togglePlay(true),
+      back1: () => setTime(S.time - 1), stepBack: () => setTime(S.time - 1 / 30), stepFwd: () => setTime(S.time + 1 / 30), secBack: () => setTime(S.time - 1), secFwd: () => setTime(S.time + 1),
+      start: () => setTime(0), end: () => setTime(total() - 0.001),
+      prevShot: () => selectShot(S.si - 1, true), nextShot: () => selectShot(S.si + 1, true),
+      split: () => { if (S.cl) splitClip(); else return false; },
+      undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
+      addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
+      viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
+      zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
+      export: () => openExport(), help: () => MC.openHelp(), keys: () => MC.openHelp('keys'),
+      delete: () => {
+        if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
+        else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
+        else if (S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); MC.announce(t('Texto eliminado', 'Text deleted')); }
+        else if (S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); MC.announce(t('Clip eliminado', 'Clip deleted')); }
+        else if (layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); MC.announce(t('Capa eliminada', 'Layer deleted')); }
+        else return false;
+      },
+    };
     function onKey(e) {
-      if (!S.alive || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
-      const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
-      if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-      else if (mod && k === 'y') { e.preventDefault(); redo(); }
-      else if (mod) return;
-      else if (k === ' ' || k === 'k') { e.preventDefault(); togglePlay(k === 'k' ? false : null); }
-      else if (k === 'l') togglePlay(true);
-      else if (k === 'j') setTime(S.time - 1);
-      else if (k === 'arrowleft') setTime(S.time - (e.shiftKey ? 1 : 1 / 30));
-      else if (k === 'arrowright') setTime(S.time + (e.shiftKey ? 1 : 1 / 30));
-      else if (k === 'home') setTime(0);
-      else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
-      else if ((k === 'delete' || k === 'backspace') && S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
-      else if (k === 'enter' && S.poly) closePoly();
-      else if (k === 'escape' && S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; }
-      else if (k === 's' && S.cl) splitClip();
-      else if ((k === 'delete' || k === 'backspace') && S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); }
-      else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }
-      else if ((k === 'delete' || k === 'backspace') && layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); }
+      if (!S.alive || document.querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (e.key === 'Enter' && S.poly) { closePoly(); return; }
+      if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.tmenu) { S.tmenu = false; renderVbar(); } return; }
+      const id = MC.keys.match(e), c = MC.keys.combo(e);
+      if (!id || !ACT[id]) return;
+      if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa
+      if (ACT[id](e) !== false) e.preventDefault();
     }
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
     function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
-    MC.studioCleanup = () => { S.alive = false; cleanup(); };
+    MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
+    MC.studioApi = {
+      selectLayer: () => { const sh = shot(); if (sh && sh.layers.length && S.li < 0) { S.li = sh.layers.length - 1; S.tx = null; renderLayers(); renderInspector(); } },
+      openMix: () => { S.open.mezcla = true; renderInspector(); },
+      refit: () => { fit(); },
+    };
+    if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
   };
 })();

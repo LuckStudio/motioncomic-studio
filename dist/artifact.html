@@ -143,7 +143,7 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 .studio { height: 100%; min-height: 520px; display: grid; grid-template-rows: auto minmax(0, 1fr) var(--tl-h, 274px); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
 .studio[data-ws="capas"] { --tl-h: 224px; }
 .studio[data-ws="audio"] { --tl-h: 330px; }
-.s-top { display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+.s-top { display: flex; flex-wrap: wrap; row-gap: 6px; align-items: center; gap: 6px 12px; padding: 7px 12px; border-bottom: 1px solid var(--line); min-width: 0; }
 .s-top .ttl { background: transparent; border: 1px solid transparent; border-radius: 8px; font-weight: 600; font-size: 14px; padding: 5px 8px; width: min(220px, 26vw); min-width: 90px; }
 .s-top .ttl:hover, .s-top .ttl:focus { border-color: var(--line); outline: none; background: var(--bg); }
 .s-tabs { display: flex; gap: 2px; }
@@ -268,6 +268,35 @@ select.input { appearance: auto; }
 .sim-prog i { display: block; height: 100%; background: #fff; }
 .sim-note { position: absolute; left: 0; right: 0; bottom: 2.4%; margin: 0; text-align: center; font-size: .55em; opacity: .7; }
 .sim[data-p="shorts"] .sim-side { bottom: 14%; }
+
+/* accesibilidad, ayuda y tutoriales */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+:root { zoom: var(--ui-zoom, 1); }
+[data-motion="reduce"] *, [data-motion="reduce"] *::before, [data-motion="reduce"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+kbd { font: inherit; font-size: 12px; font-weight: 600; background: var(--raised); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+kbd.on { border-color: var(--accent); color: var(--accent); }
+.keyrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.keyrow .keys { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.tour { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.tour-spot { position: fixed; display: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); outline: 2px solid var(--accent); pointer-events: none; transition: all .2s; }
+.tour-card { position: fixed; pointer-events: auto; background: var(--panel); color: var(--fg); border: 1px solid var(--accent); border-radius: 14px; padding: 16px; display: grid; gap: 8px; box-shadow: 0 10px 40px rgba(0, 0, 0, .45); max-width: calc(100vw - 24px); }
+.tour-card h3 { font-size: 18px; } .tour-card p { color: var(--muted); font-size: 14px; }
+.tour-card .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; flex-wrap: wrap; }
+.tmenu { position: absolute; z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; display: grid; min-width: 170px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.tmenu button { text-align: left; background: none; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; color: var(--fg); }
+.tmenu button:hover, .tmenu button:focus-visible { background: var(--raised); }
+.vwrap { position: relative; }
+@media (pointer: coarse) {
+  .btn-ic { width: 40px; height: 40px; }
+  .layer { padding-block: 9px; }
+  .layer .btn { width: 36px; height: 36px; }
+  .clip .rz { width: 22px; }
+  .tl-track { height: 40px; } .tl-labels { grid-auto-rows: 40px; }
+  .seg button { padding: 8px 14px; }
+}
+
+@media (pointer: coarse) and (min-width: 901px) { .studio { --tl-h: 330px; } .studio[data-ws="capas"] { --tl-h: 270px; } .studio[data-ws="audio"] { --tl-h: 390px; } }
+@media (max-width: 1300px) { .s-top .ttl { width: 130px; } .s-tabs button { padding: 6px 8px; } }
 
 </style>
 <div id="app"></div>
@@ -26563,14 +26592,31 @@ module.exports = ZStream;
     clearTimeout(toastT);
     toastT = setTimeout(() => n.remove(), 2800);
   };
+  /* Aviso para lectores de pantalla (región «polite»). */
+  let live = null;
+  MC.announce = (msg) => {
+    if (!live) { live = h('div', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' }); document.body.append(live); }
+    live.textContent = '';
+    setTimeout(() => { live.textContent = msg; }, 40);
+  };
+  /* Ventana: lleva el foco dentro, lo recorre con Tab sin salirse, se cierra con Esc y devuelve el foco a quien la abrió. */
   MC.modal = (title, body, actions) => {
-    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } },
-      h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-        h('h2', null, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null));
+    const prev = document.activeElement, tid = 'mt-' + MC.uid();
+    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); if (prev && prev.focus && document.contains(prev)) prev.focus(); };
+    const focusables = () => [...dlg.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')].filter((n) => n.offsetParent !== null);
+    const onKey = (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key !== 'Tab') return;
+      const f = focusables(); if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !dlg.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !dlg.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    };
+    const dlg = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid }, h('h2', { id: tid }, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null);
+    const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } }, dlg);
     document.addEventListener('keydown', onKey);
     document.body.append(scrim);
+    setTimeout(() => { const f = focusables(); (f.find((n) => n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') || f[0] || dlg).focus(); }, 30);
     return { close };
   };
 })();
@@ -28511,6 +28557,319 @@ module.exports = ZStream;
   };
 })();
 
+/* Atajos de teclado configurables, con mapas de Premiere y Photoshop como opción (PRD 11 y 12). */
+(function () {
+  const MC = window.MC;
+  const t = (a, b) => MC.t(a, b);
+
+  const ACTIONS = [
+    { id: 'play', g: 'play', es: 'Reproducir o pausar', en: 'Play or pause' },
+    { id: 'pause', g: 'play', es: 'Pausar', en: 'Pause' },
+    { id: 'forward', g: 'play', es: 'Reproducir', en: 'Play' },
+    { id: 'back1', g: 'play', es: 'Retroceder 1 s', en: 'Go back 1 s' },
+    { id: 'stepBack', g: 'play', es: 'Un fotograma atrás', en: 'One frame back' },
+    { id: 'stepFwd', g: 'play', es: 'Un fotograma adelante', en: 'One frame forward' },
+    { id: 'secBack', g: 'play', es: '1 segundo atrás', en: '1 second back' },
+    { id: 'secFwd', g: 'play', es: '1 segundo adelante', en: '1 second forward' },
+    { id: 'start', g: 'play', es: 'Ir al inicio', en: 'Go to start' },
+    { id: 'end', g: 'play', es: 'Ir al final', en: 'Go to end' },
+    { id: 'prevShot', g: 'play', es: 'Plano anterior', en: 'Previous shot' },
+    { id: 'nextShot', g: 'play', es: 'Plano siguiente', en: 'Next shot' },
+    { id: 'split', g: 'edit', es: 'Dividir el clip de audio en el cabezal', en: 'Split the audio clip at the playhead' },
+    { id: 'delete', g: 'edit', es: 'Eliminar lo seleccionado', en: 'Delete selection' },
+    { id: 'undo', g: 'edit', es: 'Deshacer', en: 'Undo' },
+    { id: 'redo', g: 'edit', es: 'Rehacer', en: 'Redo' },
+    { id: 'addBubble', g: 'edit', es: 'Añadir un bocadillo', en: 'Add a speech bubble' },
+    { id: 'save', g: 'edit', es: 'Guardar ahora', en: 'Save now' },
+    { id: 'viewSwitch', g: 'view', es: 'Cambiar de vista (cámara, página o tira)', en: 'Switch view (camera, page or strip)' },
+    { id: 'zoomIn', g: 'view', es: 'Acercar la línea de tiempo', en: 'Zoom the timeline in' },
+    { id: 'zoomOut', g: 'view', es: 'Alejar la línea de tiempo', en: 'Zoom the timeline out' },
+    { id: 'export', g: 'app', es: 'Exportar', en: 'Export' },
+    { id: 'help', g: 'app', es: 'Abrir la ayuda', en: 'Open help' },
+    { id: 'keys', g: 'app', es: 'Ver los atajos', en: 'Show shortcuts' },
+  ];
+  const GROUPS = { play: ['Reproducción y tiempo', 'Playback and time'], edit: ['Edición', 'Editing'], view: ['Vista', 'View'], app: ['Aplicación', 'Application'] };
+
+  const BASE = {
+    motioncomic: {
+      play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'],
+      start: ['Home'], end: ['End'], prevShot: ['['], nextShot: [']'], split: ['S'], delete: ['Delete', 'Backspace'], undo: ['Ctrl+Z'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'],
+      addBubble: ['T'], save: ['Ctrl+S'], viewSwitch: ['C'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
+    },
+  };
+  /* Premiere: J K L, Ctrl+K para cortar, flechas arriba y abajo entre cortes, Ctrl+M para exportar. */
+  BASE.premiere = Object.assign({}, BASE.motioncomic, { split: ['Ctrl+K', 'S'], prevShot: ['ArrowUp'], nextShot: ['ArrowDown'], export: ['Ctrl+M'], zoomIn: ['=', 'Plus'], zoomOut: ['-'] });
+  /* Photoshop: T para texto, Ctrl+Alt+Z para deshacer varios pasos, Ctrl+Alt+Mayús+S para exportar. */
+  BASE.photoshop = Object.assign({}, BASE.motioncomic, { undo: ['Ctrl+Z', 'Ctrl+Alt+Z'], addBubble: ['T'], zoomIn: ['Ctrl+=', 'Ctrl+Plus'], zoomOut: ['Ctrl+-'], export: ['Ctrl+Alt+Shift+S'], viewSwitch: ['C'] });
+  const PRESET_NAMES = { motioncomic: 'MotionComic Studio', premiere: 'Premiere', photoshop: 'Photoshop' };
+
+  const load = () => { try { return JSON.parse(MC.store.get('keymap', '')) || {}; } catch (e) { return {}; } };
+  const save = (m) => MC.store.set('keymap', JSON.stringify(m));
+
+  /* Combinación de una tecla pulsada, por ejemplo «Ctrl+Shift+Z». */
+  const combo = (e) => {
+    const k = e.key;
+    if (!k || ['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'Dead'].includes(k)) return null;
+    let name = k === ' ' ? 'Space' : k === '+' ? 'Plus' : k.length === 1 ? k.toUpperCase() : k;
+    const parts = [];
+    if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey && (k.length > 1 || /[a-z]/i.test(k))) parts.push('Shift');
+    parts.push(name);
+    return parts.join('+');
+  };
+  const pretty = (c) => c.replace(/ArrowLeft/, '←').replace(/ArrowRight/, '→').replace(/ArrowUp/, '↑').replace(/ArrowDown/, '↓').replace(/Plus/, '+').replace(/Space/, t('Espacio', 'Space')).replace(/Delete/, t('Supr', 'Del')).replace(/Backspace/, t('Retroceso', 'Backspace')).replace(/Ctrl/, /Mac/i.test(navigator.platform || '') ? '⌘' : 'Ctrl');
+
+  const K = (MC.keys = { ACTIONS, GROUPS, PRESET_NAMES, combo, pretty });
+  K.base = () => (load().base && BASE[load().base] ? load().base : 'motioncomic');
+  K.setBase = (b) => { const m = load(); m.base = b; m.custom = {}; save(m); };
+  K.bindings = (id) => { const m = load(), c = m.custom && m.custom[id]; return c || (BASE[K.base()][id] || []); };
+  K.isCustom = (id) => !!(load().custom && load().custom[id]);
+  K.set = (id, c) => {
+    const m = load(); m.custom = m.custom || {};
+    ACTIONS.forEach((a) => { if (a.id !== id) { const cur = K.bindings(a.id); if (cur.includes(c)) m.custom[a.id] = cur.filter((x) => x !== c); } });
+    m.custom[id] = [c]; save(m);
+  };
+  K.clear = (id, c) => { const m = load(); m.custom = m.custom || {}; m.custom[id] = K.bindings(id).filter((x) => x !== c); save(m); };
+  K.reset = () => save({});
+  K.conflict = (id, c) => { const a = ACTIONS.find((x) => x.id !== id && K.bindings(x.id).includes(c)); return a ? t(a.es, a.en) : null; };
+  K.match = (e) => { const c = combo(e); if (!c) return null; const a = ACTIONS.find((x) => K.bindings(x.id).includes(c)); return a ? a.id : null; };
+})();
+
+/* Presets con nombre de cámara y efectos, guardados en este equipo y exportables a un archivo (PRD 8 y 13). */
+(function () {
+  const MC = window.MC;
+
+  const P = (MC.presets = {
+    all() { try { return JSON.parse(MC.store.get('presets', '[]')) || []; } catch (e) { return []; } },
+    write(l) { MC.store.set('presets', JSON.stringify(l)); },
+    of(kind) { return this.all().filter((x) => x.kind === kind); },
+    add(kind, name, data) { const l = this.all().filter((x) => !(x.kind === kind && x.name === name)); l.push({ id: MC.uid(), kind, name, data }); this.write(l); },
+    remove(id) { this.write(this.all().filter((x) => x.id !== id)); },
+    exportAll() { return JSON.stringify({ app: 'motioncomic-studio', v: 1, presets: this.all() }, null, 1); },
+    importFrom(text) {
+      const d = JSON.parse(text);
+      if (d.app !== 'motioncomic-studio' || !Array.isArray(d.presets)) throw new Error('formato');
+      let n = 0;
+      d.presets.forEach((q) => { if (q && (q.kind === 'camera' || q.kind === 'fx') && q.name && q.data) { this.add(q.kind, String(q.name).slice(0, 60), q.data); n++; } });
+      return n;
+    },
+  });
+
+  /* Movimiento de cámara: sirve para guardar un movimiento propio y reutilizarlo en otros planos. */
+  MC.captureCamera = (shot) => {
+    const c = shot.camera;
+    return { preset: c.preset === 'path' && !(c.path && c.path.custom) ? 'custom' : c.preset, intensity: c.intensity, curve: c.curve, from: Object.assign({}, c.from), to: Object.assign({}, c.to), shake: c.shake || 0, path: c.path && c.path.custom ? JSON.parse(JSON.stringify(c.path)) : null };
+  };
+  MC.applyCameraPreset = (shot, d) => {
+    const c = shot.camera;
+    Object.assign(c, { preset: d.preset, intensity: d.intensity, curve: d.curve, shake: d.shake || 0 });
+    c.from = Object.assign({}, d.from); c.to = Object.assign({}, d.to); c.path = d.path ? JSON.parse(JSON.stringify(d.path)) : null;
+  };
+  /* Pila de efectos: uno o varios efectos con sus tiempos relativos. */
+  MC.captureFx = (shot, only) => {
+    const list = only ? [only] : shot.fx;
+    if (!list.length) return null;
+    const t0 = Math.min.apply(null, list.map((f) => f.start));
+    return list.map((f) => ({ type: f.type, start: Math.round((f.start - t0) * 100) / 100, dur: f.dur, intensity: f.intensity, color: f.color, angle: f.angle || 0 }));
+  };
+  MC.applyFx = (shot, stack, at) => {
+    stack.forEach((q) => { const f = MC.newFx(q.type, at + q.start); Object.assign(f, { dur: q.dur, intensity: q.intensity, color: q.color, angle: q.angle }); shot.fx.push(f); });
+  };
+})();
+
+/* Ayuda: tutoriales cortos paso a paso, atajos, ajustes de accesibilidad y medición del equipo (PRD 12 y 16). */
+(function () {
+  const MC = window.MC;
+  const { h, t, clamp } = MC;
+  MC.VERSION = '0.7';
+
+  /* ---------- ajustes de la interfaz ---------- */
+  MC.applyPrefs = () => {
+    const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
+    document.documentElement.style.setProperty('--ui-zoom', String(z));
+    document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
+  };
+
+  /* ---------- límites según el equipo ---------- */
+  MC.limits = () => {
+    const dm = navigator.deviceMemory || 4; // GB; Safari y Firefox no lo informan
+    return { editMB: Math.min(2000, dm * 300), exportMB: Math.min(3500, dm * 500 + 300), known: !!navigator.deviceMemory };
+  };
+  MC.benchmark = async () => {
+    const run = (w, hh, n) => {
+      const c = document.createElement('canvas'); c.width = w; c.height = hh;
+      const g = c.getContext('2d'), src = [];
+      for (let i = 0; i < 8; i++) { const s = document.createElement('canvas'); s.width = 2048; s.height = 1152; const x = s.getContext('2d'); x.fillStyle = 'hsl(' + i * 40 + ',50%,50%)'; x.fillRect(0, 0, 2048, 1152); x.fillStyle = '#fff'; for (let k = 0; k < 40; k++) x.fillRect(Math.random() * 2000, Math.random() * 1100, 40, 40); src.push(s); }
+      const t0 = performance.now();
+      for (let f = 0; f < n; f++) {
+        g.clearRect(0, 0, w, hh);
+        src.forEach((s, i) => { g.save(); g.translate(w / 2 + Math.sin(f / 9 + i) * 20, hh / 2); g.scale(1.1 + i * 0.02, 1.1 + i * 0.02); g.drawImage(s, -w / 2, -hh / 2, w, hh); g.restore(); });
+      }
+      g.getImageData(0, 0, 1, 1);
+      return (performance.now() - t0) / n;
+    };
+    await new Promise((r) => setTimeout(r, 30));
+    const res = { ms1080: run(1920, 1080, 20), ms4k: run(3840, 2160, 6), cores: navigator.hardwareConcurrency || 0, dm: navigator.deviceMemory || 0, at: Date.now() };
+    MC.store.set('bench', JSON.stringify(res));
+    return res;
+  };
+
+  /* ---------- tutoriales ---------- */
+  const TOURS = [
+    { id: 'importar', es: ['Importar', 'Sube tu arte y mira cómo entra'], en: ['Import', 'Bring in your art and see how it lands'], steps: [
+      { sel: '.p-layers .ph .btn', es: ['Importa tu arte', 'Pulsa «Importar» o arrastra tus archivos al visor: PNG, JPEG, WebP, PSD o PDF. Cada archivo es una capa y un PSD conserva sus capas ordenadas.'], en: ['Import your art', 'Press “Import” or drag your files onto the viewer: PNG, JPEG, WebP, PSD or PDF. Each file is a layer and a PSD keeps its layers in order.'] },
+      { sel: '.stage', es: ['El visor', 'Lo que ves aquí es lo que se exporta. Con una capa seleccionada, arrástrala para moverla y usa la rueda para escalarla.'], en: ['The viewer', 'What you see here is what gets exported. With a layer selected, drag it to move it and use the wheel to scale it.'] },
+      { sel: '.p-timeline .tl-head', es: ['Planos desde imágenes', 'Con «Planos desde imágenes» cada archivo se convierte en un plano nuevo de la línea de tiempo. Estira su final para cambiar la duración.'], en: ['Shots from images', 'With “Shots from images” each file becomes a new shot on the timeline. Stretch its end to change the length.'] },
+    ] },
+    { id: 'parallax', es: ['Parallax', 'Dale profundidad a tus capas'], en: ['Parallax', 'Give your layers depth'], steps: [
+      { sel: '.p-layers .pbody', act: 'selectLayer', es: ['Elige una capa', 'Haz clic en una capa de la lista. Arriba está lo que queda delante.'], en: ['Pick a layer', 'Click a layer in the list. The top is what sits in front.'] },
+      { sel: '.sec[data-id="capa"]', es: ['Profundidad', 'Ajusta la profundidad (z) con los botones o el deslizador. Las capas cercanas se mueven más que las lejanas cuando la cámara se desplaza.'], en: ['Depth', 'Set the depth (z) with the chips or the slider. Near layers move more than far ones when the camera moves.'] },
+      { sel: '.play', es: ['Míralo en movimiento', 'Reproduce el plano. Si ves huecos en el fondo, activa «Huecos» en el visor o deja el sobreescalado automático.'], en: ['See it move', 'Play the shot. If you see gaps in the background, turn on “Gaps” in the viewer or keep automatic overscale.'] },
+      { sel: '.sec[data-id="proyecto"]', es: ['Intensidad', 'En «Formato y parallax» eliges si el efecto es sutil, normal o exagerado para todo el proyecto.'], en: ['Intensity', 'In “Format and parallax” you choose whether the effect is subtle, normal or exaggerated for the whole project.'] },
+    ] },
+    { id: 'voz', es: ['Voz', 'Sincroniza los planos con la locución'], en: ['Voice', 'Sync the shots with the voice-over'], steps: [
+      { sel: '.tl-labels .trl:nth-child(4)', es: ['Pista de locución', 'Con «+» importas un audio y con el micrófono grabas, con cuenta atrás, mientras se reproduce la imagen.'], en: ['Voice track', 'Use “+” to import audio and the microphone to record, with a countdown, while the picture plays.'] },
+      { sel: '.sec[data-id="mezcla"]', act: 'openMix', es: ['Marcar pausas', '«Marcar pausas de la voz» pone marcas en la regla donde la voz se detiene. No hay reconocimiento de voz: tu audio no sale del equipo.'], en: ['Mark pauses', '“Mark voice pauses” puts marks on the ruler where the voice stops. There is no speech recognition: your audio never leaves the device.'] },
+      { sel: '.sec[data-id="mezcla"]', es: ['Ajustar planos a la voz', '«Ajustar planos a la voz» reparte la duración de cada plano según las pausas. Después puedes retocar a mano.'], en: ['Fit shots to voice', '“Fit shots to voice” splits each shot’s length using the pauses. You can fine-tune by hand afterwards.'] },
+      { sel: '.vbar', es: ['Texto con la voz', 'Coloca el cabezal sobre la locución y añade un bocadillo: queda vinculado, aparece cuando suena su línea y se va cuando termina.'], en: ['Text with the voice', 'Place the playhead over the voice-over and add a bubble: it stays linked, appears when its line plays and leaves when it ends.'] },
+    ] },
+    { id: 'exportar', es: ['Exportar', 'Del montaje al vídeo listo para subir'], en: ['Export', 'From the edit to a ready-to-post video'], steps: [
+      { sel: '.vbar', es: ['Simulador', 'Con «Simulador» ves el vídeo con una interfaz de red social encima para comprobar qué tapa. Las zonas seguras también ayudan.'], en: ['Simulator', 'With “Simulator” you see the video under a social app interface to check what it covers. Safe zones help too.'] },
+      { sel: '.s-top .btn-p', es: ['Exportar', 'Elige plataforma o varios formatos a la vez, calidad e idioma. También saca la portada y los subtítulos en SRT. Puedes seguir editando mientras exporta.'], en: ['Export', 'Pick a platform or several formats at once, quality and language. It also gives you the cover and SRT subtitles. You can keep editing while it exports.'] },
+      { sel: '.s-top .status', es: ['Guardado en este equipo', 'Tu proyecto vive en este navegador. Desde el inicio, «Exportar copia» guarda un archivo con todo para otro equipo.'], en: ['Saved on this device', 'Your project lives in this browser. From the home screen, “Export backup” saves a file with everything for another device.'] },
+    ] },
+  ];
+  MC.TOURS = TOURS;
+
+  let tourEl = null;
+  MC.endTour = () => { if (tourEl) { tourEl.cleanup(); tourEl = null; } };
+  MC.startTour = (id) => {
+    const tour = TOURS.find((x) => x.id === id);
+    if (!tour) return;
+    if (!MC.studioApi) { MC.pendingTour = id; MC.app.openSample(); return; }
+    MC.endTour();
+    let i = 0;
+    const spot = h('div', { class: 'tour-spot' }), card = h('div', { class: 'tour-card', role: 'dialog', 'aria-label': t(tour.es[0], tour.en[0]) });
+    const root = h('div', { class: 'tour' }, spot, card);
+    document.body.append(root);
+    const place = () => {
+      const st = tour.steps[i], el = document.querySelector(st.sel);
+      if (el && st.scrolled !== i) { st.scrolled = i; try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* sin desplazamiento */ } }
+      const r = el && el.getBoundingClientRect(), ok = r && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
+      if (ok) {
+        Object.assign(spot.style, { display: 'block', left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
+        const cw = Math.min(340, innerWidth - 24), below = r.bottom + 14 + 190 < innerHeight;
+        card.style.width = cw + 'px';
+        card.style.left = clamp(r.left, 12, innerWidth - cw - 12) + 'px';
+        const above = r.top - 14 - 190 > 0;
+        card.style.top = below ? r.bottom + 14 + 'px' : above ? 'auto' : clamp(r.top + 12, 12, innerHeight - 220) + 'px';
+        card.style.bottom = below ? 'auto' : above ? innerHeight - r.top + 14 + 'px' : 'auto';
+        const ch = card.offsetHeight, tp = parseFloat(card.style.top);
+        if (card.style.top !== 'auto' && tp + ch > innerHeight - 12) card.style.top = Math.max(12, innerHeight - ch - 12) + 'px';
+      } else { spot.style.display = 'none'; card.style.width = Math.min(340, innerWidth - 24) + 'px'; card.style.left = Math.max(12, innerWidth / 2 - 170) + 'px'; card.style.top = innerHeight / 3 + 'px'; card.style.bottom = 'auto'; }
+    };
+    const draw = () => {
+      const st = tour.steps[i];
+      if (st.act && MC.studioApi && MC.studioApi[st.act]) MC.studioApi[st.act]();
+      MC.clear(card);
+      const next = h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { if (i < tour.steps.length - 1) { i++; draw(); } else MC.endTour(); } }, i < tour.steps.length - 1 ? t('Siguiente', 'Next') : t('Terminar', 'Finish'));
+      MC.put(card, h('div', { class: 'eyebrow' }, t(tour.es[0], tour.en[0]) + ' · ' + (i + 1) + '/' + tour.steps.length), h('h3', null, t(st.es[0], st.en[0])), h('p', null, t(st.es[1], st.en[1])),
+        h('div', { class: 'row-end' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: MC.endTour }, t('Cerrar', 'Close')), i ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { i--; draw(); } }, t('Atrás', 'Back')) : null, next));
+      setTimeout(place, 60); setTimeout(() => next.focus(), 80);
+      MC.announce(t(st.es[0], st.en[0]) + '. ' + t(st.es[1], st.en[1]));
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); MC.endTour(); }
+      else if (e.key === 'ArrowRight' && i < tour.steps.length - 1) { e.stopPropagation(); i++; draw(); }
+      else if (e.key === 'ArrowLeft' && i > 0) { e.stopPropagation(); i--; draw(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    const tick = setInterval(place, 400);
+    window.addEventListener('resize', place);
+    tourEl = { cleanup() { clearInterval(tick); document.removeEventListener('keydown', onKey, true); window.removeEventListener('resize', place); root.remove(); } };
+    draw();
+  };
+
+  /* ---------- ventana de ayuda ---------- */
+  MC.openHelp = (tab) => {
+    const st = { tab: tab || 'tutorials' }, body = h('div', { style: { display: 'grid', gap: '16px' } });
+    let modal = null, capturing = null;
+    const draw = () => { MC.clear(body); MC.put(body, MC.ui.seg([{ v: 'tutorials', l: t('Tutoriales', 'Tutorials') }, { v: 'keys', l: t('Atajos', 'Shortcuts') }, { v: 'settings', l: t('Ajustes', 'Settings') }, { v: 'about', l: t('Acerca de', 'About') }], st.tab, (v) => { st.tab = v; draw(); }, t('Secciones de la ayuda', 'Help sections')), tabs[st.tab]()); };
+
+    const tabs = {
+      tutorials: () => h('div', { style: { display: 'grid', gap: '8px' } },
+        h('p', { class: 'cap' }, t('Recorridos cortos sobre el propio estudio. Se abren con el proyecto de ejemplo si aún no tienes uno abierto.', 'Short walk-throughs on the studio itself. They open with the example project if none is open yet.')),
+        TOURS.map((x) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, h('b', null, t(x.es[0], x.en[0])), h('span', { class: 'cap', style: { display: 'block', whiteSpace: 'normal' } }, t(x.es[1], x.en[1]))),
+          h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { modal.close(); MC.startTour(x.id); } }, t('Empezar', 'Start'))))),
+      keys: () => {
+        const K = MC.keys, wrap = h('div', { style: { display: 'grid', gap: '12px' } });
+        wrap.append(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Base de atajos', 'Shortcut set')),
+          MC.ui.seg(Object.keys(K.PRESET_NAMES).map((k) => ({ v: k, l: K.PRESET_NAMES[k] })), K.base(), (v) => { K.setBase(v); draw(); MC.toast(t('Atajos de ' + K.PRESET_NAMES[v], K.PRESET_NAMES[v] + ' shortcuts')); }, t('Base de atajos', 'Shortcut set')),
+          h('span', { class: 'cap' }, t('Cambiar de base descarta tus cambios. Puedes cambiar cada atajo con «Cambiar».', 'Switching the set discards your changes. You can change each shortcut with “Change”.'))));
+        Object.keys(K.GROUPS).forEach((g) => {
+          wrap.append(h('div', { class: 'eyebrow' }, t(K.GROUPS[g][0], K.GROUPS[g][1])), h('div', { style: { display: 'grid', gap: '2px' } }, K.ACTIONS.filter((a) => a.g === g).map((a) => {
+            const b = K.bindings(a.id), listening = capturing === a.id;
+            return h('div', { class: 'keyrow' }, h('span', null, t(a.es, a.en)),
+              h('span', { class: 'keys' }, listening ? h('kbd', { class: 'on' }, t('Pulsa la combinación… (Esc cancela)', 'Press the combination… (Esc cancels)')) : b.length ? b.map((c) => h('kbd', null, K.pretty(c))) : h('span', { class: 'cap' }, t('sin atajo', 'none'))),
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => capture(a.id) }, t('Cambiar', 'Change')));
+          })));
+        });
+        wrap.append(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { K.reset(); draw(); } }, t('Restablecer los atajos de esta base', 'Reset this set’s shortcuts')),
+          h('p', { class: 'cap' }, t('Fijos: Esc cierra o cancela, Intro cierra un polígono, Tab y Mayús+Tab recorren los controles.', 'Fixed: Esc closes or cancels, Enter closes a polygon, Tab and Shift+Tab move through controls.')));
+        return wrap;
+      },
+      settings: () => {
+        const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system', bench = (() => { try { return JSON.parse(MC.store.get('bench', '')); } catch (e) { return null; } })();
+        const lim = MC.limits(), out = h('div', { class: 'calc' });
+        const showBench = (b) => {
+          MC.clear(out);
+          if (!b) { MC.put(out, h('span', { class: 'cap' }, t('Tu equipo', 'Your device')), h('span', null, t('Aún no se ha medido.', 'Not measured yet.'))); return; }
+          const fps = 1000 / b.ms1080, ok4k = b.ms4k < 90;
+          MC.put(out, h('span', { class: 'cap' }, t('Tu equipo', 'Your device')),
+            h('span', { class: 'big' }, '≈ ' + Math.min(60, Math.round(fps)) + ' fps · 1080p'),
+            h('span', null, t('Fotograma 1080p: ', '1080p frame: ') + b.ms1080.toFixed(1) + ' ms · 4K: ' + b.ms4k.toFixed(0) + ' ms'),
+            h('span', { class: fps >= 30 ? 'good' : 'warn' }, fps >= 30 ? t('La previsualización debería ir fluida.', 'Preview should run smoothly.') : t('Baja la calidad de previsualización y trabaja con menos capas a la vez.', 'Lower the preview quality and work with fewer layers at once.')),
+            h('span', { class: ok4k ? 'good' : 'warn' }, ok4k ? t('Exportar en 4K es razonable.', 'Exporting at 4K is reasonable.') : t('En 4K la exportación será lenta: prueba antes en 1080p.', 'At 4K export will be slow: try 1080p first.')),
+            h('span', { class: 'cap' }, (b.cores ? b.cores + t(' núcleos', ' cores') + ' · ' : '') + (b.dm ? b.dm + ' GB' + t(' de memoria (aprox.)', ' of memory (approx.)') : t('memoria no informada por el navegador', 'memory not reported by the browser'))));
+        };
+        showBench(bench);
+        return h('div', { style: { display: 'grid', gap: '16px' } },
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tamaño de la interfaz', 'Interface size')), MC.ui.seg([['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %'], ['1.5', '150 %']].map((q) => ({ v: q[0], l: q[1] })), z, (v) => { MC.store.set('uizoom', v); MC.applyPrefs(); if (MC.studioApi) MC.studioApi.refit(); }, t('Tamaño de la interfaz', 'Interface size'))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations'))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.seg([{ v: 'system', l: t('Sistema', 'System') }, { v: 'dark', l: t('Oscuro', 'Dark') }, { v: 'light', l: t('Claro', 'Light') }], th, (v) => { if (v === 'system') { document.documentElement.removeAttribute('data-theme'); MC.store.set('theme', ''); } else { document.documentElement.setAttribute('data-theme', v); MC.store.set('theme', v); } }, t('Tema', 'Theme'))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idioma', 'Language')), MC.ui.seg([{ v: 'es', l: 'Español' }, { v: 'en', l: 'English' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); modal.close(); MC.app.render(); }, t('Idioma', 'Language'))),
+          out,
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = t('Midiendo…', 'Measuring…'); const r = await MC.benchmark(); showBench(r); b.disabled = false; b.textContent = t('Medir mi equipo', 'Measure my device'); } }, bench ? t('Medir de nuevo', 'Measure again') : t('Medir mi equipo', 'Measure my device')),
+          h('p', { class: 'cap' }, t('Límites recomendados para este equipo: ≈ ' + Math.round(lim.editMB) + ' MB de imágenes en edición y ≈ ' + Math.round(lim.exportMB) + ' MB al exportar' + (lim.known ? '.' : ' (estimados: el navegador no informa de la memoria).'), 'Recommended limits for this device: ≈ ' + Math.round(lim.editMB) + ' MB of images while editing and ≈ ' + Math.round(lim.exportMB) + ' MB when exporting' + (lim.known ? '.' : ' (estimated: the browser does not report memory).'))));
+      },
+      about: () => h('div', { style: { display: 'grid', gap: '10px' } },
+        h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
+        h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
+        h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese. Los proyectos viven en este navegador; exporta copias de vez en cuando.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it. Projects live in this browser; export backups from time to time.')),
+        h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT) y pdf.js (Apache-2.0).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT) and pdf.js (Apache-2.0).'))),
+    };
+
+    function capture(id) {
+      capturing = id; draw();
+      const onKey = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (e.key === 'Escape') { done(); return; }
+        const c = MC.keys.combo(e); if (!c) return;
+        const clash = MC.keys.conflict(id, c);
+        MC.keys.set(id, c); done();
+        MC.toast(clash ? t('«' + MC.keys.pretty(c) + '» pasa a esta acción y se quita de «' + clash + '».', '“' + MC.keys.pretty(c) + '” now belongs to this action and was removed from “' + clash + '”.') : t('Atajo cambiado: ', 'Shortcut changed: ') + MC.keys.pretty(c));
+      };
+      const done = () => { document.removeEventListener('keydown', onKey, true); capturing = null; draw(); };
+      document.addEventListener('keydown', onKey, true);
+    }
+
+    draw();
+    modal = MC.modal(t('Ayuda', 'Help'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: close }, t('Cerrar', 'Close'))]);
+    return modal;
+  };
+})();
+
 /* Pantalla de inicio: proyectos guardados, proyecto nuevo, copia de seguridad (PRD 12 y 13). */
 (function () {
   const MC = window.MC;
@@ -28520,6 +28879,7 @@ module.exports = ZStream;
     h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
     h('div', { class: 'top-actions' }, extra,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
+      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), 'aria-label': t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Cambiar tema', 'Toggle theme'), 'aria-label': t('Cambiar tema', 'Toggle theme'), onClick: () => MC.toggleTheme() }, MC.icon(MC.isLight() ? 'moon' : 'sun'))));
 
   MC.isLight = () => {
@@ -28662,12 +29022,12 @@ module.exports = ZStream;
       h('section', { 'aria-label': t('Primeros pasos', 'First steps') },
         h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, t('Primeros pasos', 'First steps')),
         h('div', { class: 'steps' },
-          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.')),
-          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.')),
-          step(t('Cámara', 'Camera'), t('Elige un preset por plano o arrastra el marco de cámara.', 'Pick a preset per shot or drag the camera frame.')),
-          step(t('Duración', 'Timing'), t('Estira los planos en la línea de tiempo y añade transiciones.', 'Stretch shots on the timeline and add transitions.'))))));
+          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.'), 'importar'),
+          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.'), 'parallax'),
+          step(t('Voz', 'Voice'), t('Graba o importa la locución y ajusta los planos a sus pausas.', 'Record or import the voice-over and fit the shots to its pauses.'), 'voz'),
+          step(t('Exportar', 'Export'), t('Elige plataforma, mira el simulador y exporta en segundo plano.', 'Pick a platform, check the simulator and export in the background.'), 'exportar')))));
   };
-  const step = (a, b) => h('div', null, h('b', null, a), h('span', null, b));
+  const step = (a, b, tour) => h('div', null, h('b', null, a), h('span', null, b), tour ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start', marginTop: '6px' }, onClick: () => MC.startTour(tour) }, t('Ver el tutorial', 'Watch the tutorial')) : null);
 
   function card(p) {
     const el = h('div', { class: 'card' });
@@ -28766,10 +29126,16 @@ module.exports = ZStream;
     pushHist();
 
     /* ---------- selección y tiempo ---------- */
+    function checkMemory() {
+      if (S.memWarned) return;
+      const me = MC.memEstimate(S.project), lim = MC.limits(), mb = me.edit / 1048576;
+      if (mb > lim.editMB) { S.memWarned = true; MC.toast(t('Las imágenes ocupan ≈ ' + Math.round(mb) + ' MB en edición y para este equipo se recomienda no pasar de ≈ ' + Math.round(lim.editMB) + ' MB. Reduce capas o tamaño.', 'Images take ≈ ' + Math.round(mb) + ' MB while editing and about ' + Math.round(lim.editMB) + ' MB is recommended for this device. Reduce layers or size.')); }
+    }
     function selectShot(i, seek) {
       S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null;
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
+      MC.announce(t('Plano ', 'Shot ') + (S.si + 1) + ': ' + (shot() ? shot().name : ''));
     }
     function setTime(tm) {
       S.time = clamp(tm, 0, Math.max(0, MC.totalTime(S.project) - 0.001));
@@ -28815,14 +29181,14 @@ module.exports = ZStream;
             MC.applyPreset(sh.camera, 'zoomin', 0.8);
             S.project.shots.push(sh);
           }
-          commit(); selectShot(first, true);
+          commit(); selectShot(first, true); checkMemory();
         } else {
           const sh = shot(), empty = sh.layers.length === 0;
           for (let i = 0; i < list.length; i++) {
             const a = await MC.assets.add(list[i], list[i].name);
             sh.layers.push(MC.newLayer(a, empty && i === 0 ? { z: 0.1, role: 'fondo' } : { z: 0.5, role: '' }));
           }
-          S.li = sh.layers.length - 1; commit();
+          S.li = sh.layers.length - 1; commit(); checkMemory();
         }
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
@@ -28839,7 +29205,7 @@ module.exports = ZStream;
         if (!empty) sh.transition = { type: 'fade', dur: 0.6 };
         const first = empty ? 0 : p.shots.length;
         if (empty) p.shots[0] = sh; else p.shots.push(sh);
-        S.view = 'strip'; S.sp = null; commit(); selectShot(first, true); fit();
+        S.view = 'strip'; S.sp = null; commit(); selectShot(first, true); fit(); checkMemory();
         MC.toast(t('Tira lista' + (sh.webtoon.stops.length ? ' con ' + sh.webtoon.stops.length + ' pausas sugeridas' : '') + (shrunk ? ' (se redujo para caber en memoria)' : '') + '. Ajusta las pausas en la vista «Tira».', 'Strip ready' + (sh.webtoon.stops.length ? ' with ' + sh.webtoon.stops.length + ' suggested pauses' : '') + (shrunk ? ' (reduced to fit in memory)' : '') + '. Adjust the pauses in the “Strip” view.'));
       } catch (e) { console.error(e); MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
@@ -28856,7 +29222,7 @@ module.exports = ZStream;
           panels += sh.page.panels.length;
         }
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
-      S.view = 'page'; S.pn = null; commit(); selectShot(first, true); fit();
+      S.view = 'page'; S.pn = null; commit(); selectShot(first, true); fit(); checkMemory();
       MC.toast(t(list.length + ' página(s) · ' + panels + ' viñeta(s) detectadas. Revisa el orden en la vista «Página».', list.length + ' page(s) · ' + panels + ' panel(s) detected. Check the order in the “Page” view.'));
     }
     async function importPsd(file) {
@@ -28969,7 +29335,7 @@ module.exports = ZStream;
     function renderTop() {
       const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; if (v === 'audio') S.open.mezcla = true; renderTop(); renderInspector(); fit(); } }, l);
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
-      el.jobChip = h('button', { class: 'btn btn-s btn-sm hide-n', type: 'button', hidden: true, onClick: openExport });
+      el.jobChip = h('button', { class: 'btn btn-s btn-sm', type: 'button', hidden: true, onClick: openExport });
       updateJobChip(MC.exportJob);
       el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
@@ -28981,8 +29347,9 @@ module.exports = ZStream;
           wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onClick: openExport }, t('Exportación', 'Export'))),
         h('span', { class: 'sp' }),
         el.jobChip, el.status, el.undo, el.redo,
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda y atajos (?)', 'Help and shortcuts (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
         MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
-        h('button', { class: 'btn btn-p hide-n', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
+        h('button', { class: 'btn btn-p', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
       setStatus(true); updateHistBtns();
     }
     function updateJobChip(job) {
@@ -28992,7 +29359,7 @@ module.exports = ZStream;
       c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
     }
     const offJobChip = MC.onExportJob(updateJobChip);
-    async function close() { S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
+    async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
     function renderLayers() {
@@ -29017,7 +29384,7 @@ module.exports = ZStream;
     }
 
     /* ---------- inspector ---------- */
-    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-open': String(!!S.open[id]) },
+    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-id': id, 'data-open': String(!!S.open[id]) },
       h('button', { class: 'sh', type: 'button', 'aria-expanded': String(!!S.open[id]), onClick: () => { S.open[id] = !S.open[id]; renderInspector(); } }, h('span', { class: 'eyebrow' }, title), MC.icon(S.open[id] ? 'up' : 'down', 14)),
       h('div', { class: 'sb' }, nodes));
     const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
@@ -29054,7 +29421,20 @@ module.exports = ZStream;
           MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; if (cam.path) cam.path.curve = v; commit(); })),
       ];
       const autoCam = !!(sh.page || sh.webtoon);
+      const presetBox = (kind, capture, apply, disabled, saveLabel) => {
+        const list = MC.presets.of(kind), nameId = 'pn-' + MC.uid();
+        return h('div', { class: 'field' }, h('span', { class: 'cap' }, kind === 'camera' ? t('Mis movimientos', 'My movements') : t('Mis efectos', 'My effects')),
+          list.length ? h('div', { class: 'chips' }, list.map((q) => h('button', { type: 'button', class: 'chip-b', disabled, title: t('Aplicar «' + q.name + '»', 'Apply “' + q.name + '”'), onClick: () => apply(q) }, q.name))) : h('span', { class: 'cap' }, t('Aún no has guardado ninguno.', 'You have not saved any yet.')),
+          h('div', { style: { display: 'flex', gap: '8px' } }, h('input', { class: 'input', id: nameId, placeholder: t('Nombre', 'Name'), 'aria-label': t('Nombre del preset', 'Preset name') }),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled, onClick: () => {
+              const nm = document.getElementById(nameId).value.trim();
+              if (!nm) { MC.toast(t('Ponle un nombre al preset.', 'Give the preset a name.')); return; }
+              const d = capture(); if (!d) { MC.toast(t('No hay nada que guardar todavía.', 'There is nothing to save yet.')); return; }
+              MC.presets.add(kind, nm, d); renderInspector(); MC.toast(t('Preset guardado: ', 'Preset saved: ') + nm);
+            } }, saveLabel)));
+      };
       if (autoCam) camNodes.length = 0;
+      if (!autoCam) camNodes.push(presetBox('camera', () => MC.captureCamera(sh), (q) => { MC.applyCameraPreset(sh, q.data); commit(); MC.announce(t('Movimiento aplicado: ', 'Movement applied: ') + q.name); }, false, t('Guardar este movimiento', 'Save this movement')));
       if (S.adv && !autoCam) {
         const kf = cam[S.kf];
         camNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Fotogramas clave', 'Keyframes')),
@@ -29318,6 +29698,7 @@ module.exports = ZStream;
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
+        nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         if (selF) {
           const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
@@ -29369,6 +29750,16 @@ module.exports = ZStream;
 
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
+      const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
+      } });
+      styleNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mis presets (cámara y efectos)', 'My presets (camera and effects)')),
+        allP.length ? h('div', { style: { display: 'grid', gap: '2px' } }, allP.map((q) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, q.name), h('span', { class: 'lz' }, q.kind === 'camera' ? t('cámara', 'camera') : t('efectos', 'effects')),
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Eliminar preset', 'Delete preset'), 'aria-label': t('Eliminar el preset ', 'Delete preset ') + q.name, onClick: () => { MC.presets.remove(q.id); renderInspector(); } }, MC.icon('trash', 14))))) : h('span', { class: 'cap' }, t('Guarda movimientos y pilas de efectos desde sus secciones.', 'Save movements and effect stacks from their sections.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !allP.length, onClick: () => MC.download(new Blob([MC.presets.exportAll()], { type: 'application/json' }), 'mis-presets.motioncomic-presets.json') }, MC.icon('download', 14), t('Exportar presets', 'Export presets')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => presIn.click() }, MC.icon('upload', 14), t('Importar presets', 'Import presets')), presIn)));
       const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
       MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), [idiomasSec, lookSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), audioSecs, [idiomasSec, lookSec], ordered.slice(3), [estiloSec]));
       b.scrollTop = top;
@@ -29389,7 +29780,9 @@ module.exports = ZStream;
         S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
         portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
         S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
-        S.view === 'out' ? [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja', 'Box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Añadir ', 'Add ') + k[1].toLowerCase() + t(' en el cabezal', ' at the playhead'), onClick: () => addText(k[0]) }, MC.icon('plus', 12), k[1])) : null,
+        S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.tmenu), title: t('Añadir texto en el cabezal', 'Add text at the playhead'), onClick: (e) => { S.tmenu = !S.tmenu; renderVbar(); if (S.tmenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu button'); if (f) f.focus(); }, 0); } }, MC.icon('plus', 12), t('Texto', 'Text')),
+          S.tmenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.tmenu = false; renderVbar(); } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const bs = [...e.currentTarget.querySelectorAll('button')], i = bs.indexOf(document.activeElement); bs[(i + (e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); e.preventDefault(); } } },
+            [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja de texto', 'Text box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { type: 'button', role: 'menuitem', onClick: () => { S.tmenu = false; renderVbar(); addText(k[0]); } }, k[1]))) : null) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
         h('span', { style: { flex: 1 } }),
         h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
@@ -29427,6 +29820,7 @@ module.exports = ZStream;
       el.time.textContent = MC.fmtTime(S.time) + ' ';
       el.time.append(h('span', null, '/ ' + MC.fmtTime(total)));
       el.tlTime.textContent = MC.fmtTime(S.time) + ' / ' + MC.fmtTime(total);
+      el.canvas.setAttribute('aria-label', t('Visor. Plano ' + (S.si + 1) + ' de ' + S.project.shots.length + ', ', 'Viewer. Shot ' + (S.si + 1) + ' of ' + S.project.shots.length + ', ') + MC.fmtTime(S.time));
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
       if (el.simBar) el.simBar.style.width = (S.time / Math.max(0.1, total)) * 100 + '%';
     }
@@ -29774,7 +30168,14 @@ module.exports = ZStream;
       p.shots.forEach((sh, i) => {
         const clip = h('div', { class: 'clip' + (i === S.si ? ' on' : ''), 'data-i': i, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
           onClick: () => { if (!clip._moved) selectShot(i, true); },
-          onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
+          'aria-label': sh.name + ', ' + sh.duration.toFixed(1) + ' s', 'aria-pressed': String(i === S.si),
+          onKeydown: (e) => {
+            if (e.key === 'Enter') selectShot(i, true);
+            else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(sh.page || sh.webtoon)) {
+              e.preventDefault(); sh.duration = clamp(Math.round((sh.duration + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 10) / 10, 0.5, 60); commit();
+              MC.announce(sh.name + ', ' + sh.duration.toFixed(1) + ' s'); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-i="' + i + '"]'); if (n) n.focus(); }, 0);
+            }
+          } },
           h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = clip.querySelector('.rz');
         if (sh.page || sh.webtoon) rz.remove();
@@ -29793,7 +30194,8 @@ module.exports = ZStream;
       });
       p.clips.forEach((c) => {
         const a = MC.audio.get(c.assetId);
-        const el2 = h('div', { class: 'clip au' + (c.id === S.cl ? ' on' : ''), 'data-c': c.id, role: 'button', tabindex: '0', title: c.name }, h('canvas'), h('span', null, c.name), h('div', { class: 'rz', 'aria-label': t('Recortar el final', 'Trim the end') }));
+        const el2 = h('div', { class: 'clip au' + (c.id === S.cl ? ' on' : ''), 'data-c': c.id, role: 'button', tabindex: '0', title: c.name, 'aria-label': c.name + ', ' + MC.fmtTime(c.start) + ', ' + c.dur.toFixed(1) + ' s', 'aria-pressed': String(c.id === S.cl),
+          onKeydown: (e) => { if (e.key === 'Enter') { S.cl = c.id; S.tx = null; commit(); } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); c.start = Math.max(0, Math.round((c.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 100) / 100); S.cl = c.id; commit(); MC.announce(c.name + ', ' + MC.fmtTime(c.start)); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-c="' + c.id + '"]'); if (n) n.focus(); }, 0); } } }, h('canvas'), h('span', null, c.name), h('div', { class: 'rz', 'aria-label': t('Recortar el final', 'Trim the end') }));
         const rz = el2.querySelector('.rz');
         el2.addEventListener('pointerdown', (e) => {
           if (e.target === rz) return;
@@ -29816,7 +30218,8 @@ module.exports = ZStream;
       });
       p.texts.forEach((it) => {
         const sp = MC.textSpan(it, p), label = MC.textOf(it, p) || t('(sin texto)', '(no text)');
-        const el2 = h('div', { class: 'clip tx' + (it.kind === 'sub' ? ' sub' : '') + (it.id === S.tx ? ' on' : ''), 'data-x': it.id, role: 'button', tabindex: '0', title: label + (it.link ? t(' · vinculado a la voz', ' · linked to voice') : '') }, h('span', null, label.replace(/\n/g, ' ')), it.link ? null : h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const el2 = h('div', { class: 'clip tx' + (it.kind === 'sub' ? ' sub' : '') + (it.id === S.tx ? ' on' : ''), 'data-x': it.id, role: 'button', tabindex: '0', 'aria-label': label + ', ' + MC.fmtTime(sp.start) + ', ' + sp.dur.toFixed(1) + ' s', 'aria-pressed': String(it.id === S.tx),
+          onKeydown: (e) => { if (e.key === 'Enter') { S.tx = it.id; S.cl = null; S.li = -1; commit(); } else if (e.altKey && !it.link && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); it.start = Math.max(0, Math.round((it.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)) * 100) / 100); S.tx = it.id; commit(); MC.announce(label + ', ' + MC.fmtTime(it.start)); setTimeout(() => { const n = el.tlContent.querySelector('.clip[data-x="' + it.id + '"]'); if (n) n.focus(); }, 0); } }, title: label + (it.link ? t(' · vinculado a la voz', ' · linked to voice') : '') }, h('span', null, label.replace(/\n/g, ' ')), it.link ? null : h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = el2.querySelector('.rz');
         el2.addEventListener('pointerdown', (e) => {
           if (e.target === rz) return;
@@ -29865,7 +30268,7 @@ module.exports = ZStream;
     el.top = h('div', { class: 's-top' });
     el.layersBody = h('div', { class: 'pbody' });
     el.inspBody = h('div', { class: 'pbody insp' });
-    el.vbar = h('div', { class: 'vbar' });
+    el.vbar = h('div', { class: 'vbar', role: 'toolbar', 'aria-label': t('Herramientas del visor', 'Viewer tools') });
     el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer') });
     el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
       h('div', null, S.project.mode === 'page' ? t('Arrastra aquí tus páginas (PNG, JPEG, WebP, PSD o PDF). Se detectan las viñetas.', 'Drag your pages here (PNG, JPEG, WebP, PSD or PDF). Panels are detected.') : S.project.mode === 'webtoon' ? t('Arrastra aquí tu tira vertical, o varias imágenes para apilarlas.', 'Drag your vertical strip here, or several images to stack them.') : t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
@@ -29931,33 +30334,48 @@ module.exports = ZStream;
     raf = requestAnimationFrame(loop);
 
     /* atajos de teclado */
+    const total = () => MC.totalTime(S.project);
+    const ACT = {
+      play: () => togglePlay(), pause: () => togglePlay(false), forward: () => togglePlay(true),
+      back1: () => setTime(S.time - 1), stepBack: () => setTime(S.time - 1 / 30), stepFwd: () => setTime(S.time + 1 / 30), secBack: () => setTime(S.time - 1), secFwd: () => setTime(S.time + 1),
+      start: () => setTime(0), end: () => setTime(total() - 0.001),
+      prevShot: () => selectShot(S.si - 1, true), nextShot: () => selectShot(S.si + 1, true),
+      split: () => { if (S.cl) splitClip(); else return false; },
+      undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
+      addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
+      viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
+      zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
+      export: () => openExport(), help: () => MC.openHelp(), keys: () => MC.openHelp('keys'),
+      delete: () => {
+        if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
+        else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
+        else if (S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); MC.announce(t('Texto eliminado', 'Text deleted')); }
+        else if (S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); MC.announce(t('Clip eliminado', 'Clip deleted')); }
+        else if (layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); MC.announce(t('Capa eliminada', 'Layer deleted')); }
+        else return false;
+      },
+    };
     function onKey(e) {
-      if (!S.alive || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
-      const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
-      if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-      else if (mod && k === 'y') { e.preventDefault(); redo(); }
-      else if (mod) return;
-      else if (k === ' ' || k === 'k') { e.preventDefault(); togglePlay(k === 'k' ? false : null); }
-      else if (k === 'l') togglePlay(true);
-      else if (k === 'j') setTime(S.time - 1);
-      else if (k === 'arrowleft') setTime(S.time - (e.shiftKey ? 1 : 1 / 30));
-      else if (k === 'arrowright') setTime(S.time + (e.shiftKey ? 1 : 1 / 30));
-      else if (k === 'home') setTime(0);
-      else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
-      else if ((k === 'delete' || k === 'backspace') && S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
-      else if (k === 'enter' && S.poly) closePoly();
-      else if (k === 'escape' && S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; }
-      else if (k === 's' && S.cl) splitClip();
-      else if ((k === 'delete' || k === 'backspace') && S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); }
-      else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }
-      else if ((k === 'delete' || k === 'backspace') && layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); }
+      if (!S.alive || document.querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (e.key === 'Enter' && S.poly) { closePoly(); return; }
+      if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.tmenu) { S.tmenu = false; renderVbar(); } return; }
+      const id = MC.keys.match(e), c = MC.keys.combo(e);
+      if (!id || !ACT[id]) return;
+      if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa
+      if (ACT[id](e) !== false) e.preventDefault();
     }
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
     function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
-    MC.studioCleanup = () => { S.alive = false; cleanup(); };
+    MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
+    MC.studioApi = {
+      selectLayer: () => { const sh = shot(); if (sh && sh.layers.length && S.li < 0) { S.li = sh.layers.length - 1; S.tx = null; renderLayers(); renderInspector(); } },
+      openMix: () => { S.open.mezcla = true; renderInspector(); },
+      refit: () => { fit(); },
+    };
+    if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
   };
 })();
 
@@ -29965,12 +30383,20 @@ module.exports = ZStream;
 (function () {
   const MC = window.MC;
   const root = document.getElementById('app');
+  const t = MC.t;
+  root.setAttribute('role', 'main');
 
   MC.app = {
     async render() {
       if (MC.studioCleanup) { MC.studioCleanup(); MC.studioCleanup = null; }
       document.documentElement.lang = MC.lang;
       await MC.renderHome(root);
+    },
+    async openSample() {
+      const all = await MC.db.all('projects');
+      let p = all.find((q) => q.sampleV === 4) || all.find((q) => q.sample && !q.samplePage);
+      if (!p) { MC.toast(t('Preparando el proyecto de ejemplo…', 'Preparing the example project…')); p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); }
+      await MC.app.openProject(p);
     },
     async openProject(p) {
       const full = (await MC.db.get('projects', p.id)) || p;
@@ -29980,6 +30406,7 @@ module.exports = ZStream;
 
   async function boot() {
     MC.lang = MC.store.get('lang', (navigator.language || 'es').slice(0, 2) === 'en' ? 'en' : 'es');
+    MC.applyPrefs();
     const th = MC.store.get('theme', '');
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();

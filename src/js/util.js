@@ -145,14 +145,31 @@
     clearTimeout(toastT);
     toastT = setTimeout(() => n.remove(), 2800);
   };
+  /* Aviso para lectores de pantalla (región «polite»). */
+  let live = null;
+  MC.announce = (msg) => {
+    if (!live) { live = h('div', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' }); document.body.append(live); }
+    live.textContent = '';
+    setTimeout(() => { live.textContent = msg; }, 40);
+  };
+  /* Ventana: lleva el foco dentro, lo recorre con Tab sin salirse, se cierra con Esc y devuelve el foco a quien la abrió. */
   MC.modal = (title, body, actions) => {
-    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } },
-      h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-        h('h2', null, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null));
+    const prev = document.activeElement, tid = 'mt-' + MC.uid();
+    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); if (prev && prev.focus && document.contains(prev)) prev.focus(); };
+    const focusables = () => [...dlg.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')].filter((n) => n.offsetParent !== null);
+    const onKey = (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key !== 'Tab') return;
+      const f = focusables(); if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !dlg.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !dlg.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    };
+    const dlg = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid }, h('h2', { id: tid }, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null);
+    const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } }, dlg);
     document.addEventListener('keydown', onKey);
     document.body.append(scrim);
+    setTimeout(() => { const f = focusables(); (f.find((n) => n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') || f[0] || dlg).focus(); }, 30);
     return { close };
   };
 })();

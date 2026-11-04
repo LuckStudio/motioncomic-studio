@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 6 · trayectorias, efectos y rack focus
+## Estado: paso 7 · ayuda, atajos y accesibilidad
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -53,7 +53,15 @@ Paso 6 (hecho):
 
 Medidas con un PSD sintético de 3000×4500 y 15 capas (Chromium sin GPU): importación 2,6 s, ≈ 9 ms por fotograma a 1080p, ≈ 205 MB de imágenes en edición. Faltan pruebas con los archivos reales de Goti.
 
-Siguiente (paso 7): pruebas con archivos reales y ajuste de límites, accesibilidad y teclado completo, tutoriales cortos desde el menú de ayuda, atajos configurables y presets nombrados de cámara y efectos.
+Paso 7 (hecho):
+- **Atajos configurables** con tres bases (MotionComic Studio, Premiere y Photoshop): cada acción se puede cambiar o quitar, con aviso de conflictos. Menú de ayuda con «?» (o Mayús+?).
+- **Tutoriales cortos** paso a paso sobre el propio estudio (importar, parallax, voz y exportar), desde el inicio o desde la ayuda.
+- **Accesibilidad**: foco atrapado y devuelto en las ventanas, avisos para lectores de pantalla, etiquetas en los clips de la línea de tiempo, mover y estirar clips con Alt+flechas, menús con teclado, tamaño de interfaz (100 a 150 %) y animaciones reducidas.
+- **Presets con nombre** de movimientos de cámara y de pilas de efectos, que se exportan e importan como archivo.
+- **Tableta**: revisado a 1180×820 y 820×1180; menú «Texto» compacto, barra superior que se reparte en dos filas y objetivos táctiles más grandes.
+- **Tu equipo**: «Medir mi equipo» calcula los fotogramas por segundo en 1080p y el coste de 4K, y los límites de memoria avisan según la memoria que informa el navegador.
+
+Siguiente (paso 8): pruebas con archivos reales de Goti y ajuste final de límites, revisión de textos y traducción al inglés, rendimiento en móvil, y preparar la publicación (hosting propio, manifest con iconos PNG y revisión de la PWA).
 
 Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 

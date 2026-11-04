@@ -7,6 +7,7 @@
     h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
     h('div', { class: 'top-actions' }, extra,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
+      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), 'aria-label': t('Ayuda, atajos y ajustes', 'Help, shortcuts and settings'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Cambiar tema', 'Toggle theme'), 'aria-label': t('Cambiar tema', 'Toggle theme'), onClick: () => MC.toggleTheme() }, MC.icon(MC.isLight() ? 'moon' : 'sun'))));
 
   MC.isLight = () => {
@@ -149,12 +150,12 @@
       h('section', { 'aria-label': t('Primeros pasos', 'First steps') },
         h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, t('Primeros pasos', 'First steps')),
         h('div', { class: 'steps' },
-          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.')),
-          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.')),
-          step(t('Cámara', 'Camera'), t('Elige un preset por plano o arrastra el marco de cámara.', 'Pick a preset per shot or drag the camera frame.')),
-          step(t('Duración', 'Timing'), t('Estira los planos en la línea de tiempo y añade transiciones.', 'Stretch shots on the timeline and add transitions.'))))));
+          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.'), 'importar'),
+          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.'), 'parallax'),
+          step(t('Voz', 'Voice'), t('Graba o importa la locución y ajusta los planos a sus pausas.', 'Record or import the voice-over and fit the shots to its pauses.'), 'voz'),
+          step(t('Exportar', 'Export'), t('Elige plataforma, mira el simulador y exporta en segundo plano.', 'Pick a platform, check the simulator and export in the background.'), 'exportar')))));
   };
-  const step = (a, b) => h('div', null, h('b', null, a), h('span', null, b));
+  const step = (a, b, tour) => h('div', null, h('b', null, a), h('span', null, b), tour ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start', marginTop: '6px' }, onClick: () => MC.startTour(tour) }, t('Ver el tutorial', 'Watch the tutorial')) : null);
 
   function card(p) {
     const el = h('div', { class: 'card' });
