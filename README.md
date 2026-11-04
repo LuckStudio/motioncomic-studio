@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 5 · Webtoon, PDF, polígonos y lotes
+## Estado: paso 6 · trayectorias, efectos y rack focus
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -43,7 +43,17 @@ Paso 5 (hecho):
 
 Límites recomendados (a calibrar con pruebas reales): hasta unos 100 megapíxeles de imágenes en total por proyecto en edición, y avisar a partir de ~1,8 GB estimados al exportar. Las imágenes de más de 4096 px entran con proxy, pero la exportación carga las originales: en 4K con muchos PSD pesados conviene exportar en 1080p.
 
-Siguiente (paso 6): trayectoria de cámara dibujada a mano, estilos de animación dentro de la viñeta (temblor, golpe, pulso), rack focus y efectos de acción (líneas de velocidad, aberración cromática), y pruebas con archivos reales de Goti.
+Paso 6 (hecho):
+- **Trayectoria de cámara dibujada** (planos libres): «Dibujar trayectoria» en el inspector convierte el movimiento en varios puntos; en la vista «Cámara» se arrastran los marcos, se cambia su zoom, se añaden y se quitan, con permanencia en cada punto y tiempo de viaje al siguiente. La duración del plano es la suma.
+- **Animación dentro de la viñeta**: temblor, golpe de impacto (con destello y, si quieres, sonido), pulso y vibración. Se aplican a todo el plano, a una capa o a una viñeta (empiezan cuando la cámara llega a ella), con intensidad y duración propias.
+- **Efectos de acción y ambiente**: líneas de velocidad y de concentración, aberración cromática, destello de color, lluvia, polvo, chispas, nieve y humo.
+- **Rack focus**: el enfoque pasa de una capa a otra con su momento, duración y desenfoque.
+- **Aspecto global**: viñeteado, grano de película, tramado de cómic (halftone) y tinte de color.
+- Todo se dibuja con el mismo motor que el visor, así que sale igual en la exportación.
+
+Medidas con un PSD sintético de 3000×4500 y 15 capas (Chromium sin GPU): importación 2,6 s, ≈ 9 ms por fotograma a 1080p, ≈ 205 MB de imágenes en edición. Faltan pruebas con los archivos reales de Goti.
+
+Siguiente (paso 7): pruebas con archivos reales y ajuste de límites, accesibilidad y teclado completo, tutoriales cortos desde el menú de ayuda, atajos configurables y presets nombrados de cámara y efectos.
 
 Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 

@@ -26768,6 +26768,7 @@ module.exports = ZStream;
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
+    p.look = Object.assign({ vignette: 0, grain: 0, halftone: 0, tint: null }, p.look || {}); p.shots.forEach((sh) => { sh.fx = sh.fx || []; });
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
@@ -26776,11 +26777,11 @@ module.exports = ZStream;
 
   /* Modelo de proyecto */
   MC.newCamera = () => ({ preset: 'zoomin', intensity: 1, curve: 'smooth', from: { x: 0, y: 0, zoom: 1, rot: 0 }, to: { x: 0, y: 0, zoom: 1.25, rot: 0 }, shake: 0 });
-  MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
+  MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], fx: [], rack: null, camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
   MC.newProject = (o) => ({
     id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
-    texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
+    look: { vignette: 0, grain: 0, halftone: 0, tint: null }, texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
     clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
   });
 
@@ -26793,7 +26794,7 @@ module.exports = ZStream;
   MC.applyPreset = (cam, preset, intensity) => {
     const i = MC.clamp(intensity == null ? cam.intensity || 1 : intensity, 0.2, 2);
     const K = (x, y, zoom, rot) => ({ x, y, zoom, rot: rot || 0 });
-    cam.preset = preset; cam.intensity = i; cam.shake = 0;
+    cam.preset = preset; cam.intensity = i; cam.shake = 0; cam.path = null;
     const P = {
       none: () => [K(0, 0, 1), K(0, 0, 1)],
       zoomin: () => [K(0, 0, 1), K(0, 0, 1 + 0.3 * i)],
@@ -27161,7 +27162,9 @@ module.exports = ZStream;
   const BLEND = { multiply: 1, screen: 1, overlay: 1, darken: 1, lighten: 1, 'color-dodge': 1, 'color-burn': 1, 'hard-light': 1, 'soft-light': 1, difference: 1, exclusion: 1 };
   MC.renderShot = (ctx, shot, tl, o) => {
     const { W, H } = o;
-    const cam = o.cam || MC.camAt(shot, tl);
+    let cam = o.cam || MC.camAt(shot, tl);
+    const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
+    if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     ctx.save();
     if (!o.noClip) {
       ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
@@ -27179,10 +27182,11 @@ module.exports = ZStream;
       ctx.save();
       ctx.globalAlpha = layer.opacity == null ? 1 : layer.opacity;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
-      if (layer.blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (layer.blur * W / 1920).toFixed(2) + 'px)';
-      ctx.translate(W / 2, H / 2);
-      if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
-      ctx.scale(g.zl, g.zl);
+      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
+      if (blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (blur * W / 1920).toFixed(2) + 'px)';
+      ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
+      if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
+      ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
       ctx.drawImage(img.bitmap, ix, iy, iw, ih);
@@ -27198,6 +27202,7 @@ module.exports = ZStream;
       }
       ctx.restore();
     }
+    if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
   };
 
@@ -27231,7 +27236,7 @@ module.exports = ZStream;
     MC.renderShot(ctx, cur, tl, o);
   };
 
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
@@ -27250,6 +27255,187 @@ module.exports = ZStream;
       MC.renderFrame(ctx, project, sh ? Math.min(0.4, sh.duration * 0.1) : 0, o);
       return c.toDataURL('image/jpeg', 0.7);
     } catch (e) { return ''; }
+  };
+})();
+
+/* Efectos del plano: animación dentro de la viñeta (temblor, golpe, pulso, vibración), efectos de acción y ambiente,
+   rack focus y aspecto global (viñeteado, grano, tramado, tinte). Se dibuja dentro de renderShot / renderFrame (PRD 7, 8, 9). */
+(function () {
+  const MC = window.MC;
+  const { clamp } = MC;
+  const nz = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  const wrap1 = (v) => ((v % 1) + 1) % 1;
+
+  MC.FX = [
+    { v: 'shake', g: 'anim', dur: 0.7, es: 'Temblor', en: 'Shake' }, { v: 'impact', g: 'anim', dur: 0.6, es: 'Golpe de impacto', en: 'Impact hit' },
+    { v: 'pulse', g: 'anim', dur: 1.6, es: 'Pulso', en: 'Pulse' }, { v: 'vibrate', g: 'anim', dur: 1.2, es: 'Vibración', en: 'Vibration' },
+    { v: 'speed', g: 'fx', dur: 1.5, es: 'Líneas de velocidad', en: 'Speed lines' }, { v: 'focus', g: 'fx', dur: 1.2, es: 'Líneas de concentración', en: 'Focus lines' },
+    { v: 'aberration', g: 'fx', dur: 0.8, es: 'Aberración cromática', en: 'Chromatic aberration' }, { v: 'flash', g: 'fx', dur: 0.4, es: 'Destello de color', en: 'Colour flash' },
+    { v: 'rain', g: 'fx', dur: 3, es: 'Lluvia', en: 'Rain' }, { v: 'dust', g: 'fx', dur: 3, es: 'Polvo', en: 'Dust' }, { v: 'sparks', g: 'fx', dur: 2.5, es: 'Chispas', en: 'Sparks' },
+    { v: 'snow', g: 'fx', dur: 3, es: 'Nieve', en: 'Snow' }, { v: 'smoke', g: 'fx', dur: 3, es: 'Humo', en: 'Smoke' },
+  ];
+  const ANIM = new Set(['shake', 'impact', 'pulse', 'vibrate']);
+  const DEF_COLOR = { speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff' };
+  MC.fxName = (v) => { const f = MC.FX.find((x) => x.v === v); return f ? MC.t(f.es, f.en) : v; };
+  MC.isAnimFx = (v) => ANIM.has(v);
+  MC.newFx = (type, start) => {
+    const d = MC.FX.find((x) => x.v === type);
+    return { id: MC.uid(), type, start: Math.max(0, Math.round(start * 100) / 100), dur: d.dur, intensity: 1, layer: null, panel: null, color: DEF_COLOR[type] || '#ffffff', angle: 0 };
+  };
+
+  /* Momento del plano en que empieza un efecto. Si apunta a una viñeta, cuenta desde que la cámara llega a ella. */
+  MC.pathPointTime = (path, idx) => { let t = 0; for (let i = 0; i < idx && i < path.pts.length; i++) t += path.pts[i].hold + (path.pts[i].travel || 0); return t; };
+  MC.fxStart = (shot, f) => {
+    if (f.panel != null && shot.camera.path) { const i = shot.camera.path.pts.findIndex((q) => q.panel === f.panel); if (i >= 0) return MC.pathPointTime(shot.camera.path, i) + f.start; }
+    return f.start;
+  };
+
+  /* Animación: devuelve lo que hay que sumar a la cámara (todo el plano) o a cada capa. */
+  MC.fxAnim = (shot, tl) => {
+    const list = shot.fx;
+    if (!list || !list.length) return null;
+    const out = { cam: null, layers: {}, flash: [] };
+    const add = (o, st) => { if (!o) return Object.assign({}, st); o.dx += st.dx; o.dy += st.dy; o.rot += st.rot; o.sc *= st.sc; return o; };
+    let any = false;
+    list.forEach((f) => {
+      if (!ANIM.has(f.type)) return;
+      const a = tl - MC.fxStart(shot, f);
+      if (a < 0 || a >= f.dur) return;
+      any = true;
+      const I = f.intensity, env = 1 - a / f.dur, st = { dx: 0, dy: 0, rot: 0, sc: 1 };
+      if (f.type === 'shake') { const k = Math.floor(a * 60), amp = 0.02 * I * env; st.dx = (nz(k) - 0.5) * 2 * amp; st.dy = (nz(k + 50) - 0.5) * 2 * amp; st.rot = (nz(k + 9) - 0.5) * 3 * I * env; }
+      else if (f.type === 'impact') {
+        const e = Math.exp((-a * 9) / (f.dur / 0.5)), k = Math.floor(a * 60), amp = 0.035 * I * e;
+        st.dx = (nz(k) - 0.5) * 2 * amp; st.dy = (nz(k + 50) - 0.5) * 2 * amp; st.sc = 1 + 0.07 * I * e;
+        out.flash.push({ color: f.color || '#ffffff', alpha: Math.exp(-a * 16) * clamp(I, 0, 1) * 0.9 });
+      } else if (f.type === 'pulse') { st.sc = 1 + 0.05 * I * Math.sin(a * 6.2832 * 2.5) * Math.sin((Math.PI * a) / f.dur); }
+      else if (f.type === 'vibrate') { const k = Math.floor(a * 45), amp = 0.004 * I; st.dx = (nz(k) - 0.5) * 2 * amp; st.dy = (nz(k + 50) - 0.5) * 2 * amp; }
+      if (f.layer) out.layers[f.layer] = add(out.layers[f.layer], st); else out.cam = add(out.cam, st);
+    });
+    return any ? out : null;
+  };
+
+  /* Rack focus: el enfoque pasa de una capa a otra. */
+  MC.rackBlur = (shot, layer, tl) => {
+    const r = shot.rack;
+    if (!r || !r.on || (layer.id !== r.a && layer.id !== r.b)) return 0;
+    const e = MC.ease('smooth', clamp((tl - r.start) / Math.max(0.05, r.dur), 0, 1));
+    return layer.id === r.a ? r.amount * e : r.amount * (1 - e);
+  };
+
+  /* ---------- efectos de acción y ambiente ---------- */
+  const scratch = [];
+  const mk = (i, w, h) => {
+    let c = scratch[i];
+    if (!c) { c = scratch[i] = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas'); }
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return c;
+  };
+  function aberration(ctx, o, off) {
+    const m = ctx.getTransform(), x0 = Math.round(m.e), y0 = Math.round(m.f), w = Math.round(o.W * m.a), h = Math.round(o.H * m.d);
+    if (w < 2 || h < 2) return;
+    const src = mk(0, w, h), sg = src.getContext('2d');
+    sg.clearRect(0, 0, w, h); sg.drawImage(ctx.canvas, x0, y0, w, h, 0, 0, w, h);
+    const ch = mk(1, w, h), cg = ch.getContext('2d');
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+    ctx.fillStyle = '#000'; ctx.fillRect(x0, y0, w, h); ctx.globalCompositeOperation = 'lighter';
+    [['#ff0000', off], ['#00ff00', 0], ['#0000ff', -off]].forEach((q) => {
+      cg.globalCompositeOperation = 'source-over'; cg.clearRect(0, 0, w, h); cg.drawImage(src, 0, 0);
+      cg.globalCompositeOperation = 'multiply'; cg.fillStyle = q[0]; cg.fillRect(0, 0, w, h);
+      ctx.drawImage(ch, x0 + q[1] * m.a, y0);
+    });
+    ctx.restore();
+  }
+
+  function speedLines(ctx, f, a, W, H) {
+    const seed = Math.floor(a * 12) * 31, n = Math.round(28 * f.intensity), u = W / 1920;
+    ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(((f.angle || 0) * Math.PI) / 180); ctx.translate(-W / 2, -H / 2);
+    ctx.fillStyle = f.color || '#fff'; ctx.globalAlpha = 0.6;
+    for (let i = 0; i < n; i++) {
+      const y = nz(seed + i * 7) * H * 1.3 - H * 0.15, len = (0.2 + nz(seed + i * 13) * 0.55) * W, x = nz(seed + i * 3) * W * 1.2 - W * 0.1, th = (1.2 + nz(seed + i * 5) * 5) * u;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y - th / 2); ctx.lineTo(x + len, y + th / 2); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function focusLines(ctx, f, a, W, H) {
+    const seed = Math.floor(a * 12) * 17, n = Math.round(80 * f.intensity), R = Math.hypot(W, H) / 2, r0 = Math.min(W, H) * 0.3;
+    ctx.save(); ctx.translate(W / 2, H / 2); ctx.fillStyle = f.color || '#14141c'; ctx.globalAlpha = 0.75;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * 6.2832 + (nz(seed + i) - 0.5) * 0.06, w = 0.012 + nz(seed + i * 5) * 0.03, rin = r0 * (0.85 + nz(seed + i * 9) * 0.5);
+      ctx.beginPath(); ctx.moveTo(Math.cos(ang - w) * R, Math.sin(ang - w) * R); ctx.lineTo(Math.cos(ang + w) * R, Math.sin(ang + w) * R); ctx.lineTo(Math.cos(ang) * rin, Math.sin(ang) * rin); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function particles(ctx, f, a, W, H) {
+    const I = f.intensity, u = W / 1920, col = f.color || '#fff';
+    ctx.save(); ctx.fillStyle = col; ctx.strokeStyle = col;
+    if (f.type === 'rain') {
+      const n = Math.round(130 * I); ctx.lineWidth = 1.6 * u; ctx.globalAlpha = 0.55;
+      for (let i = 0; i < n; i++) { const sp = 1.3 + nz(i) * 0.7, y = wrap1(nz(i * 5) + a * sp), x = nz(i * 3) * 1.25 - 0.1 - y * 0.12; ctx.beginPath(); ctx.moveTo(x * W, y * H); ctx.lineTo((x - 0.012) * W, (y - 0.06) * H); ctx.stroke(); }
+    } else if (f.type === 'dust') {
+      const n = Math.round(70 * I);
+      for (let i = 0; i < n; i++) { const x = wrap1(nz(i) + a * 0.03 * (nz(i + 1) - 0.5) * 2), y = wrap1(nz(i * 7) - a * 0.02 * (0.3 + nz(i + 2))); ctx.globalAlpha = 0.25 + 0.4 * Math.abs(Math.sin(a * 1.3 + i)); ctx.beginPath(); ctx.arc(x * W, y * H, (1 + nz(i * 11) * 3) * u, 0, 6.2832); ctx.fill(); }
+    } else if (f.type === 'sparks') {
+      const n = Math.round(45 * I);
+      for (let i = 0; i < n; i++) { const life = wrap1(a * 1.1 + nz(i)), x = 0.5 + (nz(i * 3) - 0.5) * 0.6 + (nz(i + 9) - 0.5) * life * 0.25, y = 1 - life * (0.3 + nz(i) * 0.6); ctx.globalAlpha = 1 - life; ctx.beginPath(); ctx.arc(x * W, y * H, (2 + nz(i * 5) * 3) * u * (1 - life * 0.5), 0, 6.2832); ctx.fill(); }
+    } else if (f.type === 'snow') {
+      const n = Math.round(100 * I); ctx.globalAlpha = 0.85;
+      for (let i = 0; i < n; i++) { const y = wrap1(nz(i * 5) + a * 0.12 * (0.6 + nz(i))), x = nz(i) + Math.sin(a * 1.5 + i) * 0.02; ctx.beginPath(); ctx.arc(x * W, y * H, (1.5 + nz(i * 9) * 3.5) * u, 0, 6.2832); ctx.fill(); }
+    } else if (f.type === 'smoke') {
+      const n = Math.round(14 * I);
+      for (let i = 0; i < n; i++) { const life = wrap1(a * 0.15 + nz(i)), x = 0.15 + nz(i * 3) * 0.7 + Math.sin(life * 4 + i) * 0.05, y = 1.05 - life * 1.2, r = (0.08 + nz(i * 7) * 0.12 + life * 0.08) * H; ctx.globalAlpha = 0.33 * Math.sin(Math.PI * life); ctx.beginPath(); ctx.arc(x * W, y * H, r, 0, 6.2832); ctx.fill(); }
+    }
+    ctx.restore();
+  }
+
+  MC.fxOverlays = (ctx, shot, tl, o, anim) => {
+    const { W, H } = o, list = shot.fx || [];
+    list.forEach((f) => {
+      if (f.type !== 'aberration') return;
+      const a = tl - MC.fxStart(shot, f);
+      if (a >= 0 && a < f.dur) aberration(ctx, o, 0.008 * f.intensity * W * (1 - 0.5 * (a / f.dur)));
+    });
+    list.forEach((f) => {
+      if (ANIM.has(f.type) || f.type === 'aberration') return;
+      const a = tl - MC.fxStart(shot, f);
+      if (a < 0 || a >= f.dur) return;
+      const fadeIn = clamp(a / 0.12, 0, 1), fadeOut = clamp((f.dur - a) / 0.2, 0, 1);
+      ctx.save(); ctx.globalAlpha = fadeIn * fadeOut;
+      if (f.type === 'speed') speedLines(ctx, f, a, W, H);
+      else if (f.type === 'focus') focusLines(ctx, f, a, W, H);
+      else if (f.type === 'flash') { ctx.globalAlpha = Math.pow(1 - a / f.dur, 2) * clamp(f.intensity, 0, 1); ctx.fillStyle = f.color || '#fff'; ctx.fillRect(0, 0, W, H); }
+      else particles(ctx, f, a, W, H);
+      ctx.restore();
+    });
+    if (anim) anim.flash.forEach((q) => { ctx.save(); ctx.globalAlpha = q.alpha; ctx.fillStyle = q.color; ctx.fillRect(0, 0, W, H); ctx.restore(); });
+  };
+
+  /* ---------- aspecto global ---------- */
+  let grainTile = null, dotTile = null;
+  const tile = (w, h) => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }));
+  MC.renderLook = (ctx, p, time, o) => {
+    const L = p.look;
+    if (!L) return;
+    const { W, H } = o, u = W / 1920;
+    if (L.tint && L.tint.amount > 0) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = clamp(L.tint.amount, 0, 1); ctx.fillStyle = L.tint.color; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    if (L.halftone > 0) {
+      if (!dotTile) { dotTile = tile(16, 16); const g = dotTile.getContext('2d'); g.fillStyle = '#000'; g.beginPath(); g.arc(8, 8, 4.2, 0, 6.2832); g.fill(); }
+      ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = clamp(L.halftone, 0, 1) * 0.4;
+      ctx.translate(W / 2, H / 2); ctx.rotate(Math.PI / 4); ctx.scale(Math.max(0.6, u * 1.2), Math.max(0.6, u * 1.2));
+      ctx.fillStyle = ctx.createPattern(dotTile, 'repeat'); const R = Math.hypot(W, H) / Math.max(0.6, u * 1.2); ctx.fillRect(-R, -R, R * 2, R * 2); ctx.restore();
+    }
+    if (L.vignette > 0) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,' + clamp(L.vignette, 0, 1) * 0.85 + ')');
+      ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
+    if (L.grain > 0) {
+      if (!grainTile) { grainTile = tile(256, 256); const g = grainTile.getContext('2d'), d = g.createImageData(256, 256); for (let i = 0; i < d.data.length; i += 4) { const v = (Math.random() * 255) | 0; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); }
+      const k = Math.floor(time * 24);
+      ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = clamp(L.grain, 0, 1) * 0.5;
+      ctx.translate(-nz(k) * 256, -nz(k + 3) * 256); ctx.scale(Math.max(1, u * 1.2), Math.max(1, u * 1.2));
+      ctx.fillStyle = ctx.createPattern(grainTile, 'repeat'); ctx.fillRect(0, 0, W * 2, H * 2); ctx.restore();
+    }
   };
 })();
 
@@ -28311,8 +28497,16 @@ module.exports = ZStream;
     tx('bubble', 1.4, 3.4, 'Otra noche más\nsin dormir.', 'Another night\nwithout sleep.', { x: 0.18, y: -0.3, w: 0.3, size: 0.048, tail: { x: -0.06, y: 0.2 }, reveal: 'words', speed: 24, loop: 'float' });
     tx('bubble', starts[1] + 0.5, 3, '¡Tenemos que irnos!', 'We have to go!', { shape: 'shout', x: -0.2, y: -0.28, w: 0.3, size: 0.06, anim: 'bounce', color: '#14141c', fill: '#FFE08A', tail: { x: 0, y: 0.2 } });
     tx('sfx', starts[2] + 0.05, 2.2, '¡BOOM!', 'BOOM!', { y: 0.05 });
+    /* efectos de ejemplo: rack focus, líneas de velocidad, golpe con aberración y aspecto de cómic */
+    const lid = (sh, name) => (sh.layers.find((l) => l.name === name) || {}).id;
+    p.shots[0].rack = { on: true, a: lid(p.shots[0], 'Ciudad lejana'), b: lid(p.shots[0], 'Personaje'), start: 1.6, dur: 1.4, amount: 12 };
+    const f1 = MC.newFx('speed', 0.6); f1.dur = 2.6; f1.intensity = 1; p.shots[1].fx.push(f1);
+    const f2 = MC.newFx('impact', 0.05); f2.intensity = 1.2; p.shots[2].fx.push(f2);
+    const f3 = MC.newFx('aberration', 0.05); f3.dur = 0.7; f3.intensity = 1; p.shots[2].fx.push(f3);
+    const f4 = MC.newFx('sparks', 0.4); f4.dur = 2; f4.intensity = 0.8; p.shots[2].fx.push(f4);
+    p.look = { vignette: 0.35, grain: 0.22, halftone: 0, tint: null };
     p.thumb = MC.makeThumb(p);
-    p.sample = true; p.sampleV = 3;
+    p.sample = true; p.sampleV = 4;
     return p;
   };
 })();
@@ -28527,8 +28721,8 @@ module.exports = ZStream;
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true },
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
@@ -28558,7 +28752,9 @@ module.exports = ZStream;
       MC.put(MC.clear(el.status), h('i'), !MC.db.persistent ? t('Sin guardado local', 'Not saved locally') : saved ? t('Guardado en este equipo · ', 'Saved on this device · ') + MC.fmtClock(S.savedAt) : t('Guardando…', 'Saving…'));
     }
     function touch() { S.dirty = true; scheduleSave(); }
-    function commit() { MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
+    function commit() {
+      S.project.shots.forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
+      MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
     function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
     function restore(i) {
       S.hpos = i; S.project = JSON.parse(S.hist[i]); MC.finalizePages(S.project);
@@ -28855,7 +29051,7 @@ module.exports = ZStream;
           MC.ui.chips(MC.CAM_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), cam.preset, (v) => { MC.applyPreset(cam, v, cam.intensity); commit(); })),
         MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 2, step: 0.05, value: cam.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { if (cam.preset !== 'custom') { MC.applyPreset(cam, cam.preset, v); } else cam.intensity = v; S.dirty = true; touch(); }, onChange: commit }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
-          MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; commit(); })),
+          MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; if (cam.path) cam.path.curve = v; commit(); })),
       ];
       const autoCam = !!(sh.page || sh.webtoon);
       if (autoCam) camNodes.length = 0;
@@ -29085,10 +29281,96 @@ module.exports = ZStream;
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice, onClick: () => { const ps = MC.audio.voicePauses(p); p.markers = ps.map((x) => Math.round(x.t * 100) / 100); commit(); MC.toast(ps.length ? t(ps.length + ' pausas marcadas en la regla', ps.length + ' pauses marked on the ruler') : t('No se han encontrado pausas', 'No pauses found')); } }, t('Marcar pausas de la voz', 'Mark voice pauses')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice || p.shots.length < 2, onClick: () => { if (MC.audio.fitShotsToVoice(p)) { commit(); setTime(S.time); MC.toast(t('Planos ajustados a la voz', 'Shots fitted to the voice')); } else MC.toast(t('Faltan pausas en la voz para repartir ' + p.shots.length + ' planos.', 'Not enough voice pauses to split ' + p.shots.length + ' shots.')); } }, t('Ajustar planos a la voz', 'Fit shots to voice'))),
         !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
+
+      /* trayectoria dibujada, efectos, rack focus y aspecto */
+      const fxSecs = [], shotStart = MC.shotStarts(p)[S.si], localT = clamp(S.time - shotStart, 0, Math.max(0.1, sh.duration));
+      if (!autoCam) {
+        const cp = cam.path && cam.path.custom ? cam.path : null;
+        const nodes = [];
+        if (!cp) {
+          nodes.push(h('p', { class: 'cap' }, t('Dibuja un recorrido con varios puntos en lugar de un solo movimiento: la cámara se detiene en cada uno y viaja al siguiente. Se edita en la vista «Cámara».', 'Draw a route with several points instead of a single movement: the camera holds at each one and travels to the next. Edit it in the “Camera” view.')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => {
+              const f = cam.from, t2 = cam.to;
+              cam.path = { custom: true, drift: 0, curve: cam.curve || 'smooth', pts: [{ x: f.x, y: f.y, zoom: f.zoom, hold: 0.5, travel: Math.max(0.5, sh.duration - 1), rect: null }, { x: t2.x, y: t2.y, zoom: t2.zoom, hold: 0.5, travel: 0, rect: null }] };
+              cam.preset = 'path'; cam.shake = 0; S.wp = 0; S.view = 'cam'; renderVbar(); commit(); fit();
+            } }, MC.icon('plus', 14), t('Dibujar trayectoria', 'Draw route')));
+        } else {
+          const selW = cp.pts[clamp(S.wp, 0, cp.pts.length - 1)];
+          nodes.push(h('div', { style: { display: 'grid', gap: '2px' } }, cp.pts.map((q, i) => h('div', { class: 'layer' + (q === selW ? ' on' : ''), onClick: () => { S.wp = i; if (S.view !== 'cam') { S.view = 'cam'; renderVbar(); fit(); } S.dirty = true; renderInspector(); } },
+            h('span', { class: 'ln' }, t('Punto ', 'Point ') + (i + 1)), h('span', { class: 'lz' }, q.hold.toFixed(1) + ' s · ×' + q.zoom.toFixed(2))))),
+            MC.ui.slider({ label: t('Permanencia en el punto', 'Hold at the point'), min: 0, max: 8, step: 0.1, value: selW.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selW.hold = v; touch(); }, onChange: commit }),
+            selW !== cp.pts[cp.pts.length - 1] ? MC.ui.slider({ label: t('Viaje al siguiente', 'Travel to the next'), min: 0.1, max: 8, step: 0.1, value: selW.travel || 0.5, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selW.travel = v; touch(); }, onChange: commit }) : null,
+            MC.ui.slider({ label: 'Zoom', min: 1, max: 4, step: 0.01, value: selW.zoom, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selW.zoom = v; touch(); S.dirty = true; }, onChange: commit }),
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const i = cp.pts.indexOf(selW), nx = cp.pts[i + 1], np = nx ? { x: (selW.x + nx.x) / 2, y: (selW.y + nx.y) / 2, zoom: (selW.zoom + nx.zoom) / 2 } : { x: clamp(selW.x + 0.06, -0.6, 0.6), y: selW.y, zoom: selW.zoom }; cp.pts.splice(i + 1, 0, Object.assign({ hold: 0.5, travel: 1, rect: null }, np)); S.wp = i + 1; commit(); } }, MC.icon('plus', 14), t('Añadir punto', 'Add point')),
+              h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { if (cp.pts.length <= 2) { MC.toast(t('Una trayectoria necesita al menos dos puntos.', 'A route needs at least two points.')); return; } cp.pts.splice(cp.pts.indexOf(selW), 1); S.wp = 0; commit(); } }, MC.icon('trash', 14), t('Quitar punto', 'Remove point')),
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.applyPreset(cam, 'zoomin', 1); commit(); } }, t('Volver a un preset', 'Back to a preset'))),
+            h('p', { class: 'cap' }, t('Arrastra un punto en el visor para moverlo y su esquina para el zoom. La duración del plano es la suma de las permanencias y los viajes.', 'Drag a point in the viewer to move it and its corner to zoom. The shot length is the sum of the holds and travels.')));
+        }
+        fxSecs.push(sec('tray', t('Trayectoria de cámara', 'Camera route') + (cp ? ' · ' + cp.pts.length : ''), nodes));
+      }
+      /* efectos */
+      {
+        const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
+        const addFx = (type) => { const f = MC.newFx(type, localT); if (f.start + f.dur > sh.duration) f.start = Math.max(0, Math.round((sh.duration - f.dur) * 100) / 100); sh.fx.push(f); S.fxsel = f.id; S.open.efectos = true; commit(); };
+        const nodes = [
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
+          h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
+        ];
+        if (selF) {
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
+          nodes.push(
+            h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
+            sh.page ? h('div', { class: 'field' }, h('label', { for: selA }, t('Empieza', 'Starts')), h('select', { id: selA, class: 'input', onChange: (e) => { selF.panel = e.target.value === '' ? null : +e.target.value; selF.start = 0; commit(); } }, [h('option', { value: '' }, t('En un momento del plano', 'At a time in the shot'))].concat(sh.page.panels.map((q, i) => h('option', { value: String(i), selected: selF.panel === i }, t('Al llegar a la viñeta ', 'On reaching panel ') + (i + 1)))))) : null,
+            MC.ui.slider({ label: selF.panel != null ? t('Desfase', 'Offset') : t('Empieza en', 'Starts at'), min: 0, max: Math.max(0.5, sh.duration), step: 0.05, value: clamp(selF.start, 0, Math.max(0.5, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.start = v; touch(); }, onChange: commit }),
+            MC.ui.slider({ label: t('Dura', 'Lasts'), min: 0.1, max: Math.max(1, sh.duration), step: 0.05, value: clamp(selF.dur, 0.1, Math.max(1, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.dur = v; touch(); }, onChange: commit }),
+            MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 3, step: 0.05, value: selF.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selF.intensity = v; touch(); }, onChange: commit }),
+            selF.type === 'speed' ? MC.ui.slider({ label: t('Ángulo', 'Angle'), min: -90, max: 90, step: 1, value: selF.angle || 0, fmt: (v) => v + '°', onInput: (v) => { selF.angle = v; touch(); }, onChange: commit }) : null,
+            colored ? h('div', { class: 'field' }, h('label', { for: 'fc-' + selF.id }, t('Color', 'Colour')), h('input', { type: 'color', id: 'fc-' + selF.id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: selF.color || '#ffffff', onInput: (e) => { selF.color = e.target.value; touch(); }, onChange: commit })) : null,
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+              selF.type === 'impact' ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(MC.audio.LIBRARY.find((x) => x.id === 'golpe'), shotStart + MC.fxStart(sh, selF)); S.cl = c.id; S.fxsel = null; commit(); MC.toast(t('Sonido de golpe añadido en la pista SFX', 'Hit sound added to the SFX track')); } }, MC.icon('note', 14), t('Añadir sonido de golpe', 'Add hit sound')) : null,
+              h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { sh.fx = sh.fx.filter((q) => q !== selF); S.fxsel = null; commit(); } }, MC.icon('trash', 14), t('Quitar efecto', 'Remove effect'))));
+        }
+        fxSecs.push(sec('efectos', t('Efectos y animación', 'Effects and animation') + ' · ' + list.length, nodes));
+      }
+      /* rack focus */
+      {
+        const r = sh.rack, ls = sh.layers;
+        const nodes = [];
+        if (ls.length < 2) nodes.push(h('p', { class: 'cap' }, t('Necesitas al menos dos capas en el plano para pasar el enfoque de una a otra.', 'You need at least two layers in the shot to shift focus from one to the other.')));
+        else {
+          nodes.push(h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!(r && r.on), onChange: (e) => { if (e.target.checked) sh.rack = r ? Object.assign(r, { on: true }) : { on: true, a: ls[ls.length - 1].id, b: ls[0].id, start: Math.min(1, sh.duration / 3), dur: Math.min(1.2, sh.duration / 2), amount: 14 }; else if (r) r.on = false; commit(); } }), h('span', null, t('Rack focus', 'Rack focus'), h('small', null, t('Empieza nítida la primera capa y el enfoque pasa a la segunda.', 'The first layer starts sharp and focus shifts to the second.')))));
+          if (r && r.on) {
+            const sa = 'ra-' + MC.uid(), sb = 'rb-' + MC.uid();
+            nodes.push(
+              h('div', { class: 'field' }, h('label', { for: sa }, t('Empieza nítida', 'Starts sharp')), h('select', { id: sa, class: 'input', onChange: (e) => { r.a = e.target.value; commit(); } }, ls.map((l) => h('option', { value: l.id, selected: l.id === r.a }, l.name)))),
+              h('div', { class: 'field' }, h('label', { for: sb }, t('Termina nítida', 'Ends sharp')), h('select', { id: sb, class: 'input', onChange: (e) => { r.b = e.target.value; commit(); } }, ls.map((l) => h('option', { value: l.id, selected: l.id === r.b }, l.name)))),
+              MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(0.5, sh.duration), step: 0.05, value: clamp(r.start, 0, Math.max(0.5, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { r.start = v; touch(); }, onChange: commit }),
+              MC.ui.slider({ label: t('Duración del cambio', 'Shift length'), min: 0.2, max: 6, step: 0.1, value: r.dur, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { r.dur = v; touch(); }, onChange: commit }),
+              MC.ui.slider({ label: t('Desenfoque', 'Blur'), min: 2, max: 30, step: 0.5, value: r.amount, fmt: (v) => v.toFixed(1) + ' px', onInput: (v) => { r.amount = v; touch(); }, onChange: commit }));
+          }
+        }
+        fxSecs.push(sec('rack', t('Rack focus', 'Rack focus') + (r && r.on ? ' · ' + t('activo', 'on') : ''), nodes));
+      }
+      const lk = p.look;
+      const lookSec = sec('aspecto', t('Aspecto global', 'Global look'), [
+        h('p', { class: 'cap' }, t('Capas de ajuste para todo el vídeo.', 'Adjustment layers for the whole video.')),
+        MC.ui.slider({ label: t('Viñeteado', 'Vignette'), min: 0, max: 1, step: 0.01, value: lk.vignette, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.vignette = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Grano de película', 'Film grain'), min: 0, max: 1, step: 0.01, value: lk.grain, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.grain = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Tramado de cómic (halftone)', 'Comic halftone'), min: 0, max: 1, step: 0.01, value: lk.halftone, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.halftone = v; touch(); }, onChange: commit }),
+        h('div', { class: 'field' }, h('label', { for: 'lt-c' }, t('Tinte de color', 'Colour tint')), h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+          h('input', { type: 'color', id: 'lt-c', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: lk.tint ? lk.tint.color : '#8c7cff', onInput: (e) => { lk.tint = { color: e.target.value, amount: lk.tint ? lk.tint.amount : 0.3 }; touch(); }, onChange: commit }),
+          h('span', { class: 'cap' }, lk.tint ? Math.round(lk.tint.amount * 100) + ' %' : t('sin tinte', 'no tint')))),
+        lk.tint ? MC.ui.slider({ label: t('Cantidad de tinte', 'Tint amount'), min: 0, max: 1, step: 0.01, value: lk.tint.amount, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.tint.amount = v; touch(); }, onChange: commit }) : null,
+        lk.tint ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { lk.tint = null; commit(); } }, t('Quitar tinte', 'Remove tint')) : null,
+      ]);
+
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
       const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
-      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 3), [idiomasSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 3), audioSecs, [idiomasSec], ordered.slice(3), [estiloSec]));
+      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), [idiomasSec, lookSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), audioSecs, [idiomasSec, lookSec], ordered.slice(3), [estiloSec]));
       b.scrollTop = top;
     }
 
@@ -29098,7 +29380,7 @@ module.exports = ZStream;
       const portrait = opts().W / opts().H < 0.8;
       MC.put(MC.clear(el.vbar), 
         MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : shot() && shot().webtoon ? [{ v: 'strip', l: t('Tira', 'Strip') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
-        S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
+        S.view === 'cam' && !(shot() && shot().camera.path && shot().camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
         S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
         S.view === 'strip' ? h('span', { class: 'status' }, t('Clic en la tira para añadir una pausa; arrástrala para moverla', 'Click the strip to add a pause; drag it to move')) : null,
@@ -29258,6 +29540,23 @@ module.exports = ZStream;
       const path = (fr, rot) => { ctx.save(); ctx.translate(fr.cx, fr.cy); ctx.rotate(((rot || 0) * Math.PI) / 180); ctx.rect(-fr.hw, -fr.hh, fr.hw * 2, fr.hh * 2); ctx.restore(); };
       const act = sh.camera[S.kf], oth = sh.camera[S.kf === 'from' ? 'to' : 'from'], fa = frameRect(act, o), fo = frameRect(oth, o);
       const css = getComputedStyle(document.documentElement), acc = css.getPropertyValue('--accent').trim() || '#8C7CFF';
+      const cp = sh.camera.path;
+      if (cp && cp.custom) {
+        const pts = cp.pts, sel = pts[clamp(S.wp, 0, pts.length - 1)], fs = frameRect(sel, o);
+        ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.rect(-ox / k, -oy / k, c.width / k, c.height / k); path(fs, 0); ctx.fill('evenodd'); ctx.restore();
+        ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H); ctx.setLineDash([]);
+        ctx.beginPath(); pts.forEach((q, i) => { const fr = frameRect(q, o); i ? ctx.lineTo(fr.cx, fr.cy) : ctx.moveTo(fr.cx, fr.cy); }); ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.stroke();
+        pts.forEach((q, i) => {
+          const fr = frameRect(q, o), on = q === sel;
+          ctx.beginPath(); path(fr, 0); ctx.strokeStyle = on ? acc : 'rgba(236,238,240,.6)'; ctx.lineWidth = lw * (on ? 1.4 : 0.6); ctx.setLineDash(on ? [] : [lw * 3, lw * 3]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = on ? acc : '#0F1012'; ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(fr.cx, fr.cy, lw * 6, 0, 6.283); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = on ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + lw * 7 + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), fr.cx, fr.cy + lw * 0.3);
+        });
+        ctx.fillStyle = acc; ctx.fillRect(fs.cx + fs.hw - lw * 5, fs.cy + fs.hh - lw * 5, lw * 10, lw * 10);
+        const cu2 = MC.camAt(sh, clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), false), fc2 = frameRect(cu2, o);
+        ctx.beginPath(); path(fc2, 0); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 0.6; ctx.stroke();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); return;
+      }
       ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.rect(-ox / k, -oy / k, c.width / k, c.height / k); path(fa, act.rot); ctx.fill('evenodd'); ctx.restore();
       ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H);
       ctx.beginPath(); path(fo, oth.rot); ctx.strokeStyle = 'rgba(236,238,240,.6)'; ctx.stroke(); ctx.setLineDash([]);
@@ -29276,6 +29575,7 @@ module.exports = ZStream;
       const q = MC.syncPanel({ id: MC.uid(), pts: S.poly.map((pt) => pt.slice()), x0: 0, y0: 0, x1: 1, y1: 1, hold: null });
       pg.panels.push(q); S.pn = q.id; pg.manual = true; S.poly = null; S.polyCur = null; S.ptool = 'rect'; renderVbar(); commit();
     }
+    const camTarget = (sh) => { const pa = sh.camera.path; if (pa && pa.custom) { S.wp = clamp(S.wp, 0, pa.pts.length - 1); return pa.pts[S.wp]; } return sh.camera[S.kf]; };
     const txById = (id) => S.project.texts.find((x) => x.id === id);
     /* interacción con el visor */
     let drag = null;
@@ -29318,9 +29618,16 @@ module.exports = ZStream;
           return;
         }
         if (S.view === 'cam') {
-          const { k, ox, oy } = camMap(c, o), kf = sh.camera[S.kf], fr = frameRect(kf, o);
-          const hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
-          const wx = (p.x - ox) / k, wy = (p.y - oy) / k;
+          const { k, ox, oy } = camMap(c, o), wx = (p.x - ox) / k, wy = (p.y - oy) / k, pa = sh.camera.path && sh.camera.path.custom ? sh.camera.path : null;
+          if (pa) {
+            const cu = frameRect(pa.pts[clamp(S.wp, 0, pa.pts.length - 1)], o);
+            if (Math.hypot(p.x - ((cu.cx + cu.hw) * k + ox), p.y - ((cu.cy + cu.hh) * k + oy)) >= 26 * S.dpr) {
+              let best = -1, bd = 1e9;
+              pa.pts.forEach((q, i) => { const f2 = frameRect(q, o); if (Math.abs(wx - f2.cx) <= f2.hw && Math.abs(wy - f2.cy) <= f2.hh) { const d2 = Math.hypot(wx - f2.cx, wy - f2.cy); if (d2 < bd) { bd = d2; best = i; } } });
+              if (best >= 0 && best !== S.wp) { S.wp = best; renderInspector(); S.dirty = true; }
+            }
+          }
+          const kf = camTarget(sh), fr = frameRect(kf, o), hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
           if (Math.hypot(p.x - hx, p.y - hy) < 26 * S.dpr) drag = { m: 'zoom', k, ox, oy, fr, o, kf };
           else if (Math.abs(wx - fr.cx) <= fr.hw && Math.abs(wy - fr.cy) <= fr.hh) drag = { m: 'move', p0: p, x0: kf.x, y0: kf.y, k, o, kf };
         } else if (!S.playing) {
@@ -29677,15 +29984,15 @@ module.exports = ZStream;
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
-    if (!MC.store.get('seeded4', '')) {
+    if (!MC.store.get('seeded5', '')) {
       const existing = await MC.db.all('projects');
-      if (!existing.some((q) => q.sampleV === 3)) {
+      if (!existing.some((q) => q.sampleV === 4)) {
         try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
       if (!existing.some((q) => q.samplePage)) {
         try { const p = await MC.createPageSample(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
-      MC.store.set('seeded4', '1');
+      MC.store.set('seeded5', '1');
     }
     await MC.app.render();
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

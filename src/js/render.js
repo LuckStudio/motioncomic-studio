@@ -124,7 +124,9 @@
   const BLEND = { multiply: 1, screen: 1, overlay: 1, darken: 1, lighten: 1, 'color-dodge': 1, 'color-burn': 1, 'hard-light': 1, 'soft-light': 1, difference: 1, exclusion: 1 };
   MC.renderShot = (ctx, shot, tl, o) => {
     const { W, H } = o;
-    const cam = o.cam || MC.camAt(shot, tl);
+    let cam = o.cam || MC.camAt(shot, tl);
+    const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
+    if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     ctx.save();
     if (!o.noClip) {
       ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
@@ -142,10 +144,11 @@
       ctx.save();
       ctx.globalAlpha = layer.opacity == null ? 1 : layer.opacity;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
-      if (layer.blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (layer.blur * W / 1920).toFixed(2) + 'px)';
-      ctx.translate(W / 2, H / 2);
-      if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
-      ctx.scale(g.zl, g.zl);
+      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
+      if (blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (blur * W / 1920).toFixed(2) + 'px)';
+      ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
+      if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
+      ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
       ctx.drawImage(img.bitmap, ix, iy, iw, ih);
@@ -161,6 +164,7 @@
       }
       ctx.restore();
     }
+    if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
   };
 
@@ -194,7 +198,7 @@
     MC.renderShot(ctx, cur, tl, o);
   };
 
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
+  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);

@@ -14,8 +14,8 @@
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true },
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
@@ -45,7 +45,9 @@
       MC.put(MC.clear(el.status), h('i'), !MC.db.persistent ? t('Sin guardado local', 'Not saved locally') : saved ? t('Guardado en este equipo · ', 'Saved on this device · ') + MC.fmtClock(S.savedAt) : t('Guardando…', 'Saving…'));
     }
     function touch() { S.dirty = true; scheduleSave(); }
-    function commit() { MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
+    function commit() {
+      S.project.shots.forEach((sh) => { const pa = sh.camera.path; if (pa && pa.custom) sh.duration = Math.max(0.5, Math.round(MC.pathDuration(pa) * 10) / 10); });
+      MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
     function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
     function restore(i) {
       S.hpos = i; S.project = JSON.parse(S.hist[i]); MC.finalizePages(S.project);
@@ -342,7 +344,7 @@
           MC.ui.chips(MC.CAM_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), cam.preset, (v) => { MC.applyPreset(cam, v, cam.intensity); commit(); })),
         MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 2, step: 0.05, value: cam.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { if (cam.preset !== 'custom') { MC.applyPreset(cam, cam.preset, v); } else cam.intensity = v; S.dirty = true; touch(); }, onChange: commit }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
-          MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; commit(); })),
+          MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; if (cam.path) cam.path.curve = v; commit(); })),
       ];
       const autoCam = !!(sh.page || sh.webtoon);
       if (autoCam) camNodes.length = 0;
@@ -572,10 +574,96 @@
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice, onClick: () => { const ps = MC.audio.voicePauses(p); p.markers = ps.map((x) => Math.round(x.t * 100) / 100); commit(); MC.toast(ps.length ? t(ps.length + ' pausas marcadas en la regla', ps.length + ' pauses marked on the ruler') : t('No se han encontrado pausas', 'No pauses found')); } }, t('Marcar pausas de la voz', 'Mark voice pauses')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice || p.shots.length < 2, onClick: () => { if (MC.audio.fitShotsToVoice(p)) { commit(); setTime(S.time); MC.toast(t('Planos ajustados a la voz', 'Shots fitted to the voice')); } else MC.toast(t('Faltan pausas en la voz para repartir ' + p.shots.length + ' planos.', 'Not enough voice pauses to split ' + p.shots.length + ' shots.')); } }, t('Ajustar planos a la voz', 'Fit shots to voice'))),
         !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
+
+      /* trayectoria dibujada, efectos, rack focus y aspecto */
+      const fxSecs = [], shotStart = MC.shotStarts(p)[S.si], localT = clamp(S.time - shotStart, 0, Math.max(0.1, sh.duration));
+      if (!autoCam) {
+        const cp = cam.path && cam.path.custom ? cam.path : null;
+        const nodes = [];
+        if (!cp) {
+          nodes.push(h('p', { class: 'cap' }, t('Dibuja un recorrido con varios puntos en lugar de un solo movimiento: la cámara se detiene en cada uno y viaja al siguiente. Se edita en la vista «Cámara».', 'Draw a route with several points instead of a single movement: the camera holds at each one and travels to the next. Edit it in the “Camera” view.')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => {
+              const f = cam.from, t2 = cam.to;
+              cam.path = { custom: true, drift: 0, curve: cam.curve || 'smooth', pts: [{ x: f.x, y: f.y, zoom: f.zoom, hold: 0.5, travel: Math.max(0.5, sh.duration - 1), rect: null }, { x: t2.x, y: t2.y, zoom: t2.zoom, hold: 0.5, travel: 0, rect: null }] };
+              cam.preset = 'path'; cam.shake = 0; S.wp = 0; S.view = 'cam'; renderVbar(); commit(); fit();
+            } }, MC.icon('plus', 14), t('Dibujar trayectoria', 'Draw route')));
+        } else {
+          const selW = cp.pts[clamp(S.wp, 0, cp.pts.length - 1)];
+          nodes.push(h('div', { style: { display: 'grid', gap: '2px' } }, cp.pts.map((q, i) => h('div', { class: 'layer' + (q === selW ? ' on' : ''), onClick: () => { S.wp = i; if (S.view !== 'cam') { S.view = 'cam'; renderVbar(); fit(); } S.dirty = true; renderInspector(); } },
+            h('span', { class: 'ln' }, t('Punto ', 'Point ') + (i + 1)), h('span', { class: 'lz' }, q.hold.toFixed(1) + ' s · ×' + q.zoom.toFixed(2))))),
+            MC.ui.slider({ label: t('Permanencia en el punto', 'Hold at the point'), min: 0, max: 8, step: 0.1, value: selW.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selW.hold = v; touch(); }, onChange: commit }),
+            selW !== cp.pts[cp.pts.length - 1] ? MC.ui.slider({ label: t('Viaje al siguiente', 'Travel to the next'), min: 0.1, max: 8, step: 0.1, value: selW.travel || 0.5, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selW.travel = v; touch(); }, onChange: commit }) : null,
+            MC.ui.slider({ label: 'Zoom', min: 1, max: 4, step: 0.01, value: selW.zoom, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selW.zoom = v; touch(); S.dirty = true; }, onChange: commit }),
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const i = cp.pts.indexOf(selW), nx = cp.pts[i + 1], np = nx ? { x: (selW.x + nx.x) / 2, y: (selW.y + nx.y) / 2, zoom: (selW.zoom + nx.zoom) / 2 } : { x: clamp(selW.x + 0.06, -0.6, 0.6), y: selW.y, zoom: selW.zoom }; cp.pts.splice(i + 1, 0, Object.assign({ hold: 0.5, travel: 1, rect: null }, np)); S.wp = i + 1; commit(); } }, MC.icon('plus', 14), t('Añadir punto', 'Add point')),
+              h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { if (cp.pts.length <= 2) { MC.toast(t('Una trayectoria necesita al menos dos puntos.', 'A route needs at least two points.')); return; } cp.pts.splice(cp.pts.indexOf(selW), 1); S.wp = 0; commit(); } }, MC.icon('trash', 14), t('Quitar punto', 'Remove point')),
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.applyPreset(cam, 'zoomin', 1); commit(); } }, t('Volver a un preset', 'Back to a preset'))),
+            h('p', { class: 'cap' }, t('Arrastra un punto en el visor para moverlo y su esquina para el zoom. La duración del plano es la suma de las permanencias y los viajes.', 'Drag a point in the viewer to move it and its corner to zoom. The shot length is the sum of the holds and travels.')));
+        }
+        fxSecs.push(sec('tray', t('Trayectoria de cámara', 'Camera route') + (cp ? ' · ' + cp.pts.length : ''), nodes));
+      }
+      /* efectos */
+      {
+        const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
+        const addFx = (type) => { const f = MC.newFx(type, localT); if (f.start + f.dur > sh.duration) f.start = Math.max(0, Math.round((sh.duration - f.dur) * 100) / 100); sh.fx.push(f); S.fxsel = f.id; S.open.efectos = true; commit(); };
+        const nodes = [
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
+          h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
+        ];
+        if (selF) {
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
+          nodes.push(
+            h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
+            sh.page ? h('div', { class: 'field' }, h('label', { for: selA }, t('Empieza', 'Starts')), h('select', { id: selA, class: 'input', onChange: (e) => { selF.panel = e.target.value === '' ? null : +e.target.value; selF.start = 0; commit(); } }, [h('option', { value: '' }, t('En un momento del plano', 'At a time in the shot'))].concat(sh.page.panels.map((q, i) => h('option', { value: String(i), selected: selF.panel === i }, t('Al llegar a la viñeta ', 'On reaching panel ') + (i + 1)))))) : null,
+            MC.ui.slider({ label: selF.panel != null ? t('Desfase', 'Offset') : t('Empieza en', 'Starts at'), min: 0, max: Math.max(0.5, sh.duration), step: 0.05, value: clamp(selF.start, 0, Math.max(0.5, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.start = v; touch(); }, onChange: commit }),
+            MC.ui.slider({ label: t('Dura', 'Lasts'), min: 0.1, max: Math.max(1, sh.duration), step: 0.05, value: clamp(selF.dur, 0.1, Math.max(1, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.dur = v; touch(); }, onChange: commit }),
+            MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 3, step: 0.05, value: selF.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selF.intensity = v; touch(); }, onChange: commit }),
+            selF.type === 'speed' ? MC.ui.slider({ label: t('Ángulo', 'Angle'), min: -90, max: 90, step: 1, value: selF.angle || 0, fmt: (v) => v + '°', onInput: (v) => { selF.angle = v; touch(); }, onChange: commit }) : null,
+            colored ? h('div', { class: 'field' }, h('label', { for: 'fc-' + selF.id }, t('Color', 'Colour')), h('input', { type: 'color', id: 'fc-' + selF.id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: selF.color || '#ffffff', onInput: (e) => { selF.color = e.target.value; touch(); }, onChange: commit })) : null,
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+              selF.type === 'impact' ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(MC.audio.LIBRARY.find((x) => x.id === 'golpe'), shotStart + MC.fxStart(sh, selF)); S.cl = c.id; S.fxsel = null; commit(); MC.toast(t('Sonido de golpe añadido en la pista SFX', 'Hit sound added to the SFX track')); } }, MC.icon('note', 14), t('Añadir sonido de golpe', 'Add hit sound')) : null,
+              h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { sh.fx = sh.fx.filter((q) => q !== selF); S.fxsel = null; commit(); } }, MC.icon('trash', 14), t('Quitar efecto', 'Remove effect'))));
+        }
+        fxSecs.push(sec('efectos', t('Efectos y animación', 'Effects and animation') + ' · ' + list.length, nodes));
+      }
+      /* rack focus */
+      {
+        const r = sh.rack, ls = sh.layers;
+        const nodes = [];
+        if (ls.length < 2) nodes.push(h('p', { class: 'cap' }, t('Necesitas al menos dos capas en el plano para pasar el enfoque de una a otra.', 'You need at least two layers in the shot to shift focus from one to the other.')));
+        else {
+          nodes.push(h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!(r && r.on), onChange: (e) => { if (e.target.checked) sh.rack = r ? Object.assign(r, { on: true }) : { on: true, a: ls[ls.length - 1].id, b: ls[0].id, start: Math.min(1, sh.duration / 3), dur: Math.min(1.2, sh.duration / 2), amount: 14 }; else if (r) r.on = false; commit(); } }), h('span', null, t('Rack focus', 'Rack focus'), h('small', null, t('Empieza nítida la primera capa y el enfoque pasa a la segunda.', 'The first layer starts sharp and focus shifts to the second.')))));
+          if (r && r.on) {
+            const sa = 'ra-' + MC.uid(), sb = 'rb-' + MC.uid();
+            nodes.push(
+              h('div', { class: 'field' }, h('label', { for: sa }, t('Empieza nítida', 'Starts sharp')), h('select', { id: sa, class: 'input', onChange: (e) => { r.a = e.target.value; commit(); } }, ls.map((l) => h('option', { value: l.id, selected: l.id === r.a }, l.name)))),
+              h('div', { class: 'field' }, h('label', { for: sb }, t('Termina nítida', 'Ends sharp')), h('select', { id: sb, class: 'input', onChange: (e) => { r.b = e.target.value; commit(); } }, ls.map((l) => h('option', { value: l.id, selected: l.id === r.b }, l.name)))),
+              MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(0.5, sh.duration), step: 0.05, value: clamp(r.start, 0, Math.max(0.5, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { r.start = v; touch(); }, onChange: commit }),
+              MC.ui.slider({ label: t('Duración del cambio', 'Shift length'), min: 0.2, max: 6, step: 0.1, value: r.dur, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { r.dur = v; touch(); }, onChange: commit }),
+              MC.ui.slider({ label: t('Desenfoque', 'Blur'), min: 2, max: 30, step: 0.5, value: r.amount, fmt: (v) => v.toFixed(1) + ' px', onInput: (v) => { r.amount = v; touch(); }, onChange: commit }));
+          }
+        }
+        fxSecs.push(sec('rack', t('Rack focus', 'Rack focus') + (r && r.on ? ' · ' + t('activo', 'on') : ''), nodes));
+      }
+      const lk = p.look;
+      const lookSec = sec('aspecto', t('Aspecto global', 'Global look'), [
+        h('p', { class: 'cap' }, t('Capas de ajuste para todo el vídeo.', 'Adjustment layers for the whole video.')),
+        MC.ui.slider({ label: t('Viñeteado', 'Vignette'), min: 0, max: 1, step: 0.01, value: lk.vignette, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.vignette = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Grano de película', 'Film grain'), min: 0, max: 1, step: 0.01, value: lk.grain, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.grain = v; touch(); }, onChange: commit }),
+        MC.ui.slider({ label: t('Tramado de cómic (halftone)', 'Comic halftone'), min: 0, max: 1, step: 0.01, value: lk.halftone, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.halftone = v; touch(); }, onChange: commit }),
+        h('div', { class: 'field' }, h('label', { for: 'lt-c' }, t('Tinte de color', 'Colour tint')), h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+          h('input', { type: 'color', id: 'lt-c', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: lk.tint ? lk.tint.color : '#8c7cff', onInput: (e) => { lk.tint = { color: e.target.value, amount: lk.tint ? lk.tint.amount : 0.3 }; touch(); }, onChange: commit }),
+          h('span', { class: 'cap' }, lk.tint ? Math.round(lk.tint.amount * 100) + ' %' : t('sin tinte', 'no tint')))),
+        lk.tint ? MC.ui.slider({ label: t('Cantidad de tinte', 'Tint amount'), min: 0, max: 1, step: 0.01, value: lk.tint.amount, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { lk.tint.amount = v; touch(); }, onChange: commit }) : null,
+        lk.tint ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { lk.tint = null; commit(); } }, t('Quitar tinte', 'Remove tint')) : null,
+      ]);
+
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
       const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
-      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 3), [idiomasSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 3), audioSecs, [idiomasSec], ordered.slice(3), [estiloSec]));
+      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), [idiomasSec, lookSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 2), fxSecs, ordered.slice(2, 3), audioSecs, [idiomasSec, lookSec], ordered.slice(3), [estiloSec]));
       b.scrollTop = top;
     }
 
@@ -585,7 +673,7 @@
       const portrait = opts().W / opts().H < 0.8;
       MC.put(MC.clear(el.vbar), 
         MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : shot() && shot().webtoon ? [{ v: 'strip', l: t('Tira', 'Strip') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
-        S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
+        S.view === 'cam' && !(shot() && shot().camera.path && shot().camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
         S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
         S.view === 'strip' ? h('span', { class: 'status' }, t('Clic en la tira para añadir una pausa; arrástrala para moverla', 'Click the strip to add a pause; drag it to move')) : null,
@@ -745,6 +833,23 @@
       const path = (fr, rot) => { ctx.save(); ctx.translate(fr.cx, fr.cy); ctx.rotate(((rot || 0) * Math.PI) / 180); ctx.rect(-fr.hw, -fr.hh, fr.hw * 2, fr.hh * 2); ctx.restore(); };
       const act = sh.camera[S.kf], oth = sh.camera[S.kf === 'from' ? 'to' : 'from'], fa = frameRect(act, o), fo = frameRect(oth, o);
       const css = getComputedStyle(document.documentElement), acc = css.getPropertyValue('--accent').trim() || '#8C7CFF';
+      const cp = sh.camera.path;
+      if (cp && cp.custom) {
+        const pts = cp.pts, sel = pts[clamp(S.wp, 0, pts.length - 1)], fs = frameRect(sel, o);
+        ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.rect(-ox / k, -oy / k, c.width / k, c.height / k); path(fs, 0); ctx.fill('evenodd'); ctx.restore();
+        ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H); ctx.setLineDash([]);
+        ctx.beginPath(); pts.forEach((q, i) => { const fr = frameRect(q, o); i ? ctx.lineTo(fr.cx, fr.cy) : ctx.moveTo(fr.cx, fr.cy); }); ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.stroke();
+        pts.forEach((q, i) => {
+          const fr = frameRect(q, o), on = q === sel;
+          ctx.beginPath(); path(fr, 0); ctx.strokeStyle = on ? acc : 'rgba(236,238,240,.6)'; ctx.lineWidth = lw * (on ? 1.4 : 0.6); ctx.setLineDash(on ? [] : [lw * 3, lw * 3]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = on ? acc : '#0F1012'; ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(fr.cx, fr.cy, lw * 6, 0, 6.283); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = on ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + lw * 7 + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), fr.cx, fr.cy + lw * 0.3);
+        });
+        ctx.fillStyle = acc; ctx.fillRect(fs.cx + fs.hw - lw * 5, fs.cy + fs.hh - lw * 5, lw * 10, lw * 10);
+        const cu2 = MC.camAt(sh, clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), false), fc2 = frameRect(cu2, o);
+        ctx.beginPath(); path(fc2, 0); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 0.6; ctx.stroke();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); return;
+      }
       ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.rect(-ox / k, -oy / k, c.width / k, c.height / k); path(fa, act.rot); ctx.fill('evenodd'); ctx.restore();
       ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H);
       ctx.beginPath(); path(fo, oth.rot); ctx.strokeStyle = 'rgba(236,238,240,.6)'; ctx.stroke(); ctx.setLineDash([]);
@@ -763,6 +868,7 @@
       const q = MC.syncPanel({ id: MC.uid(), pts: S.poly.map((pt) => pt.slice()), x0: 0, y0: 0, x1: 1, y1: 1, hold: null });
       pg.panels.push(q); S.pn = q.id; pg.manual = true; S.poly = null; S.polyCur = null; S.ptool = 'rect'; renderVbar(); commit();
     }
+    const camTarget = (sh) => { const pa = sh.camera.path; if (pa && pa.custom) { S.wp = clamp(S.wp, 0, pa.pts.length - 1); return pa.pts[S.wp]; } return sh.camera[S.kf]; };
     const txById = (id) => S.project.texts.find((x) => x.id === id);
     /* interacción con el visor */
     let drag = null;
@@ -805,9 +911,16 @@
           return;
         }
         if (S.view === 'cam') {
-          const { k, ox, oy } = camMap(c, o), kf = sh.camera[S.kf], fr = frameRect(kf, o);
-          const hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
-          const wx = (p.x - ox) / k, wy = (p.y - oy) / k;
+          const { k, ox, oy } = camMap(c, o), wx = (p.x - ox) / k, wy = (p.y - oy) / k, pa = sh.camera.path && sh.camera.path.custom ? sh.camera.path : null;
+          if (pa) {
+            const cu = frameRect(pa.pts[clamp(S.wp, 0, pa.pts.length - 1)], o);
+            if (Math.hypot(p.x - ((cu.cx + cu.hw) * k + ox), p.y - ((cu.cy + cu.hh) * k + oy)) >= 26 * S.dpr) {
+              let best = -1, bd = 1e9;
+              pa.pts.forEach((q, i) => { const f2 = frameRect(q, o); if (Math.abs(wx - f2.cx) <= f2.hw && Math.abs(wy - f2.cy) <= f2.hh) { const d2 = Math.hypot(wx - f2.cx, wy - f2.cy); if (d2 < bd) { bd = d2; best = i; } } });
+              if (best >= 0 && best !== S.wp) { S.wp = best; renderInspector(); S.dirty = true; }
+            }
+          }
+          const kf = camTarget(sh), fr = frameRect(kf, o), hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
           if (Math.hypot(p.x - hx, p.y - hy) < 26 * S.dpr) drag = { m: 'zoom', k, ox, oy, fr, o, kf };
           else if (Math.abs(wx - fr.cx) <= fr.hw && Math.abs(wy - fr.cy) <= fr.hh) drag = { m: 'move', p0: p, x0: kf.x, y0: kf.y, k, o, kf };
         } else if (!S.playing) {

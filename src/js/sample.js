@@ -203,8 +203,16 @@
     tx('bubble', 1.4, 3.4, 'Otra noche más\nsin dormir.', 'Another night\nwithout sleep.', { x: 0.18, y: -0.3, w: 0.3, size: 0.048, tail: { x: -0.06, y: 0.2 }, reveal: 'words', speed: 24, loop: 'float' });
     tx('bubble', starts[1] + 0.5, 3, '¡Tenemos que irnos!', 'We have to go!', { shape: 'shout', x: -0.2, y: -0.28, w: 0.3, size: 0.06, anim: 'bounce', color: '#14141c', fill: '#FFE08A', tail: { x: 0, y: 0.2 } });
     tx('sfx', starts[2] + 0.05, 2.2, '¡BOOM!', 'BOOM!', { y: 0.05 });
+    /* efectos de ejemplo: rack focus, líneas de velocidad, golpe con aberración y aspecto de cómic */
+    const lid = (sh, name) => (sh.layers.find((l) => l.name === name) || {}).id;
+    p.shots[0].rack = { on: true, a: lid(p.shots[0], 'Ciudad lejana'), b: lid(p.shots[0], 'Personaje'), start: 1.6, dur: 1.4, amount: 12 };
+    const f1 = MC.newFx('speed', 0.6); f1.dur = 2.6; f1.intensity = 1; p.shots[1].fx.push(f1);
+    const f2 = MC.newFx('impact', 0.05); f2.intensity = 1.2; p.shots[2].fx.push(f2);
+    const f3 = MC.newFx('aberration', 0.05); f3.dur = 0.7; f3.intensity = 1; p.shots[2].fx.push(f3);
+    const f4 = MC.newFx('sparks', 0.4); f4.dur = 2; f4.intensity = 0.8; p.shots[2].fx.push(f4);
+    p.look = { vignette: 0.35, grain: 0.22, halftone: 0, tint: null };
     p.thumb = MC.makeThumb(p);
-    p.sample = true; p.sampleV = 3;
+    p.sample = true; p.sampleV = 4;
     return p;
   };
 })();

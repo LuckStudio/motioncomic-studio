@@ -21,15 +21,15 @@
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
-    if (!MC.store.get('seeded4', '')) {
+    if (!MC.store.get('seeded5', '')) {
       const existing = await MC.db.all('projects');
-      if (!existing.some((q) => q.sampleV === 3)) {
+      if (!existing.some((q) => q.sampleV === 4)) {
         try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
       if (!existing.some((q) => q.samplePage)) {
         try { const p = await MC.createPageSample(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
-      MC.store.set('seeded4', '1');
+      MC.store.set('seeded5', '1');
     }
     await MC.app.render();
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

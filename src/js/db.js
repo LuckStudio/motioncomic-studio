@@ -120,6 +120,7 @@
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
+    p.look = Object.assign({ vignette: 0, grain: 0, halftone: 0, tint: null }, p.look || {}); p.shots.forEach((sh) => { sh.fx = sh.fx || []; });
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
@@ -128,11 +129,11 @@
 
   /* Modelo de proyecto */
   MC.newCamera = () => ({ preset: 'zoomin', intensity: 1, curve: 'smooth', from: { x: 0, y: 0, zoom: 1, rot: 0 }, to: { x: 0, y: 0, zoom: 1.25, rot: 0 }, shake: 0 });
-  MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
+  MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], fx: [], rack: null, camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
   MC.newProject = (o) => ({
     id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
-    texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
+    look: { vignette: 0, grain: 0, halftone: 0, tint: null }, texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
     clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
   });
 
@@ -145,7 +146,7 @@
   MC.applyPreset = (cam, preset, intensity) => {
     const i = MC.clamp(intensity == null ? cam.intensity || 1 : intensity, 0.2, 2);
     const K = (x, y, zoom, rot) => ({ x, y, zoom, rot: rot || 0 });
-    cam.preset = preset; cam.intensity = i; cam.shake = 0;
+    cam.preset = preset; cam.intensity = i; cam.shake = 0; cam.path = null;
     const P = {
       none: () => [K(0, 0, 1), K(0, 0, 1)],
       zoomin: () => [K(0, 0, 1), K(0, 0, 1 + 0.3 * i)],

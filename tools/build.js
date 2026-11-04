@@ -3,7 +3,7 @@ const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const vendor = ['mp4-muxer', 'ag-psd', 'pdf.min'].map((n) => read('src/vendor/' + n + '.js'));
-const scripts = ['util', 'formats', 'db', 'audio', 'render', 'psd', 'pdf', 'text', 'style', 'page', 'export', 'sample', 'home', 'studio', 'main'].map((n) => read('src/js/' + n + '.js')).join('\n');
+const scripts = ['util', 'formats', 'db', 'audio', 'render', 'fx', 'psd', 'pdf', 'text', 'style', 'page', 'export', 'sample', 'home', 'studio', 'main'].map((n) => read('src/js/' + n + '.js')).join('\n');
 const html = `<title>MotionComic Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Bangers&family=Comic+Neue:wght@700&family=Permanent+Marker&display=swap">
