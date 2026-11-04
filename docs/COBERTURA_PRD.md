@@ -1,6 +1,6 @@
 # Cobertura del PRD
 
-Estado de cada sección del PRD ampliado tras el paso 8. ✔ hecho · ◐ parcial · ✘ pendiente. Todo lo marcado se ha probado en Chromium con archivos sintéticos; falta probarlo con arte real.
+Estado de cada sección del PRD ampliado tras el paso 17. ✔ hecho · ◐ parcial · ✘ pendiente. Todo lo marcado se ha probado en Chromium con archivos sintéticos; falta probarlo con arte real.
 
 ## 5. Modos de trabajo
 | Función | Estado | Nota |
@@ -18,10 +18,10 @@ Estado de cada sección del PRD ampliado tras el paso 8. ✔ hecho · ◐ parcia
 | PNG, JPEG, WebP, PDF, audio, fuentes | ✔ | |
 | Detección inteligente de capas y avisos | ✔ | Vacías, ocultas, nombres repetidos |
 | Aviso de resolución, proxies y límites de memoria | ✔ | |
-| Aviso de perfil de color CMYK a sRGB | ✘ | |
-| ZIP o carpeta de PNG, SVG | ✘ | Fase 2 del PRD |
+| Aviso de perfil de color CMYK a sRGB | ✔ | |
+| ZIP o carpeta de PNG, SVG | ✔ | Fase 2 del PRD |
 | Krita, Clip Studio, Procreate directos | ✘ | Se entra por PNG o PSD exportados |
-| Biblioteca de assets con carpetas y etiquetas | ✘ | Los archivos se guardan una vez por proyecto |
+| Biblioteca de assets con carpetas y etiquetas | ✔ | Los archivos se guardan una vez por proyecto |
 
 ## 7. Capas y parallax
 | Función | Estado | Nota |
@@ -29,9 +29,9 @@ Estado de cada sección del PRD ampliado tras el paso 8. ✔ hecho · ◐ parcia
 | Profundidad z, intensidad global, huecos (sobreescalado, rojo, tapar) | ✔ | El margen seguro es una cifra, no un dibujo |
 | Desenfoque de profundidad y rack focus | ✔ | |
 | Viñeteado, grano, tramado, tinte; partículas | ✔ | |
-| Límite máximo de desplazamiento, pivote por capa | ✘ | |
-| Sombra, brillo, contorno, ajuste de color por capa; saturación y contraste globales | ✘ | |
-| Animación de personaje por capas (parpadeo, bocas, respiración) | ✘ | |
+| Límite máximo de desplazamiento, pivote por capa | ✔ | |
+| Sombra, brillo, contorno, ajuste de color por capa; saturación y contraste globales | ◐ | |
+| Animación de personaje por capas (parpadeo, bocas, respiración) | ◐ | |
 
 ## 8. Cámara y animación
 | Función | Estado | Nota |
@@ -40,28 +40,28 @@ Estado de cada sección del PRD ampliado tras el paso 8. ✔ hecho · ◐ parcia
 | Encuadre manual y trayectoria dibujada con puntos | ✔ | Trayectoria libre solo en planos libres |
 | Preset propio reutilizable | ✔ | |
 | Temblor, golpe con destello y sonido, pulso, vibración | ✔ | |
-| Dolly zoom, whip pan con motion blur | ✘ | |
-| Entradas, salidas y bucles de capas | ✘ | Sí en el texto |
-| Keyframes visibles en la línea de tiempo, editor de curvas Bézier | ✘ | Hay cuatro curvas y fotogramas inicio y fin |
-| Marcadores de pulso musical | ✘ | |
+| Dolly zoom, whip pan con motion blur | ◐ | |
+| Entradas, salidas y bucles de capas | ✔ | Sí en el texto |
+| Keyframes visibles en la línea de tiempo, editor de curvas Bézier | ✔ | Hay cuatro curvas y fotogramas inicio y fin |
+| Marcadores de pulso musical | ✔ | |
 
 ## 9. Transiciones y efectos
 | Función | Estado | Nota |
 | --- | --- | --- |
 | Corte, fundido a negro, barrido, destello | ✔ | |
-| Fundido a blanco, motion blur direccional, zoom a través, revelado de tinta, apertura de viñetas, glitch | ✘ | |
+| Fundido a blanco, motion blur direccional, zoom a través, revelado de tinta, apertura de viñetas, glitch | ◐ | |
 | Líneas de velocidad y concentración, aberración, destellos de color | ✔ | |
 | Lluvia, polvo, nieve, chispas, humo | ✔ | Niebla y luz ✘ |
-| Vista previa al pasar el cursor | ✘ | |
+| Vista previa al pasar el cursor | ✔ | |
 
 ## 10. Texto
-Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, entrada animada, sincronía con la voz, multiidioma, zonas seguras y tipografías propias: ✔. Capas de texto del PSD como elementos animables: ✘.
+Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, entrada animada, sincronía con la voz, multiidioma, zonas seguras y tipografías propias: ✔. Capas de texto del PSD como elementos animables: ✔.
 
 ## 11. Línea de tiempo y audio
 | Función | Estado | Nota |
 | --- | --- | --- |
 | Cinco pistas, mover, recortar, dividir, snap, deshacer ilimitado, J K L | ✔ | |
-| Pistas ampliables sin límite, ripple, duplicar y agrupar clips, selección múltiple, marcadores con notas | ✘ | |
+| Pistas ampliables sin límite, ripple, duplicar y agrupar clips, selección múltiple, marcadores con notas | ✔ | |
 | Onda, marcadores en pausas, ajustar planos a la voz, grabación con cuenta atrás | ✔ | |
 | Volumen, fundidos, ducking, normalización, biblioteca generada por código | ✔ | |
 | Voz sintética (TTS) | ✘ | |
@@ -72,10 +72,10 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | Visor, capas, inspector, línea de tiempo, Simple y Avanzado, espacios de trabajo | ✔ | |
 | Paneles acoplables y flotantes, barra de herramientas | ✘ | Disposición fija |
 | Atajos configurables con mapas de Premiere y Photoshop | ✔ | |
-| Calidad de previsualización, pantalla completa, guías, tema oscuro y claro | ✔ | Reglas ✘ |
+| Calidad de previsualización, pantalla completa, guías, tema oscuro y claro | ✔ | Reglas ✔ |
 | Inicio con proyectos, proyecto de ejemplo, tutoriales | ✔ | |
 | Guardado local, autoguardado, recuperación, espacio usado, exportar e importar copia | ✔ | |
-| Historial de versiones persistente | ✘ | Deshacer solo dura mientras el proyecto está abierto |
+| Historial de versiones persistente | ✔ | Deshacer solo dura mientras el proyecto está abierto |
 | PWA instalable y sin conexión | ✔ | |
 | Mi estilo y presets con nombre | ✔ | |
 
@@ -84,7 +84,10 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | --- | --- | --- |
 | MP4 H.264, presets por plataforma, rango, fps, bitrate, portada, SRT | ✔ | Audio AAC u Opus según el navegador |
 | Cola en segundo plano, lotes con reencuadre, simulador | ✔ | Simulador genérico, sin marcas |
-| H.265, ProRes, WebM, GIF, secuencia de PNG, audio solo | ✘ | |
+| H.265, ProRes, WebM, GIF, secuencia de PNG, audio solo | ◐ | |
 
 ## 16. Requisitos
 Web instalable, español e inglés, accesibilidad por teclado, lectores de pantalla y tamaño de texto: ✔. Soporte de tableta y ordenador: ✔ revisado en emulación; móvil: usable, pensado como apoyo. Rendimiento y límites de memoria con archivos reales: ✘ sin validar.
+
+
+Notas del paso 17: sombra, resplandor, contorno y color por elemento ✔ (sin capa de ajuste independiente); personaje por capas con parpadeo y boca según la voz ✔ (sin rig de huesos); dolly zoom ✔; GIF, WebM, secuencia PNG y solo audio ✔ (H.265 y ProRes no los ofrece el navegador).

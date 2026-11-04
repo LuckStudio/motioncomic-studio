@@ -2,6 +2,16 @@
 
 Registro paso a paso de lo que se fue construyendo. Para la descripción pública de la herramienta, mira el [README](../README.md).
 
+## Pasos 11 a 17 · estudio ampliado
+
+- **Paso 11 · interfaz ajustable**: paneles redimensionables y ocultables, tamaño de interfaz del 70 al 150 %.
+- **Paso 12 · superposiciones y vídeo**: pistas de superposición, importación de vídeo, croma, audio del vídeo, filas extra para clips solapados.
+- **Paso 13 · animar capas**: entradas, salidas y bucles; fotogramas clave con curvas Bézier; pivote; personaje por capas (parpadeo y boca con la voz).
+- **Paso 14 · aspecto**: sombra, resplandor, contorno y color por elemento; color global; niebla, haces de luz y dolly zoom.
+- **Paso 15 · línea de tiempo avanzada**: selección múltiple, grupos, ripple, marcadores y pulso, pista de efectos, miniaturas, mezclador con medidores.
+- **Paso 16 · tus proyectos**: archivo `.motioncomic`, versiones persistentes, biblioteca y consejo de instalación.
+- **Paso 17 · salida y entrada**: WebM, GIF, PNG y audio; SVG, ZIP, carpetas, CMYK y texto del PSD; zoom del visor, reglas, vista de profundidad, tabla de traducción y vista previa al pasar el cursor.
+
 ## Paso 10 · viñetas y transiciones
 
 Paso 10 (hecho):

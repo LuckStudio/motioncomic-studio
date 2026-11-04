@@ -15,7 +15,7 @@
     await MC.loadProjectAssets(project);
 
     const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay' };
-    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
+    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
       ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
@@ -68,7 +68,7 @@
     }
     function selectShot(i, seek) {
       S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null; S.fxsel = null;
-      if (S.ws === 'camara') S.view = editView(); else if (['cam', 'page', 'strip'].includes(S.view)) S.view = 'out';
+      if (S.ws === 'camara') S.view = editView(); else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
       S.selKind = 'shot';
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
@@ -357,7 +357,7 @@
     function setWs(v) {
       if (S.ws === v || !WS[v]) return;
       S.ws = v; studio.dataset.ws = v; studio.dataset.tl = WS[v].tl;
-      if (v === 'camara') S.view = editView(); else if (['cam', 'page', 'strip'].includes(S.view)) S.view = 'out';
+      if (v === 'camara') S.view = editView(); else if (v === 'capas' && editView() === 'cam') S.view = 'depth'; else if (['cam', 'page', 'strip', 'depth'].includes(S.view)) S.view = 'out';
       if (v === 'exportar') { togglePlay(false); S.view = 'out'; if (!S.sim && opts().W / opts().H < 0.8) S.sim = 'tiktok'; buildExportPanel(); }
       S.fmtOpen = false; S.ovMenu = false; S.viewOpen = false; applyLayout();
       renderTop(); renderRail(); renderPanels(); renderVbar(); buildSim(); renderTimeline(); fit();
@@ -616,7 +616,7 @@
       const hi = holeInfo();
       const camNodes = [
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Movimiento', 'Movement')),
-          MC.ui.chips(MC.CAM_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), cam.preset, (v) => { MC.applyPreset(cam, v, cam.intensity); commit(); })),
+          (() => { const ch = MC.ui.chips(MC.CAM_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), cam.preset, (v) => { hoverStop(); MC.applyPreset(cam, v, cam.intensity); commit(); }); [...ch.children].forEach((b, i) => hoverable(b, 'cam', (sh) => { MC.applyPreset(sh.camera, MC.CAM_PRESETS[i].v, sh.camera.intensity); })); return ch; })()),
         MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 2, step: 0.05, value: cam.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { if (cam.preset !== 'custom') { MC.applyPreset(cam, cam.preset, v); } else cam.intensity = v; S.dirty = true; touch(); }, onChange: commit }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
           MC.ui.curveEditor(cam.curve, (v) => { cam.curve = v; if (cam.path) cam.path.curve = v; S.dirty = true; touch(); }, commit)),
@@ -748,6 +748,7 @@
       } });
       const sub = p.sub, subFont = 'sf2-' + MC.uid();
       const idiomasSec = sec('idiomas', t('Idiomas y subtítulos', 'Languages and subtitles'), [
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: openTranslations }, MC.icon('globe', 14), t('Tabla de traducción', 'Translation table')),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idiomas del proyecto', 'Project languages')),
           MC.ui.chips(MC.LANGS.map((l) => ({ v: l[0], l: l[1] })), null, (v) => {
             if (p.langs.includes(v)) { if (p.langs.length < 2) return; p.langs = p.langs.filter((x) => x !== v); if (p.lang === v) p.lang = p.langs[0]; } else { p.langs.push(v); p.lang = v; }
@@ -914,8 +915,8 @@
         const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
         const addFx = (type) => { const f = MC.newFx(type, localT); if (f.start + f.dur > sh.duration) f.start = Math.max(0, Math.round((sh.duration - f.dur) * 100) / 100); sh.fx.push(f); S.fxsel = f.id; S.open.efectos = true; commit(); };
         const nodes = [
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => h('button', { type: 'button', class: 'chip-b', onClick: () => addFx(x.v) }, '+ ' + t(x.es, x.en))))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
@@ -1301,6 +1302,19 @@
         : h('p', { class: 'cap' }, t('Aún no hay versiones guardadas. Se guardan solas cada pocos minutos mientras editas, y puedes guardar una a mano con un nombre.', 'No saved versions yet. They are saved automatically every few minutes while you edit, and you can save one by hand with a name.')));
       MC.modal(t('Versiones guardadas', 'Saved versions'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: async () => { const n = prompt(t('Nombre de la versión', 'Version name'), ''); if (n === null) return; await saveVersion(n.trim()); close(); openVersions(); } }, MC.icon('bookmark', 14), t('Guardar una versión ahora', 'Save a version now')), h('button', { class: 'btn btn-p', type: 'button', onClick: close }, t('Cerrar', 'Close'))], { wide: true });
     }
+    /* tabla de traducción: todos los textos del proyecto, una columna por idioma */
+    function openTranslations() {
+      const p = S.project, langs = p.langs, rows = p.texts.slice().sort((a, b) => MC.textSpan(a, p).start - MC.textSpan(b, p).start);
+      const miss = () => rows.reduce((n, x) => n + langs.filter((l) => !(x.t[l] || '').trim()).length, 0);
+      const info = h('span', { class: 'cap' });
+      const upd = () => { const m = miss(); info.textContent = m ? m + t(' celdas sin traducir', ' untranslated cells') : t('Todo traducido', 'Everything translated'); info.className = 'cap ' + (m ? 'warn' : 'good'); };
+      const tbl = h('table', { class: 'trtable' }, h('thead', null, h('tr', null, h('th', null, t('Tiempo', 'Time')), h('th', null, t('Tipo', 'Type')), langs.map((l) => h('th', null, l.toUpperCase())))),
+        h('tbody', null, rows.map((x) => h('tr', null, h('td', null, MC.fmtTime(MC.textSpan(x, p).start)), h('td', null, { bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: 'sfx', sub: t('subt.', 'sub') }[x.kind]),
+          langs.map((l) => { const ta = h('textarea', { class: 'input', rows: 2, 'aria-label': l.toUpperCase() + ' · ' + MC.fmtTime(MC.textSpan(x, p).start), value: x.t[l] || '', onInput: (e) => { x.t[l] = e.target.value; ta.classList.toggle('empty', !e.target.value.trim()); upd(); S.dirty = true; touch(); } }); ta.classList.toggle('empty', !(x.t[l] || '').trim()); return h('td', null, ta); })))));
+      upd();
+      MC.modal(t('Tabla de traducción', 'Translation table'), h('div', { style: { display: 'grid', gap: '10px' } }, info, rows.length ? h('div', { class: 'trwrap' }, tbl) : h('p', { class: 'cap' }, t('Aún no hay textos en el proyecto.', 'There are no texts in the project yet.'))),
+        (close) => [h('button', { class: 'btn btn-p', type: 'button', onClick: () => { close(); commit(); } }, t('Listo', 'Done'))], { wide: true });
+    }
     function renderFileMenu() {
       if (el.fileMenu) { el.fileMenu.remove(); el.fileMenu = null; }
       if (!S.fileOpen || !el.fileBtn) return;
@@ -1391,19 +1405,22 @@
     /* ---------- visor ---------- */
     function renderVbar() {
       const portrait = opts().W / opts().H < 0.8, sh = shot(), edit = sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam';
-      const ovOn = [S.guides && ['guides', t('Guías', 'Guides')], S.safe && ['safe', t('Zonas seguras', 'Safe zones')], S.holes && ['holes', t('Huecos', 'Gaps')], S.sim && ['sim', t('Simulador', 'Simulator')]].filter(Boolean);
+      const ovOn = [S.rulers && ['rulers', t('Reglas', 'Rulers')], S.guides && ['guides', t('Guías', 'Guides')], S.safe && ['safe', t('Zonas seguras', 'Safe zones')], S.holes && ['holes', t('Huecos', 'Gaps')], S.sim && ['sim', t('Simulador', 'Simulator')]].filter(Boolean);
       const off = (k) => { if (k === 'sim') { S.sim = null; buildSim(); } else S[k] = false; renderVbar(); S.dirty = true; };
       const chk = (key, label, disabled) => h('label', null, h('input', { type: 'checkbox', checked: !!S[key], disabled: !!disabled, onChange: (e) => { S[key] = e.target.checked; renderVbar(); S.dirty = true; } }), label);
       MC.put(MC.clear(el.vbar),
-        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: edit, l: edit === 'page' ? t('Página', 'Page') : edit === 'strip' ? t('Tira', 'Strip') : t('Cámara', 'Camera') }], S.view === 'out' ? 'out' : edit, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
+        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: edit, l: edit === 'page' ? t('Página', 'Page') : edit === 'strip' ? t('Tira', 'Strip') : t('Cámara', 'Camera') }].concat(edit === 'cam' ? [{ v: 'depth', l: t('Profundidad', 'Depth') }] : []), S.view === 'out' || S.view === 'depth' ? S.view : edit, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
         S.view === 'cam' && !(sh && sh.camera.path && sh.camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
         S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
         S.view === 'strip' ? h('span', { class: 'status' }, t('Clic en la tira para añadir una pausa; arrástrala para moverla', 'Click the strip to add a pause; drag it to move')) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
+        h('span', { class: 'vzoom', role: 'group', 'aria-label': t('Zoom del visor', 'Viewer zoom') }, h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar el visor (Ctrl + rueda)', 'Zoom the viewer out (Ctrl + wheel)'), 'aria-label': t('Alejar el visor', 'Zoom the viewer out'), onClick: () => setViewZoom(S.vz.z / 1.25) }, MC.icon('minus', 14)),
+          el.zoomLbl = h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Volver al tamaño ajustado', 'Back to fitted size'), onClick: resetViewZoom }, Math.round(S.vz.z * 100) + ' %'),
+          h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar el visor (Ctrl + rueda). Para moverte: rueda del ratón pulsada o Alt + arrastrar', 'Zoom the viewer in (Ctrl + wheel). To pan: middle mouse button or Alt + drag'), 'aria-label': t('Acercar el visor', 'Zoom the viewer in'), onClick: () => setViewZoom(S.vz.z * 1.25) }, MC.icon('plus', 14))),
         S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.ovMenu), title: t('Guías, zonas seguras, huecos y simulador', 'Guides, safe zones, gaps and simulator'), onClick: () => { S.ovMenu = !S.ovMenu; renderVbar(); if (S.ovMenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu input'); if (f) f.focus(); }, 0); } }, MC.icon('layersx', 14), t('Superposiciones', 'Overlays')),
           S.ovMenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.ovMenu = false; renderVbar(); } } },
-            chk('guides', t('Guías (tercios y margen)', 'Guides (thirds and margin)')), chk('safe', t('Zonas seguras de redes', 'Social safe zones'), !portrait), chk('holes', t('Marcar huecos en rojo', 'Mark gaps in red')),
+            chk('guides', t('Guías (tercios y margen)', 'Guides (thirds and margin)')), chk('safe', t('Zonas seguras de redes', 'Social safe zones'), !portrait), chk('holes', t('Marcar huecos en rojo', 'Mark gaps in red')), chk('rulers', t('Reglas (en píxeles)', 'Rulers (in pixels)')),
             h('label', null, h('input', { type: 'checkbox', checked: !!S.sim, disabled: !portrait, onChange: (e) => { S.sim = e.target.checked ? 'tiktok' : null; renderVbar(); buildSim(); } }), t('Simulador de plataformas', 'Platform simulator')),
             S.sim ? h('div', { style: { padding: '4px 10px 8px' } }, MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network'))) : null,
             !portrait ? h('span', { class: 'cap', style: { padding: '4px 10px' } }, t('Zonas seguras y simulador son para formatos verticales.', 'Safe zones and the simulator are for vertical formats.')) : null) : null) : null,
@@ -1461,6 +1478,61 @@
     const frameRect = (kf, o) => ({ cx: o.W / 2 + kf.x * o.W, cy: o.H / 2 + kf.y * o.H, hw: o.W / (2 * kf.zoom), hh: o.H / (2 * kf.zoom) });
     const camMap = (c, o) => { const k = c.width / (o.W * VIEW_W); return { k, ox: (c.width - o.W * k) / 2, oy: (c.height - o.H * k) / 2 }; };
 
+    /* vista previa al pasar el cursor: aplica el preset a modo de prueba, reproduce el plano y lo deshace al salir */
+    let hov = null;
+    function hoverStop() {
+      if (!hov) return; const h0 = hov; hov = null; clearInterval(h0.iv);
+      const sh = S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fx) sh.fx = JSON.parse(h0.fx); }
+      S.view = h0.view; setTime(h0.time); renderVbar(); S.dirty = true;
+    }
+    function hoverStart(kind, apply) {
+      if (S.playing || hov || S.view === 'page' || S.view === 'strip') return; const sh = shot(); if (!sh) return;
+      const st = MC.shotStarts(S.project)[S.si]; hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view };
+      apply(sh, st); S.view = 'out'; const t0 = performance.now(), from = kind === 'fx' ? clamp(S.time - st, 0, Math.max(0, sh.duration - 0.2)) : 0;
+      hov.iv = setInterval(() => { const el2 = ((performance.now() - t0) / 1000); setTime(st + (kind === 'fx' ? from + (el2 % Math.max(0.5, sh.duration - from)) : el2 % sh.duration)); }, 33);
+    }
+    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverStart(kind, apply); }); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
+    /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
+    function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); }
+    function setViewZoom(z, cx, cy) {
+      const v = S.vz, nz = clamp(z, 0.25, 8), r = el.stage.getBoundingClientRect(), mx = (cx == null ? r.left + r.width / 2 : cx) - (r.left + r.width / 2), my = (cy == null ? r.top + r.height / 2 : cy) - (r.top + r.height / 2), k = nz / v.z;
+      v.x = mx - (mx - v.x) * k; v.y = my - (my - v.y) * k; v.z = nz; if (nz === 1) { v.x = 0; v.y = 0; } applyViewXf(); S.dirty = true;
+    }
+    const resetViewZoom = () => { S.vz = { z: 1, x: 0, y: 0 }; applyViewXf(); S.dirty = true; };
+    /* reglas: marcas a lo largo de los bordes, en píxeles del vídeo */
+    function drawRulers(ctx, o, k) {
+      const W = ctx.canvas.width, H = ctx.canvas.height, st = getComputedStyle(document.documentElement), fg = st.getPropertyValue('--fg').trim() || '#fff', d = S.dpr;
+      const stepPx = [10, 20, 50, 100, 200, 250, 500, 1000].find((n) => n * k * S.vz.z >= 46 / d * d / 1) || 1000;
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, W, 16 * d); ctx.fillRect(0, 0, 16 * d, H);
+      ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = (10 * d) + 'px system-ui, sans-serif'; ctx.lineWidth = 1; ctx.textBaseline = 'top';
+      for (let x = 0; x <= o.W; x += stepPx / 5) { const X = x * k, major = Math.round(x / stepPx * 5) % 5 === 0; ctx.beginPath(); ctx.moveTo(X, (major ? 4 : 11) * d); ctx.lineTo(X, 16 * d); ctx.stroke(); if (major) ctx.fillText(String(Math.round(x)), X + 3 * d, 2 * d); }
+      for (let y = 0; y <= o.H; y += stepPx / 5) { const Y = y * k, major = Math.round(y / stepPx * 5) % 5 === 0; ctx.beginPath(); ctx.moveTo((major ? 4 : 11) * d, Y); ctx.lineTo(16 * d, Y); ctx.stroke(); if (major) { ctx.save(); ctx.translate(2 * d, Y + 3 * d); ctx.rotate(Math.PI / 2); ctx.fillText(String(Math.round(y)), 0, 0); ctx.restore(); } }
+      if (S.mouse) { ctx.strokeStyle = '#e5333d'; ctx.beginPath(); ctx.moveTo(S.mouse.x, 0); ctx.lineTo(S.mouse.x, 16 * d); ctx.moveTo(0, S.mouse.y); ctx.lineTo(16 * d, S.mouse.y); ctx.stroke(); }
+      ctx.restore();
+    }
+    /* vista lateral de profundidad: las capas «de perfil», de lejos a cerca; se arrastran para cambiar su z */
+    const DEPTH = { pad: 70 };
+    function drawDepth(ctx, sh) {
+      const c = el.canvas, W = c.width, H = c.height, d = S.dpr, st = getComputedStyle(document.documentElement), acc = st.getPropertyValue('--accent').trim() || '#8C7CFF', fg = st.getPropertyValue('--fg').trim() || '#fff', mu = st.getPropertyValue('--muted').trim() || '#999', pad = DEPTH.pad * d;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#16181B'; ctx.fillRect(0, 0, W, H);
+      const x0 = pad, x1 = W - pad, base = H - 46 * d; ctx.strokeStyle = mu; ctx.lineWidth = d; ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x1, base); ctx.stroke();
+      ctx.fillStyle = mu; ctx.font = (12 * d) + 'px system-ui, sans-serif'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillText(t('lejos · 0', 'far · 0'), x0, base + 10 * d); ctx.textAlign = 'right'; ctx.fillText(t('cerca · 1', 'near · 1'), x1, base + 10 * d); ctx.textAlign = 'center'; ctx.fillText(t('Arrastra una capa a izquierda o derecha para cambiar su profundidad', 'Drag a layer left or right to change its depth'), W / 2, 12 * d);
+      for (let q = 0; q <= 10; q++) { const X = x0 + (q / 10) * (x1 - x0); ctx.beginPath(); ctx.moveTo(X, base); ctx.lineTo(X, base + 5 * d); ctx.stroke(); }
+      const o = opts(), layers = sh.layers.map((l, i) => ({ l, i })).sort((a, b) => a.l.z - b.l.z), hit = [];
+      layers.forEach((q, n) => {
+        const l = q.l, a = MC.assets.get(l.assetId), X = x0 + clamp(l.z, 0, 1) * (x1 - x0), ch = (H - 120 * d), cw = Math.min(150 * d, ch * ((a ? a.w / a.h : 1)) * 0.5 + 24 * d), Y = base - ch + (n % 3) * 6 * d;
+        ctx.save(); ctx.globalAlpha = l.visible === false ? 0.3 : 1;
+        ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(X - cw / 2, Y, cw, ch);
+        if (a) { const src = a.video ? a.bitmap : a.bitmap, k = Math.min(cw / a.w, ch / a.h); try { ctx.drawImage(src, X - (a.w * k) / 2, Y + ch - a.h * k, a.w * k, a.h * k); } catch (e) { /* sin imagen */ } }
+        ctx.strokeStyle = i2sel(q.i) ? acc : mu; ctx.lineWidth = (i2sel(q.i) ? 2.5 : 1) * d; ctx.strokeRect(X - cw / 2, Y, cw, ch);
+        ctx.fillStyle = i2sel(q.i) ? acc : fg; ctx.textAlign = 'center'; ctx.font = (11 * d) + 'px system-ui, sans-serif'; ctx.fillText(l.name.slice(0, 16) + ' · ' + l.z.toFixed(2), X, Y - 14 * d);
+        ctx.restore(); hit.push({ i: q.i, x0: X - cw / 2, x1: X + cw / 2, y0: Y, y1: Y + ch });
+      });
+      S.depthHit = hit;
+      /* cámara a la derecha */
+      ctx.fillStyle = fg; const cx = x1 + 34 * d, cy = base - 40 * d; ctx.fillRect(cx - 14 * d, cy - 10 * d, 20 * d, 20 * d); ctx.beginPath(); ctx.moveTo(cx + 6 * d, cy); ctx.lineTo(cx + 18 * d, cy - 9 * d); ctx.lineTo(cx + 18 * d, cy + 9 * d); ctx.closePath(); ctx.fill();
+    }
+    const i2sel = (i) => i === S.li;
     function draw() {
       const c = el.canvas; if (!c.width) return;
       const hits = [], ctx = c.getContext('2d'), o = opts({ collect: hits }), sh = shot();
@@ -1468,6 +1540,8 @@
       el.empty.hidden = !!(sh && sh.layers.length);
       if (S.view === 'page' && !(sh && sh.page)) { S.view = 'out'; renderVbar(); }
       if (S.view === 'strip' && !(sh && sh.webtoon)) { S.view = 'out'; renderVbar(); }
+      if (S.view === 'depth' && sh && !(sh.page || sh.webtoon)) return drawDepth(ctx, sh);
+      if (S.view === 'depth') { S.view = 'out'; renderVbar(); }
       if (S.view === 'page') return drawPage(ctx, sh);
       if (S.view === 'strip') return drawStrip(ctx, sh);
       if (S.view === 'cam' && sh) return drawCam(ctx, o, sh);
@@ -1477,6 +1551,7 @@
       MC.renderFrame(ctx, S.project, S.time, o);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       drawOvSel(ctx, o, k);
+      if (S.rulers) drawRulers(ctx, o, k);
       if (S.safe) drawSafe(ctx, c);
       if (S.guides) drawGuides(ctx, c);
       const hit = !S.playing && S.tx && hits.find((x) => x.id === S.tx);
@@ -1621,8 +1696,14 @@
     function wire(c) {
       const px = (e) => { const r = c.getBoundingClientRect(), s = c.width / r.width; return { x: (e.clientX - r.left) * s, y: (e.clientY - r.top) * s }; };
       c.addEventListener('pointerdown', (e) => {
+        if (e.button === 1 || (e.altKey && S.vz.z !== 1)) { e.preventDefault(); c.setPointerCapture(e.pointerId); drag = { m: 'vpan', x0: e.clientX, y0: e.clientY, vx: S.vz.x, vy: S.vz.y }; S.dragging = true; return; }
         const sh = shot(), o = opts(), p = px(e);
         if (!sh) return;
+        if (S.view === 'depth') {
+          const hit = (S.depthHit || []).slice().reverse().find((q) => p.x >= q.x0 && p.x <= q.x1 && p.y >= q.y0 && p.y <= q.y1);
+          if (hit) { S.li = hit.i; S.tx = null; S.cl = null; drag = { m: 'depthz', l: sh.layers[hit.i] }; c.setPointerCapture(e.pointerId); S.dragging = true; renderLayers(); renderInspector(); S.dirty = true; }
+          return;
+        }
         if (S.view === 'page') {
           const pg = sh.page, M = S.pageMap; if (!pg || !M) return;
           const iw = M.img.w * M.kp, ih = M.img.h * M.kp, nx = (p.x - M.ox) / iw, ny = (p.y - M.oy) / ih, sel = pg.panels.find((q) => q.id === S.pn);
@@ -1707,9 +1788,12 @@
         if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
       });
       c.addEventListener('pointermove', (e) => {
+        { const r0 = c.getBoundingClientRect(), s0 = c.width / r0.width; S.mouse = { x: (e.clientX - r0.left) * s0, y: (e.clientY - r0.top) * s0 }; if (S.rulers && !drag) S.dirty = true; }
         if (!drag && S.view === 'page' && S.poly) { const M = S.pageMap, q = px(e); if (M) { S.polyCur = [clamp((q.x - M.ox) / (M.img.w * M.kp), 0, 1), clamp((q.y - M.oy) / (M.img.h * M.kp), 0, 1)]; S.dirty = true; } return; }
         if (!drag) return;
+        if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0); S.vz.y = drag.vy + (e.clientY - drag.y0); applyViewXf(); return; }
         const p = px(e), sh = shot();
+        if (drag.m === 'depthz') { drag.l.z = clamp(Math.round(((p.x - DEPTH.pad * S.dpr) / (c.width - 2 * DEPTH.pad * S.dpr)) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
         if (drag.m === 'pnmove') {
           const q = drag.q, o0 = drag.o0, dx = clamp((p.x - drag.p0.x) / drag.iw, -o0.x0, 1 - o0.x1), dy = clamp((p.y - drag.p0.y) / drag.ih, -o0.y0, 1 - o0.y1);
           q.x0 = o0.x0 + dx; q.x1 = o0.x1 + dx; q.y0 = o0.y0 + dy; q.y1 = o0.y1 + dy;
@@ -1761,10 +1845,12 @@
           if (drag.m === 'pnnew') { const q = drag.q; if (q.x1 - q.x0 > 0.04 && q.y1 - q.y0 > 0.03) { pg.panels.push(q); S.pn = q.id; } }
           pg.manual = true;
         }
+        if (drag.m === 'vpan') { drag = null; S.dragging = false; return; }
         drag = null; S.dragging = false; commit();
       };
       c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
       c.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); setViewZoom(S.vz.z * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY); return; }
         const sh = shot(), f = Math.exp(-e.deltaY * 0.0012);
         if (S.view === 'cam' && sh) { const kf = sh.camera[S.kf]; kf.zoom = clamp(kf.zoom * f, 1, 4); sh.camera.preset = 'custom'; }
         else if (layer()) { const l = layer(); l.scale = clamp((l.scale || 1) * f, 0.5, 3); } else return;

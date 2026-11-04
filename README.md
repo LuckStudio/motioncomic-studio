@@ -176,6 +176,27 @@ En el modo Página, tus páginas ya traen sus viñetas; se puede añadir un marc
   <img src="docs/img/transiciones.png" alt="Catálogo de transiciones con miniaturas y la transición Vista de página en el visor" width="900">
 </p>
 
+### Superposiciones y vídeo
+
+Además de las capas de cada plano, puedes poner elementos **fijos por encima de toda la ilustración**, en sus propias pistas de la línea de tiempo (hasta 6) y fuera del movimiento de la cámara:
+
+- **Imágenes y vídeos** (MP4, WebM, MOV): un personaje ya animado con la boca en movimiento, un marco, un logotipo, un overlay de partículas…
+- **Croma**: si el vídeo está grabado sobre verde o azul, se quita el fondo (con tolerancia, suavizado y limpieza del reflejo). Si ya tiene transparencia (WebM con alfa), se respeta.
+- Colocar y escalar arrastrando en el visor (esquina para el tamaño, círculo para girar), rejilla de posiciones, voltear, opacidad, modos de mezcla, bloquear.
+- El **audio del vídeo** pasa a la pista de locución y sigue al clip cuando lo mueves o lo recortas.
+- Los vídeos también pueden ser **capas dentro de un plano**, con parallax y profundidad.
+- Si varios clips de una misma pista se **solapan**, pasan a una segunda fila dentro de esa pista para verlos bien.
+
+> Para trabajar con vídeo y archivos pesados, MotionComic Studio funciona mejor **instalado en tu ordenador o tableta**.
+
+### Animación de capas
+
+- **Entradas, salidas y bucles** por capa y por superposición: aparecer, deslizarse, pop, zoom, caída con rebote, giro, flotar, balanceo, respirar, latido…
+- **Fotogramas clave** visibles como rombos en la línea de tiempo (mover, escalar, girar y desvanecer), con **editor de curvas Bézier**. La curva de la cámara también es editable.
+- **Pivote** por capa (por ejemplo, el hombro de un brazo) y **límite de desplazamiento** del parallax.
+- **Personaje por capas**: capas de «ojos cerrados» que parpadean solas y capas de **boca que se abren según el volumen de la locución**.
+- **Aspecto por elemento**: sombra, resplandor, contorno de pegatina y ajuste de color (brillo, contraste, saturación, tono).
+
 ### Texto del cómic
 
 - **Bocadillos** de habla, grito y pensamiento con cola arrastrable, **cajas de texto**, **onomatopeyas** y **subtítulos**.
@@ -194,7 +215,9 @@ En el modo Página, tus páginas ya traen sus viñetas; se puede añadir un marc
 - **Animación dentro de la viñeta**: temblor, golpe de impacto con destello (y sonido si quieres), pulso y vibración. Se aplican al plano entero, a una capa o a una viñeta concreta.
 - **Efectos de acción y ambiente**: líneas de velocidad y de concentración, aberración cromática, destello de color, lluvia, polvo, chispas, nieve y humo.
 - **Rack focus**: el enfoque pasa de una capa a otra.
-- **Aspecto general**: viñeteado, grano de película, tramado de cómic (halftone) y tinte de color.
+- **Niebla** y **haces de luz** como efectos de ambiente, y **dolly zoom** (efecto vértigo) como movimiento de cámara.
+- **Aspecto general**: saturación, contraste, brillo, temperatura, viñeteado, grano de película, tramado de cómic (halftone) y tinte de color.
+- **Vista previa al pasar el cursor** sobre los movimientos de cámara y los efectos.
 
 ### Audio
 
@@ -202,11 +225,14 @@ En el modo Página, tus páginas ya traen sus viñetas; se puede añadir un marc
 - Importa WAV, MP3, M4A u OGG, o **graba con el micrófono** con cuenta atrás.
 - Mover, recortar y dividir clips, volumen y fundidos por clip, mezcla por pista y **ducking automático** (la música baja sola cuando habla la voz).
 - **Marcadores en las pausas de la voz** y «ajustar planos a la voz» para que cada plano dure lo que su frase.
+- **Mezclador** con silenciar, solo y medidores de nivel por pista.
+- **Marcadores con notas** (M) y **marcadores de pulso musical** (B); detección automática del pulso de la música y «cortes al pulso».
 - **Biblioteca de sonidos generados por código** (efectos y músicas), sin problemas de licencia.
 
 ### Exportación
 
 - **MP4** codificado en el propio navegador: H.264 (o VP9 si no hay H.264) con audio AAC u Opus.
+- **WebM** (VP9 + Opus), **GIF animado** (hasta 480 px y 30 s), **secuencia de PNG** en un ZIP y **solo audio** (WAV).
 - **Presets por plataforma**: TikTok, Reels y Shorts (9:16), YouTube 1080p y 4K, Instagram 4:5 y cuadrado.
 - Fotogramas por segundo, calidad, rango (todo o solo el plano actual), idioma del texto y normalización del volumen.
 - **Varios formatos a la vez**: por ejemplo 16:9 y 9:16 en una pasada; en páginas y tiras la cámara se recalcula para cada formato.
@@ -217,6 +243,27 @@ En el modo Página, tus páginas ya traen sus viñetas; se puede añadir un marc
 <p align="center">
   <img src="docs/img/exportar.png" alt="Espacio Exportar con los presets de plataforma, fotogramas por segundo, idioma, calidad y resumen del archivo" width="900">
 </p>
+
+### Línea de tiempo avanzada
+
+- **Selección múltiple** (Mayús o Ctrl + clic, o recuadro con Mayús + arrastrar), mover varios clips a la vez, **duplicar** (Ctrl+D), **agrupar** y desagrupar.
+- **Ripple**: al cambiar la duración de un plano, todo lo que va detrás lo acompaña.
+- **Pista de efectos** con los efectos de todos los planos, **miniaturas** dentro de los clips de plano y **tira de fotogramas** en los de vídeo.
+- Pista de **fotogramas clave** del elemento seleccionado.
+
+### Tus proyectos: archivo, versiones y biblioteca
+
+- **Guardar una copia en un archivo** `.motioncomic` (un ZIP con el proyecto y todos sus medios) y abrirla en otro equipo.
+- **Historial de versiones**: se guarda solo cada pocos minutos y al cerrar; también versiones con nombre y «Restaurar».
+- **Biblioteca** compartida entre proyectos, con carpetas y etiquetas: personajes, fondos, efectos de sonido… para usar como capa, superposición o audio.
+- Avisa si queda poco espacio en el navegador.
+
+### Interfaz ajustable
+
+- **Arrastra los bordes** del panel izquierdo, de la columna derecha y de la línea de tiempo para cambiar su tamaño; **doble clic** en un borde para ocultarlo.
+- **Tamaño de la interfaz** del 70 % al 150 % para adaptarla a cada pantalla (menú de la barra superior).
+- **Zoom y desplazamiento del visor** (Ctrl + rueda; rueda pulsada o Alt + arrastrar), **reglas** en píxeles y **vista lateral de profundidad** para colocar las capas en el eje Z arrastrándolas.
+- **Tabla de traducción** con todos los textos y una columna por idioma.
 
 ### Ayudas para trabajar más rápido
 
@@ -240,15 +287,21 @@ En el modo Página, tus páginas ya traen sus viñetas; se puede añadir un marc
 
 | Entrada | Detalles |
 |---|---|
-| **PNG, JPEG, WebP** | Capas, planos, páginas o partes de una tira. |
-| **PSD** | En modo libre conserva capas, nombres, grupos, visibilidad, opacidad y modos de fusión básicos, y avisa de capas vacías, ocultas o con nombre repetido. En página y webtoon entra aplanado. |
+| **PNG, JPEG, WebP, SVG** | Capas, planos, páginas o partes de una tira. El SVG se convierte a imagen de alta resolución. Avisa si una imagen está en CMYK. |
+| **MP4, WebM, MOV** | Vídeo como capa o como superposición, con su audio. Depende de los códecs de tu navegador: MP4 (H.264) y WebM funcionan en Chrome y Edge. |
+| **ZIP o carpeta** | Todas las imágenes de una carpeta o un ZIP de golpe (también arrastrando carpetas al visor). |
+| **PSD** | En modo libre conserva capas, nombres, grupos, visibilidad, opacidad y modos de fusión básicos, y avisa de capas vacías, ocultas o con nombre repetido. Las **capas de texto** pasan a textos editables. En página y webtoon entra aplanado. |
 | **PDF** | Cada página se convierte en imagen a la resolución elegida (hasta 80 páginas). |
 | **WAV, MP3, M4A, OGG** | Locución, efectos o música. |
 | **TTF, OTF** | Tipografías propias para los textos. |
 
 | Salida | Detalles |
 |---|---|
-| **MP4** | Vídeo H.264 o VP9 con audio AAC u Opus. |
+| **MP4 / WebM** | Vídeo H.264 o VP9 con audio AAC u Opus (WebM: VP9 + Opus). |
+| **GIF** | Animación corta, hasta 480 px de ancho. |
+| **ZIP de PNG** | Un PNG por fotograma. |
+| **WAV** | Solo la mezcla de audio. |
+| **.motioncomic** | Copia completa del proyecto con sus medios. |
 | **PNG** | Portada del vídeo. |
 | **SRT** | Subtítulos. |
 | **JSON** | «Mi estilo» y presets, para llevarlos a otro equipo. |
@@ -274,6 +327,9 @@ Base «MotionComic Studio» (se pueden cambiar todos en **Preferencias → Atajo
 | Acercar / alejar la línea de tiempo | + / − |
 | Deshacer / rehacer | Ctrl + Z / Ctrl + Mayús + Z |
 | Guardar ahora | Ctrl + S |
+| Duplicar lo seleccionado | Ctrl + D |
+| Seleccionar todos los clips | Ctrl + A |
+| Marcador con nota / marcar un pulso | M / B |
 | Exportar | Ctrl + E |
 | Ayuda | ? |
 
@@ -295,6 +351,8 @@ En Mac, Ctrl es ⌘.
 - **Navegador recomendado**: Chrome o Edge de escritorio actualizados, que son los más completos.
 - **Para exportar** hace falta un navegador con **WebCodecs** (Chrome, Edge y otros basados en Chromium; Safari reciente). Si el tuyo no lo admite, la app te avisa.
 - Funciona en **tableta** y **móvil**, con una previsualización de calidad media para ir fluida.
+- **Vídeo**: el visor reproduce los vídeos del navegador; para exportar se coloca cada fotograma con exactitud, así que los proyectos con mucho vídeo tardan más. Los códecs que se pueden leer dependen del navegador (MP4/H.264 y WebM en Chrome y Edge).
+- **Instalado va mejor**: instalada en el ordenador o la tableta, la aplicación tiene más memoria disponible y el navegador no borra tus proyectos.
 - **Memoria**: como referencia, hasta unos 100 megapíxeles de imágenes por proyecto en edición. Las imágenes de más de 4096 px se editan con una copia ligera y se exportan con la original. En 4K con muchos PSD pesados, conviene exportar en 1080p. La app avisa si te acercas al límite de tu equipo.
 - **Limitaciones conocidas**: las capas de un PSD entran aplanadas en los modos Página y Webtoon, y los PDF con tipografías asiáticas no incrustadas pueden verse con fuentes de reserva.
 
@@ -343,6 +401,10 @@ Abre `http://localhost:8000`.
 | `src/js/panel.js` | Contenedor de viñeta (calle, forma, trazo, sombra) y catálogo de transiciones. |
 | `src/js/studio.js` | Interfaz del estudio. |
 | `src/js/home.js` | Pantalla de inicio y creación de proyectos. |
+| `src/js/overlay.js` | Vídeo importado, croma y pistas de superposición. |
+| `src/js/anim.js` | Entradas, salidas, bucles, fotogramas clave, curvas, personaje (parpadeo y boca) y aspecto por elemento. |
+| `src/js/outputs.js` | WebM, GIF, secuencia de PNG y solo audio. |
+| `src/js/zip.js`, `src/js/file.js` | ZIP, archivo `.motioncomic`, versiones, biblioteca y importación de SVG, ZIP y carpetas. |
 | `src/js/page.js` | Detección de viñetas, modo Página y modo Webtoon. |
 | `src/js/text.js` | Bocadillos, cajas, onomatopeyas y subtítulos. |
 | `src/js/fx.js` | Efectos, rack focus y aspecto general. |
