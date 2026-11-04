@@ -2,6 +2,7 @@
 (function () {
   const MC = window.MC;
   const { t } = MC;
+  const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
   /* Para el modo Página: el PSD se usa como una sola imagen (la composición ya aplanada). */
   MC.psdComposite = async (file) => {
@@ -37,7 +38,7 @@
     if (dup.length) warnings.push(t('Nombres repetidos: ', 'Duplicate names: ') + dup.slice(0, 4).join(', ') + (dup.length > 4 ? '…' : ''));
 
     const shot = MC.newShot(file.name.replace(/\.psd$/i, ''));
-    const n = leaves.length;
+    const n = leaves.length, texts = [];
     for (let i = 0; i < n; i++) {
       const { l, hid, group } = leaves[i];
       const blob = await new Promise((res) => l.canvas.toBlob(res, 'image/png'));
@@ -49,11 +50,19 @@
       layer.name = l.name || layer.name;
       layer.doc = { w: doc.w, h: doc.h, left: l.left || 0, top: l.top || 0 };
       layer.visible = !hid;
+      /* las capas de texto del PSD pasan además a textos editables y animables; la capa rasterizada queda apagada */
+      if (l.text && l.text.text && String(l.text.text).trim()) {
+        const st = (l.text.style || {}), tr = l.text.transform || [1, 0, 0, 1, 0, 0], fs = (st.fontSize || 28) * Math.abs(tr[3] || 1), fc = st.fillColor || { r: 20, g: 20, b: 28 };
+        const lw = l.canvas.width, lh = l.canvas.height, cx = ((l.left || 0) + lw / 2) / doc.w - 0.5, cy = ((l.top || 0) + lh / 2) / doc.h - 0.5;
+        texts.push({ text: String(l.text.text).replace(/\r/g, '\n'), x: cx, y: cy, w: Math.min(0.95, Math.max(0.12, (lw / doc.w) * 1.15)), size: Math.min(0.2, Math.max(0.02, fs / doc.h)), color: '#' + [fc.r, fc.g, fc.b].map((v) => Math.round(clamp255(v)).toString(16).padStart(2, '0')).join('') });
+        layer.visible = false; layer.name = '(texto) ' + layer.name;
+      }
       if (l.opacity != null && l.opacity < 1) layer.opacity = l.opacity;
       const bm = String(l.blendMode || '').replace(/\s+/g, '-');
       if (bm && bm !== 'normal' && bm !== 'pass-through') layer.blend = bm;
       shot.layers.push(layer);
     }
-    return { shot, warnings, doc, count: n };
+    if (texts.length) warnings.push(t(texts.length + ' capa(s) de texto convertidas en textos editables (la capa original queda apagada).', texts.length + ' text layer(s) turned into editable text (the original layer is turned off).'));
+    return { shot, warnings, doc, count: n, texts };
   };
 })();

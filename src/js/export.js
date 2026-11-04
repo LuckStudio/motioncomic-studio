@@ -19,19 +19,20 @@
   MC.onExportJob = (fn) => { jobListeners.add(fn); return () => jobListeners.delete(fn); };
   const emit = () => jobListeners.forEach((f) => f(MC.exportJob));
   const E = (MC.exporter = {});
+  E.supportedFor = (f) => (f === 'gif' || f === 'png' ? typeof OffscreenCanvas !== 'undefined' : f === 'audio' ? typeof OfflineAudioContext !== 'undefined' : E.supported());
   E.supported = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && !!window.Mp4Muxer;
 
-  async function pickVideo(w, hh, fps, bitrate) {
-    const list = [['avc', 'avc1.640033'], ['avc', 'avc1.640028'], ['avc', 'avc1.4d0034'], ['vp9', 'vp09.00.51.08'], ['vp9', 'vp09.00.40.08']];
+  async function pickVideo(w, hh, fps, bitrate, onlyVp9) {
+    const list = onlyVp9 ? [['vp9', 'vp09.00.51.08'], ['vp9', 'vp09.00.40.08'], ['vp9', 'vp09.00.31.08']] : [['avc', 'avc1.640033'], ['avc', 'avc1.640028'], ['avc', 'avc1.4d0034'], ['vp9', 'vp09.00.51.08'], ['vp9', 'vp09.00.40.08']];
     for (const c of list) {
       const cfg = { codec: c[1], width: w, height: hh, bitrate, framerate: fps };
       try { const r = await VideoEncoder.isConfigSupported(cfg); if (r.supported) return { mux: c[0], cfg, label: c[0] === 'avc' ? 'H.264' : 'VP9' }; } catch (e) { /* siguiente */ }
     }
     return null;
   }
-  async function pickAudio() {
+  async function pickAudio(onlyOpus) {
     if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return null;
-    for (const c of [['aac', 'mp4a.40.2'], ['opus', 'opus']]) {
+    for (const c of (onlyOpus ? [['opus', 'opus']] : [['aac', 'mp4a.40.2'], ['opus', 'opus']])) {
       const cfg = { codec: c[1], sampleRate: 48000, numberOfChannels: 2, bitrate: 160000 };
       try { const r = await AudioEncoder.isConfigSupported(cfg); if (r.supported) return { mux: c[0], cfg }; } catch (e) { /* siguiente */ }
     }
@@ -41,17 +42,20 @@
   /* opt: { res, fps, mbps, from, to, audio, normalize } */
   const runOne = async (project, opt, onProgress, signal) => {
     const p = Object.assign({}, project, { res: opt.res || project.res });
+    const fmt = opt.format || 'mp4';
+    if (fmt === 'audio') return MC.exportAudioOnly(p, opt, onProgress);
+    if (fmt === 'gif' || fmt === 'png') return MC.exportFrames(p, opt, fmt, onProgress, signal);
     const size = MC.frameSize(p.ratio, p.res), W = size.w, H = size.h, fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
     const total = MC.totalTime(p), from = opt.from || 0, to = Math.min(opt.to == null ? total : opt.to, total), dur = Math.max(0.1, to - from);
     const frames = Math.max(1, Math.round(dur * fps));
     await MC.ensureFonts();
-    const vid = await pickVideo(W, H, fps, bitrate);
+    const vid = fmt === 'webm' ? await pickVideo(W, H, fps, bitrate, true) : await pickVideo(W, H, fps, bitrate);
     if (!vid) throw new Error(t('Este navegador no puede codificar vídeo a ' + W + '×' + H + '. Prueba con una resolución menor.', 'This browser cannot encode video at ' + W + '×' + H + '. Try a lower resolution.'));
     let mixBuf = null, aud = null;
-    if (opt.audio) { onProgress(0, t('Mezclando el audio…', 'Mixing audio…')); mixBuf = await MC.audio.mixdown(p, from, to, opt.normalize); if (mixBuf) aud = await pickAudio(); }
+    if (opt.audio) { onProgress(0, t('Mezclando el audio…', 'Mixing audio…')); mixBuf = await MC.audio.mixdown(p, from, to, opt.normalize); if (mixBuf) aud = await pickAudio(fmt === 'webm'); }
 
     const target = new Mp4Muxer.ArrayBufferTarget();
-    const muxer = new Mp4Muxer.Muxer({ target, video: { codec: vid.mux, width: W, height: H, frameRate: fps }, audio: aud ? { codec: aud.mux, numberOfChannels: 2, sampleRate: 48000 } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
+    const muxer = fmt === 'webm' ? new MC.WebmMuxer({ width: W, height: H, audio: !!aud }) : new Mp4Muxer.Muxer({ target, video: { codec: vid.mux, width: W, height: H, frameRate: fps }, audio: aud ? { codec: aud.mux, numberOfChannels: 2, sampleRate: 48000 } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
     let encErr = null;
     const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } });
     venc.configure(vid.cfg);
@@ -87,9 +91,9 @@
       }
       await aenc.flush(); aenc.close();
     }
-    muxer.finalize();
+    const wb = muxer.finalize();
     onProgress(1, '');
-    return { blob: new Blob([target.buffer], { type: 'video/mp4' }), codec: vid.label, audio: aud ? (aud.mux === 'aac' ? 'AAC' : 'Opus') : mixBuf ? 'sin' : '', W, H, fps, dur };
+    return { blob: fmt === 'webm' ? wb : new Blob([target.buffer], { type: 'video/mp4' }), ext: fmt === 'webm' ? 'webm' : 'mp4', kind: fmt, codec: vid.label, audio: aud ? (aud.mux === 'aac' ? 'AAC' : 'Opus') : mixBuf ? 'sin' : '', W, H, fps, dur };
   };
 
   /* Reencuadra al formato pedido (la cámara de página y de tira se recalcula), carga las imágenes originales y libera la memoria al acabar. */
@@ -111,9 +115,10 @@
   /* Ventana de exportación. api: { project, time, shot, applyFormat(ratio,res) } */
   MC.openExport = (api) => {
     const p = api.project;
-    const st = { multi: false, plats: ['tiktok', 'yt'], plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
+    const st = { multi: false, format: 'mp4', plats: ['tiktok', 'yt'], plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
     const body = h('div', { style: { display: 'grid', gap: '16px' } });
-    let offJob = () => {};
+    let offJob = () => {}, goBtn = null;
+    const goLabel = () => ({ mp4: t('Exportar vídeo', 'Export video'), webm: t('Exportar WebM', 'Export WebM'), gif: t('Exportar GIF', 'Export GIF'), png: t('Exportar PNG', 'Export PNGs'), audio: t('Exportar audio', 'Export audio') })[st.format];
     const hasAudio = () => (p.clips || []).length > 0;
     const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub');
     const plat = () => MC.PLATFORMS.find((x) => x.id === st.plat);
@@ -139,18 +144,22 @@
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.multi, onChange: (e) => { st.multi = e.target.checked; if (st.multi) st.range = 'all'; draw(); } }), h('span', null, t('Exportar varios formatos a la vez', 'Export several formats at once'), h('small', null, t('La cámara se reencuadra para cada formato; los ajustes de cada plataforma se aplican solos.', 'The camera is reframed for each format; each platform’s settings apply automatically.'))))),
         c.mismatch && !st.multi ? h('div', { class: 'calc' }, h('span', { class: 'warn' }, t('Tu proyecto es ' + p.ratio + ' y esta plataforma pide ' + c.ratio + '.', 'Your project is ' + p.ratio + ' and this platform asks for ' + c.ratio + '.')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { api.applyFormat(c.ratio, c.res); st.plat = 'proj'; draw(); } }, t('Cambiar el proyecto a ' + c.ratio, 'Change the project to ' + c.ratio))) : null,
-        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Fotogramas por segundo', 'Frames per second')), MC.ui.seg([24, 30, 60].map((v) => ({ v, l: v + ' fps' })), st.fps, (v) => { st.fps = +v; draw(); })),
+        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Tipo de archivo', 'File type')),
+          MC.ui.chips([{ v: 'mp4', l: 'MP4' }, { v: 'webm', l: 'WebM' }, { v: 'gif', l: 'GIF' }, { v: 'png', l: t('Secuencia PNG', 'PNG sequence') }, { v: 'audio', l: t('Solo audio', 'Audio only') }], st.format, (v) => { st.format = v; if (v === 'gif' && st.fps > 24) st.fps = 15; if (v !== 'gif' && st.fps < 24 && v !== 'png') st.fps = 30; if (v === 'audio') st.multi = false; draw(); if (goBtn) { goBtn.textContent = goLabel(); goBtn.disabled = !E.supportedFor(st.format); } }),
+          h('span', { class: 'cap' }, ({ mp4: t('El más compatible con redes y móviles.', 'The most compatible with social networks and phones.'), webm: t('Para webs y editores; VP9 con audio Opus.', 'For web and editors; VP9 with Opus audio.'), gif: t('Animación corta sin sonido, hasta 480 px de ancho y 30 s.', 'Short silent animation, up to 480 px wide and 30 s.'), png: t('Un PNG por fotograma, en un ZIP, para llevarlo a otro programa.', 'One PNG per frame, in a ZIP, to take into another program.'), audio: t('Solo la mezcla de audio, en WAV.', 'Only the audio mix, as WAV.') })[st.format]),
+          st.format === 'gif' || st.format === 'png' ? null : null),
+        st.format === 'audio' ? null : h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Fotogramas por segundo', 'Frames per second')), MC.ui.seg((st.format === 'gif' ? [10, 15, 24] : [24, 30, 60]).map((v) => ({ v, l: v + ' fps' })), st.fps, (v) => { st.fps = +v; draw(); })),
         p.langs.length > 1 ? h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Idioma del texto', 'Text language')), MC.ui.seg(p.langs.map((l) => ({ v: l, l: l.toUpperCase() })), st.lang, (v) => { st.lang = v; })) : null,
         hasSubs() ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.subs, onChange: (e) => { st.subs = e.target.checked; } }), h('span', null, t('Mostrar los subtítulos en el vídeo', 'Show subtitles in the video'), h('small', null, t('Desactívalo si los subirás aparte como archivo SRT.', 'Turn it off if you will upload them separately as an SRT file.')))) : null,
-        MC.ui.slider({ label: t('Calidad (bitrate)', 'Quality (bitrate)'), min: 2, max: 60, step: 1, value: mbps, fmt: (v) => v + ' Mbps', onInput: (v) => { st.mbps = v; refreshSum(); }, onChange: draw }),
+        ['mp4', 'webm'].includes(st.format) ? MC.ui.slider({ label: t('Calidad (bitrate)', 'Quality (bitrate)'), min: 2, max: 60, step: 1, value: mbps, fmt: (v) => v + ' Mbps', onInput: (v) => { st.mbps = v; refreshSum(); }, onChange: draw }) : null,
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Qué exportar', 'What to export')), MC.ui.seg([{ v: 'all', l: t('Todo el vídeo', 'Whole video') }, { v: 'shot', l: t('Solo el plano actual', 'Current shot only'), off: st.multi }], st.range, (v) => { st.range = v; draw(); })),
-        hasAudio() ? h('div', { style: { display: 'grid', gap: '8px' } },
+        hasAudio() && !['gif', 'png'].includes(st.format) ? h('div', { style: { display: 'grid', gap: '8px' } },
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.audio, onChange: (e) => { st.audio = e.target.checked; draw(); } }), h('span', null, t('Incluir el audio de la línea de tiempo', 'Include timeline audio'))),
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.normalize, disabled: !st.audio, onChange: (e) => { st.normalize = e.target.checked; } }), h('span', null, t('Normalizar el volumen', 'Normalize volume'), h('small', null, t('Sube o baja la mezcla a un nivel cómodo para redes, sin saturar.', 'Raises or lowers the mix to a comfortable level for social media, without clipping.'))))) : null,
         sum,
         memNote(c),
         c.size.w * c.size.h > 3000000 ? h('p', { class: 'cap warn' }, t('4K usa mucha memoria. Si el navegador se queda sin ella, exporta en 1080p.', '4K uses a lot of memory. If the browser runs out, export at 1080p.')) : null,
-        !E.supported() ? h('p', { class: 'cap bad' }, t('Este navegador no puede exportar vídeo. Usa una versión reciente de Chrome, Edge o Safari.', 'This browser cannot export video. Use a recent Chrome, Edge or Safari.')) : null);
+        !E.supportedFor(st.format) ? h('p', { class: 'cap bad' }, t('Este navegador no puede exportar vídeo. Usa una versión reciente de Chrome, Edge o Safari.', 'This browser cannot export video. Use a recent Chrome, Edge or Safari.')) : null);
       function refreshSum() {
         const m2 = st.mbps || mbps, mb2 = (m2 * secs) / 8 + (st.audio && hasAudio() ? 0.02 * secs : 0);
         MC.clear(sum);
@@ -164,7 +173,7 @@
     const content = h('div', { style: { display: 'grid', gap: '16px' } }, body, progress);
     const hostMount = (actions) => { const foot = h('div', { class: 'row-end', style: { position: 'sticky', bottom: 0, background: 'var(--panel)', padding: '10px 0' } }, actions(() => {})); api.host.append(content, foot); return { close() { offJob(); } }; };
     const build = (close) => {
-      const go = h('button', { class: 'btn btn-p', type: 'button', disabled: !E.supported() }, t('Exportar vídeo', 'Export video'));
+      const go = goBtn = h('button', { class: 'btn btn-p', type: 'button', disabled: !E.supportedFor(st.format) }, goLabel());
       const still = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
         const sz = MC.frameSize(p.ratio, p.res), c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
         MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p, { lang: st.lang, subs: st.subs }));
@@ -173,7 +182,7 @@
       let shown = '', bar = null, label = null;
       const showJob = () => {
         const job = MC.exportJob;
-        if (!job) { if (shown) { shown = ''; progress.style.display = 'none'; body.style.display = 'grid'; } go.disabled = !E.supported() || (st.multi && !st.plats.length); still.disabled = false; return; }
+        if (!job) { if (shown) { shown = ''; progress.style.display = 'none'; body.style.display = 'grid'; } go.disabled = !E.supportedFor(st.format) || (st.multi && !st.plats.length); go.textContent = goLabel(); still.disabled = false; return; }
         body.style.display = 'none'; progress.style.display = 'grid';
         go.disabled = true; still.disabled = job.state === 'running';
         if (job.state === 'running') {
@@ -191,14 +200,14 @@
         shown = job.state; MC.clear(progress);
         const back = h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { (job.items || []).forEach((it) => URL.revokeObjectURL(it.url)); MC.exportJob = null; emit(); } }, t('Volver a los ajustes', 'Back to settings'));
         if (job.state === 'done') {
-          const items = job.items, first = items[0].result, vid = h('video', { src: items[0].url, controls: true, style: { width: '100%', maxHeight: '40vh', background: '#000' } });
+          const items = job.items, first = items[0].result, mk = (u, r) => (r.kind === 'gif' ? h('img', { src: u, alt: '', style: { width: '100%', maxHeight: '40vh', objectFit: 'contain', background: '#000' } }) : r.kind === 'png' ? h('p', { class: 'cap' }, t('ZIP con un PNG por fotograma.', 'A ZIP with one PNG per frame.')) : r.kind === 'audio' ? h('audio', { src: u, controls: true, style: { width: '100%' } }) : h('video', { src: u, controls: true, style: { width: '100%', maxHeight: '40vh', background: '#000' } })), vid = mk(items[0].url, first);
           const rows = items.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, it.label), h('span', { class: 'lz' }, it.result.W + '×' + it.result.H + ' · ' + (it.result.blob.size / 1e6).toFixed(1) + ' MB'),
-            items.length > 1 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { vid.src = it.url; } }, t('Ver', 'View')) : null,
+            items.length > 1 && vid.src !== undefined ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { vid.src = it.url; } }, t('Ver', 'View')) : null,
             h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { download(it.result.blob, it.file); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 13), t('Descargar', 'Download'))));
           MC.put(progress, h('div', { class: 'eyebrow' }, t('Listo', 'Done') + (items.length > 1 ? ' · ' + items.length + ' ' + t('formatos', 'formats') : '')), vid, h('div', { style: { display: 'grid', gap: '2px' } }, rows),
-            first.codec !== 'H.264' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica H.264, así que el vídeo está en VP9. Para subirlo a redes, exporta desde Chrome, Edge o Safari de escritorio.', 'This browser does not encode H.264, so the video is VP9. To upload it to social media, export from desktop Chrome, Edge or Safari.')) : null,
-            first.audio === 'Opus' ? h('p', { class: 'cap warn' }, t('El audio está en Opus porque este navegador no codifica AAC. Algunas redes y reproductores lo rechazan: exporta desde Chrome, Edge o Safari de escritorio.', 'Audio is Opus because this browser cannot encode AAC. Some networks and players reject it: export from desktop Chrome, Edge or Safari.')) : null,
-            first.audio === 'sin' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica audio: el vídeo se ha exportado sin sonido.', 'This browser does not encode audio: the video was exported without sound.')) : null,
+            first.kind === 'mp4' && first.codec !== 'H.264' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica H.264, así que el vídeo está en VP9. Para subirlo a redes, exporta desde Chrome, Edge o Safari de escritorio.', 'This browser does not encode H.264, so the video is VP9. To upload it to social media, export from desktop Chrome, Edge or Safari.')) : null,
+            first.kind === 'mp4' && first.audio === 'Opus' ? h('p', { class: 'cap warn' }, t('El audio está en Opus porque este navegador no codifica AAC. Algunas redes y reproductores lo rechazan: exporta desde Chrome, Edge o Safari de escritorio.', 'Audio is Opus because this browser cannot encode AAC. Some networks and players reject it: export from desktop Chrome, Edge or Safari.')) : null,
+            ['mp4', 'webm'].includes(first.kind) && first.audio === 'sin' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica audio: el vídeo se ha exportado sin sonido.', 'This browser does not encode audio: the video was exported without sound.')) : null,
             h('div', { class: 'row-end' }, back, items.length > 1 ? h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { for (const it of items) { download(it.result.blob, it.file); await new Promise((r) => setTimeout(r, 500)); } } }, MC.icon('download', 15), t('Descargar todos', 'Download all')) : null));
         } else {
           MC.put(progress, h('p', { class: job.state === 'cancelled' ? 'cap' : 'cap bad' }, job.state === 'cancelled' ? t('Exportación cancelada.', 'Export cancelled.') : job.error || ''), back);
@@ -215,10 +224,10 @@
         try {
           for (let i = 0; i < targets.length; i++) {
             const pl = targets[i], ratio = pl.ratio || p.ratio, res = pl.res || p.res, size = MC.frameSize(ratio, res), tag = targets.length > 1 ? '(' + (i + 1) + '/' + targets.length + ') ' + t(pl.es, pl.en) + ' · ' : '';
-            const result = await E.run(JSON.parse(JSON.stringify(p)), { ratio, res, fps: st.multi ? pl.fps || 30 : st.fps, mbps: st.multi ? pl.mbps || defaultMbps(size.w, size.h) : st.mbps || pl.mbps || defaultMbps(size.w, size.h),
+            const result = await E.run(JSON.parse(JSON.stringify(p)), { format: st.format, ratio, res, fps: st.multi ? (st.format === 'gif' ? 15 : pl.fps || 30) : st.fps, mbps: st.multi ? pl.mbps || defaultMbps(size.w, size.h) : st.mbps || pl.mbps || defaultMbps(size.w, size.h),
               from: r[0], to: st.range === 'shot' ? r[1] : null, audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
             (f, msg) => { job.progress = (i + f) / targets.length; job.label = tag + msg; emit(); }, job.ctl.signal);
-            job.items.push({ label: t(pl.es, pl.en), result, url: URL.createObjectURL(result.blob), file: base + (targets.length > 1 ? '-' + pl.id : '') + '.mp4' });
+            job.items.push({ label: t(pl.es, pl.en), result, url: URL.createObjectURL(result.blob), file: base + (targets.length > 1 ? '-' + pl.id : '') + '.' + (result.ext || 'mp4') });
           }
           job.state = 'done'; MC.toast(t('Exportación lista: «' + p.name + '»', 'Export ready: “' + p.name + '”'));
         } catch (e) { job.state = e.message === 'cancelado' ? 'cancelled' : 'error'; job.error = e.message || String(e); }

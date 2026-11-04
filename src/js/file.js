@@ -80,4 +80,59 @@
   L.remove = (id) => MC.db.del('library', id);
   /* Los recursos de la biblioteca no se borran al eliminar un proyecto. */
   MC.protectedAssetIds = async () => { const s = await L.ids(); (await MC.db.all('library')).forEach((x) => { if (x.kind === 'video') { const r = MC.assets.cache.get(x.id); if (r && r.audioId) s.add(r.audioId); s.add(x.id + ':a'); } }); return s; };
+
+  /* ---------- importación: SVG, ZIP, carpetas y aviso de CMYK ---------- */
+  /* Un SVG se convierte en PNG de buen tamaño (se mantiene la transparencia). */
+  MC.rasterSvg = async (file) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    try {
+      img.src = url; await img.decode();
+      const nw = img.naturalWidth || 1024, nh = img.naturalHeight || 1024, k = Math.max(0.25, 2400 / Math.max(nw, nh)), c = document.createElement('canvas');
+      c.width = Math.min(6000, Math.round(nw * k)); c.height = Math.min(6000, Math.round(nh * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+      return new File([blob], file.name.replace(/\.svg$/i, '') + '.png', { type: 'image/png' });
+    } finally { URL.revokeObjectURL(url); }
+  };
+  const KIND = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', pdf: 'application/pdf', psd: 'image/vnd.adobe.photoshop' };
+  /* Abre los ZIP (de carpetas de imágenes) y deja una lista plana de archivos. */
+  MC.expandInputs = async (files) => {
+    const out = [];
+    for (const f of files) {
+      if (/\.zip$/i.test(f.name) || f.type === 'application/zip' || f.type === 'application/x-zip-compressed') {
+        try {
+          const ents = (await MC.zip.read(f)).filter((e) => !e.dir && !/(^|\/)(__MACOSX|\.)/.test(e.name) && /\.(png|jpe?g|webp|svg|psd|pdf|mp4|m4v|mov|webm|wav|mp3|m4a|ogg)$/i.test(e.name));
+          for (const e of ents) { const b = await e.blob(), ext = e.name.split('.').pop().toLowerCase(); out.push(new File([b], e.name.split('/').pop(), { type: KIND[ext] || b.type })); }
+        } catch (e) { MC.toast(t('No se pudo abrir el ZIP ', 'Could not open the ZIP ') + f.name); }
+      } else out.push(f);
+    }
+    return out;
+  };
+  /* Archivos arrastrados, incluidas las carpetas. */
+  MC.collectDropped = async (dt) => {
+    const items = dt.items ? [...dt.items].map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)) : [];
+    if (!items.length || items.some((x) => !x)) return [...dt.files];
+    const files = [];
+    const walk = async (en) => {
+      if (en.isFile) { await new Promise((res) => en.file((f) => { files.push(f); res(); }, res)); return; }
+      const rd = en.createReader(); let batch;
+      do { batch = await new Promise((res) => rd.readEntries(res, () => res([]))); for (const c of batch) await walk(c); } while (batch.length);
+    };
+    for (const en of items) await walk(en);
+    return files;
+  };
+  /* ¿Está en CMYK? (JPEG con 4 componentes, o PSD en modo CMYK) Devuelve un aviso o null. */
+  MC.colorWarn = async (file) => {
+    try {
+      const head = new Uint8Array(await file.slice(0, 131072).arrayBuffer()), cmyk = t('«' + file.name + '» está en CMYK (preparado para imprenta): en pantalla los colores pueden verse apagados o cambiados. Conviértelo a sRGB para que salga como esperas.', '“' + file.name + '” is in CMYK (made for print): colours may look dull or shifted on screen. Convert it to sRGB for the result you expect.');
+      if (head[0] === 0xff && head[1] === 0xd8) {
+        let i = 2; while (i + 9 < head.length) {
+          if (head[i] !== 0xff) { i++; continue; } const m = head[i + 1];
+          if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return head[i + 9] === 4 ? cmyk : null;
+          if (m === 0xd8 || (m >= 0xd0 && m <= 0xd7) || m === 0x01) { i += 2; continue; } i += 2 + ((head[i + 2] << 8) | head[i + 3]);
+        }
+      }
+      if (head[0] === 0x38 && head[1] === 0x42 && head[2] === 0x50 && head[3] === 0x53 && ((head[24] << 8) | head[25]) === 4) return cmyk;
+    } catch (e) { /* sin aviso */ }
+    return null;
+  };
 })();

@@ -90,7 +90,9 @@
 
     /* ---------- importar ---------- */
     async function importFiles(files, mode) {
-      let list = [...files];
+      let list = await MC.expandInputs([...files]);
+      const warns = (await Promise.all(list.map((f) => MC.colorWarn(f)))).filter(Boolean); if (warns.length) MC.toast(warns[0] + (warns.length > 1 ? t(' (y ' + (warns.length - 1) + ' más)', ' (and ' + (warns.length - 1) + ' more)') : ''));
+      for (let i = 0; i < list.length; i++) if (/\.svg$/i.test(list[i].name) || list[i].type === 'image/svg+xml') { try { list[i] = await MC.rasterSvg(list[i]); } catch (e) { MC.toast(t('No se pudo leer el SVG ', 'Could not read the SVG ') + list[i].name); } }
       const psds = list.filter((f) => /\.psd$/i.test(f.name)), auds = list.filter((f) => /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg|aac)$/i.test(f.name));
       for (const f of list.filter((x) => /\.pdf$/i.test(x.name))) {
         try {
@@ -227,8 +229,11 @@
         const r = await MC.importPsd(file), sh = shot(), warns = r.warnings.slice();
         const [pw, ph] = [r.doc.w, r.doc.h];
         if (Math.abs(pw / ph - opts().W / opts().H) > 0.06) warns.push(t('El PSD mide ' + pw + '×' + ph + ' y el proyecto es ' + S.project.ratio + ': se recorta para cubrir el encuadre. Puedes cambiar la proporción en «Formato».', 'The PSD is ' + pw + '×' + ph + ' and the project is ' + S.project.ratio + ': it is cropped to cover the frame. You can change the ratio in “Format”.'));
-        if (!sh.layers.length) { sh.layers = r.shot.layers; sh.name = r.shot.name; S.li = -1; commit(); }
-        else { S.project.shots.splice(S.si + 1, 0, r.shot); commit(); selectShot(S.si + 1, true); }
+        const startAt = (!sh.layers.length ? MC.shotStarts(S.project)[S.si] : MC.shotStarts(S.project)[S.si] + sh.duration);
+        if (!sh.layers.length) { sh.layers = r.shot.layers; sh.name = r.shot.name; S.li = -1; }
+        else { S.project.shots.splice(S.si + 1, 0, r.shot); }
+        (r.texts || []).forEach((q) => { const it = MC.newText('box', Math.round(startAt * 100) / 100, S.project); it.t[S.project.lang || 'es'] = q.text; Object.assign(it, { x: q.x, y: q.y, w: q.w, size: q.size, color: q.color, fill: 'rgba(255,255,255,0)', stroke: 'rgba(0,0,0,0)', align: 'center', anim: 'pop', dur: Math.min(4, (shot() ? r.shot.duration : 4)) }); S.project.texts.push(it); });
+        if (!sh.layers.length || sh.layers === r.shot.layers) commit(); else { commit(); selectShot(S.si + 1, true); }
         MC.modal(t('PSD importado', 'PSD imported'), h('div', { style: { display: 'grid', gap: '10px' } },
           h('p', null, t(r.count + ' capas con su nombre y orden. Las capas que reconocemos (fondo, cielo, personaje, texto…) ya tienen su profundidad; revisa el resto.', r.count + ' layers with their names and order. Recognised layers (background, sky, character, text…) already have their depth; check the rest.')),
           warns.length ? h('ul', { class: 'cap', style: { margin: 0, paddingLeft: '18px', display: 'grid', gap: '4px' } }, warns.map((w) => h('li', null, w))) : h('p', { class: 'cap good' }, t('Sin avisos.', 'No warnings.'))),
@@ -1220,12 +1225,14 @@
     function resourcesPanel() {
       const p = S.project, ids = [...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))], aud = [...new Set(p.clips.map((c) => c.assetId))];
       const row = (thumb, name, meta) => h('div', { class: 'layer', style: { cursor: 'default' } }, thumb ? h('img', { class: 'lt', src: thumb, alt: '' }) : h('span', { class: 'lt' }), h('span', { class: 'ln' }, name), h('span', { class: 'lz' }, meta));
+      const dirIn = h('input', { type: 'file', webkitdirectory: '', directory: '', multiple: true, hidden: true, onChange: (e) => { const fs = [...e.target.files].filter((f) => !/(^|\/)\./.test(f.webkitRelativePath || f.name)); e.target.value = ''; if (fs.length) importFiles(fs, 'layers'); } });
       const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, onChange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { const rec = await MC.fonts.add(f); p.fonts.push(rec); commit(); MC.toast(t('Tipografía añadida: ', 'Font added: ') + rec.name); } catch (err) { MC.toast(t('No se pudo leer esa tipografía.', 'Could not read that font.')); } } });
       return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileLayers.click() }, MC.icon('image', 20), t('Capas o páginas', 'Layers or pages')),
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('speaker', 20), t('Audio', 'Audio')),
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => fontIn.click() }, MC.icon('text', 20), t('Tipografía', 'Font')),
-        h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileShots.click() }, MC.icon('film', 20), t('Planos', 'Shots'))), fontIn),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileShots.click() }, MC.icon('film', 20), t('Planos', 'Shots')),
+        h('button', { class: 'btn btn-s', type: 'button', title: t('Importa todas las imágenes de una carpeta', 'Import every image in a folder'), onClick: () => dirIn.click() }, MC.icon('folder', 20), t('Carpeta', 'Folder'))), fontIn, dirIn),
       h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Imágenes del proyecto · ', 'Project images · ') + ids.length), ids.length ? h('div', { style: { display: 'grid', gap: '2px' } }, ids.map((id) => { const a = MC.assets.get(id); return a ? row(a.thumb, a.name, a.w + '×' + a.h + (a.proxy ? ' · ' + t('proxy', 'proxy') : '')) : null; })) : h('p', { class: 'cap' }, t('Aún no hay imágenes.', 'No images yet.'))),
       h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Audio · ', 'Audio · ') + aud.length), aud.length ? h('div', { style: { display: 'grid', gap: '2px' } }, aud.map((id) => { const a = MC.audio.get(id); return a ? row(null, a.name, a.dur.toFixed(1) + ' s') : null; })) : h('p', { class: 'cap' }, t('Aún no hay audio.', 'No audio yet.'))),
       p.fonts.length ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Tipografías propias', 'Your fonts')), h('div', { style: { display: 'grid', gap: '2px' } }, p.fonts.map((f) => row(null, f.name, 'TTF/OTF')))) : null];
@@ -2186,8 +2193,8 @@
       } catch (err) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     } });
     const fileOv = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,video/*,.mp4,.m4v,.mov,.webm', multiple: true, hidden: true, id: 'f-ov', onChange: (e) => { addOverlays([...e.target.files], +fileOv.dataset.track || 0); e.target.value = ''; } });
-    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,video/*,.mp4,.m4v,.mov,.webm,.psd,.pdf,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
-    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,video/*,.mp4,.m4v,.mov,.webm,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
+    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/svg+xml,.svg,.zip,video/*,.mp4,.m4v,.mov,.webm,.psd,.pdf,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
+    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/svg+xml,.svg,.zip,video/*,.mp4,.m4v,.mov,.webm,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
     const fileAudio = h('input', { type: 'file', accept: 'audio/*,.wav,.mp3,.m4a,.ogg', multiple: true, hidden: true, id: 'f-audio', onChange: (e) => { importAudio([...e.target.files], fileAudio.dataset.track || 'auto'); e.target.value = ''; } });
     el.top = h('div', { class: 's-top' });
     el.layersBody = h('div', { class: 'pbody' });
@@ -2253,7 +2260,7 @@
 
     el.stage.addEventListener('dragover', (e) => { e.preventDefault(); el.stage.classList.add('over'); });
     el.stage.addEventListener('dragleave', () => el.stage.classList.remove('over'));
-    el.stage.addEventListener('drop', (e) => { e.preventDefault(); el.stage.classList.remove('over'); if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, 'layers'); });
+    el.stage.addEventListener('drop', async (e) => { e.preventDefault(); el.stage.classList.remove('over'); const fs = await MC.collectDropped(e.dataTransfer); if (fs.length) importFiles(fs, 'layers'); });
 
     const ro = new ResizeObserver(() => fit());
     ro.observe(el.stage);
