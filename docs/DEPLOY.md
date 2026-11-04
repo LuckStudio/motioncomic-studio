@@ -10,6 +10,18 @@ node tools/pack.js
 
 Crea `public/` (y `public.zip` si tienes `zip`) con solo lo necesario: `index.html`, `manifest.webmanifest`, `sw.js`, `.htaccess`, `src/`, `icons/`. Calcula una versión a partir del contenido para que el modo sin conexión se actualice solo cuando algo cambie.
 
+### Imagen y texto al compartir el enlace
+
+Al pegar el enlace en WhatsApp, Telegram, X, Facebook, LinkedIn o Slack aparece una tarjeta con el logotipo sobre fondo claro, el nombre y una descripción (`icons/share.png`, 1200×630). Esas redes **solo aceptan direcciones absolutas** en las etiquetas, así que empaqueta indicando tu dominio:
+
+```bash
+SITE_URL=https://tudominio.com node tools/pack.js
+```
+
+(Si la web va en una carpeta, incluye la carpeta: `https://tudominio.com/studio`.) También puedes guardar la dirección en un archivo `tools/site.txt` y ejecutar solo `node tools/pack.js`. Sin dirección, `pack.js` avisa y la imagen no saldrá.
+
+Para cambiar la imagen o su texto, edita `tools/share.js` y ejecuta `node tools/share.js` (necesita Playwright). Después de publicar, las redes guardan la tarjeta en caché: para forzar que la actualicen usa el depurador de Facebook (<https://developers.facebook.com/tools/debug/>) y, en WhatsApp, comparte el enlace con un parámetro nuevo, por ejemplo `?v=2`.
+
 Para probarla en local con las mismas cabeceras de seguridad que `.htaccess`:
 
 ```bash

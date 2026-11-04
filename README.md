@@ -312,6 +312,8 @@ MotionComic Studio es una web estática: basta con subir una carpeta a cualquier
 
    Crea `public/` (y `public.zip`) con todos los archivos, el modo sin conexión versionado y las cabeceras de seguridad en `.htaccess`.
 
+   Para que al **compartir el enlace** (WhatsApp, Telegram, X…) salga la tarjeta con el logotipo y la descripción, indica tu dirección: `SITE_URL=https://tudominio.com node tools/pack.js`.
+
 2. Pruébala en local con las mismas cabeceras:
 
    ```bash
@@ -351,7 +353,7 @@ Abre `http://localhost:8000`.
 | `src/js/sample.js` | Proyectos de ejemplo dibujados por código. |
 | `src/js/keys.js`, `help.js`, `prefs.js` | Atajos, ayuda y tutoriales, preferencias. |
 | `sw.js`, `manifest.webmanifest` | Modo sin conexión e instalación. |
-| `tools/` | `pack.js` (publicación), `serve.js` (servidor de prueba), `build.js` (archivo único de previsualización en `dist/`). |
+| `tools/` | `pack.js` (publicación), `serve.js` (servidor de prueba), `build.js` (archivo único de previsualización en `dist/`), `share.js` (imagen para compartir el enlace), `icons.js` (iconos PNG). |
 
 Documentación interna:
 
