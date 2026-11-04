@@ -174,7 +174,7 @@
   /* ---------- transiciones ---------- */
   MC.TRANSITION_GROUPS = [
     { v: 'basic', es: 'Básicas', en: 'Basic' }, { v: 'move', es: 'Movimiento', en: 'Movement' },
-    { v: 'shape', es: 'Formas', en: 'Shapes' }, { v: 'comic', es: 'Cómic', en: 'Comic' },
+    { v: 'shape', es: 'Formas', en: 'Shapes' }, { v: '3d', es: '3D', en: '3D' }, { v: 'comic', es: 'Cómic', en: 'Comic' },
   ];
   /* dir: admite dirección · color: admite color · gap: admite distancia (calle) */
   MC.TRANSITIONS = [
@@ -197,6 +197,8 @@
     { v: 'blinds', g: 'shape', es: 'Persianas', en: 'Blinds', dir: true },
     { v: 'split', g: 'shape', es: 'Puertas', en: 'Doors', dir: true },
     { v: 'halftone', g: 'shape', es: 'Trama', en: 'Halftone', dir: true, color: '#111111' },
+    { v: 'cube', g: '3d', es: 'Cubo', en: 'Cube', dir: true }, { v: 'flip3d', g: '3d', es: 'Volteo de carta', en: 'Card flip', dir: true }, { v: 'door3d', g: '3d', es: 'Puerta que se abre', en: 'Swinging door', dir: true },
+    { v: 'tumble3d', g: '3d', es: 'Voltereta', en: 'Tumble', dir: true }, { v: 'carousel', g: '3d', es: 'Carrusel', en: 'Carousel', dir: true },
     { v: 'gutter', g: 'comic', es: 'Por la calle', en: 'Along the gutter', dir: true, gap: true },
     { v: 'pageview', g: 'comic', es: 'Vista de página', en: 'Page view', dir: true, gap: true },
     { v: 'pageturn', g: 'comic', es: 'Pasar página', en: 'Page turn', dir: true },
@@ -267,6 +269,35 @@
         ctx.beginPath(); for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const x = i * st, y = j * st, r = clamp(prog(x, y) * 1.4, 0, 1) * st * 0.8; if (r > 0.3 && prog(x, y) < 1) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); } } ctx.fill();
         ctx.restore();
         clipped((g) => { for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const x = i * st, y = j * st, k = prog(x, y), r = clamp(k * 1.25 - 0.25, 0, 1) * st * 0.75; if (r > 0.3) { g.moveTo(x + r, y); g.arc(x, y, r, 0, Math.PI * 2); } } }, B);
+        return;
+      }
+      case 'cube': case 'flip3d': case 'door3d': case 'tumble3d': case 'carousel': {
+        const ca = off('a', A), cb = off('b', B), horiz = dir[0] !== 0, sgn = horiz ? dir[0] : dir[1], D = Math.max(W, H) * 1.6, box = { x: 0, y: 0, w: W, h: H };
+        const ax = (a) => (horiz ? { ry: a } : { rx: -a });
+        let pn = 0;
+        const put = (cv, rot, extra) => {
+          /* con opacidad, primero se pinta opaco en un lienzo aparte y luego se mezcla: así no se ven las costuras de la malla */
+          const op = extra && extra.op != null ? clamp(extra.op, 0, 1) : 1;
+          ctx.save(); if (extra && extra.tx) ctx.translate(extra.tx, extra.ty || 0);
+          if (op < 0.999) { const tmp = canvasOf('p' + (pn++ % 2), W, H); MC.draw3D(tmp.g, cv, W, H, box, Object.assign({ D }, rot, extra && extra.o)); ctx.globalAlpha = op; ctx.drawImage(tmp.c, 0, 0, W, H); }
+          else MC.draw3D(ctx, cv, W, H, box, Object.assign({ D }, rot, extra && extra.o));
+          ctx.restore();
+        };
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+        const a = e * 90, R = (horiz ? W : H) / 2;
+        if (type === 'cube') {
+          const fa = ax(-a * sgn), fb = ax((90 - a) * sgn);
+          if (e < 0.5) { put(cb, fb, { o: { z0: R, z1: -R } }); put(ca, fa, { o: { z0: R, z1: -R } }); } else { put(ca, fa, { o: { z0: R, z1: -R } }); put(cb, fb, { o: { z0: R, z1: -R } }); }
+        } else if (type === 'flip3d') {
+          if (e < 0.5) put(ca, ax(e * 180 * sgn), {}); else put(cb, ax(-(1 - e) * 180 * sgn), {});
+        } else if (type === 'door3d') {
+          put(cb, {}, {}); put(ca, ax(-e * 100 * sgn), { o: horiz ? { pvx: sgn > 0 ? 0 : 1, pvy: 0.5 } : { pvx: 0.5, pvy: sgn > 0 ? 0 : 1 }, op: 1 - e * 0.35 });
+        } else if (type === 'tumble3d') {
+          put(cb, {}, { op: 1 }); put(ca, Object.assign(ax(e * 110 * sgn), { rz: e * 25 * sgn }), { op: 1 - e, o: { z1: e * W * 0.25 } });
+        } else {
+          const off2 = W * 0.95 * (horiz ? 1 : 0), offY = H * 0.95 * (horiz ? 0 : 1);
+          put(cb, ax((1 - e) * 55 * sgn), { tx: (1 - e) * off2 * sgn, ty: (1 - e) * offY * sgn, op: e * 0.6 + 0.4 }); put(ca, ax(-e * 55 * sgn), { tx: -e * off2 * sgn, ty: -e * offY * sgn, op: 1 - e * 0.6 });
+        }
         return;
       }
       case 'gutter': case 'pageview': {

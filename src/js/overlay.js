@@ -186,7 +186,9 @@
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
       const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
       ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip) ctx.scale(-1, 1);
-      if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
+      const rx3 = ((it.r3 && it.r3.x) || 0) + (b.an ? b.an.rx : 0), ry3 = ((it.r3 && it.r3.y) || 0) + (b.an ? b.an.ry : 0), pv = (b.an && b.an.pv) || { x: 0.5, y: 0.5 };
+      if (MC.draw3D && MC.has3D(rx3, ry3)) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, it.persp), pvx: pv.x, pvy: pv.y });
+      else if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
       ctx.restore();
     });
   };

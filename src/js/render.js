@@ -152,14 +152,17 @@
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
+      const pv = (ia && ia.pv) || layer.pivot || { x: 0.5, y: 0.5 };
       if (ia) {
         /* movimiento propio de la capa, alrededor de su pivote (por defecto el centro) */
-        const pv = layer.pivot || { x: 0.5, y: 0.5 }, pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
+        const pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
         ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1) ctx.scale(ia.sc, ia.sc); ctx.translate(-pxx, -pyy);
       }
       let src = img.bitmap;
       if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
-      if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);
+      const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);
+      if (MC.draw3D && MC.has3D(rx3, ry3) && o.fx !== false) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: ix, y: iy, w: iw, h: ih }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, layer.persp), pvx: pv.x, pvy: pv.y });
+      else if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);
       /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
       const pg = shot.page;
       if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {

@@ -38,11 +38,14 @@
     { v: '', es: 'Sin entrada', en: 'None' }, { v: 'fade', es: 'Aparecer', en: 'Fade in' }, { v: 'left', es: 'Desde la izquierda', en: 'From left' }, { v: 'right', es: 'Desde la derecha', en: 'From right' },
     { v: 'up', es: 'Desde arriba', en: 'From top' }, { v: 'down', es: 'Desde abajo', en: 'From bottom' }, { v: 'pop', es: 'Pop', en: 'Pop' }, { v: 'zoom', es: 'Zoom', en: 'Zoom' },
     { v: 'drop', es: 'Caída con rebote', en: 'Bouncy drop' }, { v: 'spin', es: 'Giro', en: 'Spin' }, { v: 'wipe', es: 'Cortina', en: 'Reveal' },
+    { v: 'flipx', es: '3D · Volteo vertical', en: '3D · Flip up' }, { v: 'flipy', es: '3D · Volteo horizontal', en: '3D · Flip sideways' }, { v: 'swingl', es: '3D · Giro desde la izquierda', en: '3D · Swing from left' }, { v: 'swingr', es: '3D · Giro desde la derecha', en: '3D · Swing from right' },
+    { v: 'door', es: '3D · Puerta', en: '3D · Door' }, { v: 'tumble', es: '3D · Voltereta', en: '3D · Tumble' }, { v: 'fly3d', es: '3D · Vuelo', en: '3D · Fly in' },
   ];
   MC.ANIM_OUT = MC.ANIM_IN.map((q) => Object.assign({}, q, q.v === '' ? { es: 'Sin salida', en: 'None' } : q.v === 'fade' ? { es: 'Desaparecer', en: 'Fade out' } : q.v === 'left' ? { es: 'Hacia la izquierda', en: 'To left' } : q.v === 'right' ? { es: 'Hacia la derecha', en: 'To right' } : q.v === 'up' ? { es: 'Hacia arriba', en: 'To top' } : q.v === 'down' ? { es: 'Hacia abajo', en: 'To bottom' } : {}));
   MC.ANIM_LOOP = [
     { v: '', es: 'Sin bucle', en: 'None' }, { v: 'float', es: 'Flotar', en: 'Float' }, { v: 'sway', es: 'Balanceo', en: 'Sway' }, { v: 'breathe', es: 'Respirar', en: 'Breathe' },
     { v: 'pulse', es: 'Latido', en: 'Pulse' }, { v: 'bob', es: 'Saltito', en: 'Bob' }, { v: 'shake', es: 'Temblor', en: 'Shake' }, { v: 'spin', es: 'Girar sin parar', en: 'Spin' }, { v: 'flicker', es: 'Parpadeo de luz', en: 'Flicker' },
+    { v: 'card', es: '3D · Tarjeta que se mece', en: '3D · Swaying card' }, { v: 'tilt3d', es: '3D · Cabeceo', en: '3D · Nodding' }, { v: 'orbit3d', es: '3D · Giro completo', en: '3D · Full turn' }, { v: 'wobble3d', es: '3D · Bamboleo', en: '3D · Wobble' },
   ];
   const rise = (kind, e, st, dist) => { // e: 0 (fuera) → 1 (en su sitio)
     const k = 1 - e;
@@ -57,6 +60,13 @@
       case 'drop': st.dy -= 0.7 * dist * k; st.op *= clamp(e * 6, 0, 1); break;
       case 'spin': st.rot += -270 * k; st.sc *= lerp(0.3, 1, e); st.op *= clamp(e * 3, 0, 1); break;
       case 'wipe': st.op *= e; st.sc *= lerp(0.92, 1, e); break;
+      case 'flipx': st.rx += 90 * k; st.op *= clamp(e * 4, 0, 1); break;
+      case 'flipy': st.ry += 90 * k; st.op *= clamp(e * 4, 0, 1); break;
+      case 'swingl': st.ry += -78 * k; st.dx -= 0.12 * dist * k; st.op *= clamp(e * 3, 0, 1); break;
+      case 'swingr': st.ry += 78 * k; st.dx += 0.12 * dist * k; st.op *= clamp(e * 3, 0, 1); break;
+      case 'door': st.ry += -100 * k; st.pv = { x: 0, y: 0.5 }; st.op *= clamp(e * 4, 0, 1); break;
+      case 'tumble': st.rx += 120 * k; st.ry += 40 * k; st.sc *= lerp(0.55, 1, e); st.op *= clamp(e * 3, 0, 1); break;
+      case 'fly3d': st.ry += 55 * k; st.rx += -20 * k; st.sc *= lerp(0.25, 1, e); st.dy -= 0.18 * dist * k; st.op *= clamp(e * 3, 0, 1); break;
       default: break;
     }
   };
@@ -64,8 +74,8 @@
   const bounce = (x) => { const n1 = 7.5625, d1 = 2.75; if (x < 1 / d1) return n1 * x * x; if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75; if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375; return n1 * (x -= 2.625 / d1) * x + 0.984375; };
 
   /* Interpolación de los fotogramas clave de un elemento: ángulos y desplazamientos relativos a su posición base. */
-  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op'];
-  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1 };
+  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry'];
+  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
   MC.kfValues = (kfs, local) => {
     if (!kfs || !kfs.length) return null;
     const a = kfs.slice().sort((p, q) => p.t - q.t);
@@ -80,8 +90,8 @@
   /* Estado de movimiento de un elemento en el instante local (0 = inicio). Devuelve { dx, dy, sc, rot, op } o null si no se mueve. */
   MC.itemAnim = (item, local, dur) => {
     const A = item.anim, kf = item.kf; if (!A && !(kf && kf.length)) return null;
-    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1 };
-    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; }
+    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0 };
+    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; }
     if (A) {
       const din = A.in && A.in.type ? clamp(A.in.dur || 0.5, 0.05, dur) : 0, dout = A.out && A.out.type ? clamp(A.out.dur || 0.5, 0.05, dur) : 0;
       if (din && local < din) { const u = clamp(local / din, 0, 1); let e = MC.ease(easeFor(A.in.type), u); if (A.in.type === 'drop') e = bounce(u); rise(A.in.type, e, st, A.in.dist == null ? 1 : A.in.dist); }
@@ -98,6 +108,10 @@
           case 'shake': { const k = Math.floor(local * sp * 40); st.dx += (noise(k) - 0.5) * 0.008 * amp; st.dy += (noise(k + 50) - 0.5) * 0.008 * amp; st.rot += (noise(k + 9) - 0.5) * 1.2 * amp; break; }
           case 'spin': st.rot += local * sp * 90 * amp; break;
           case 'flicker': st.op *= 1 - 0.35 * amp * (noise(Math.floor(local * sp * 18)) > 0.55 ? 1 : 0); break;
+          case 'card': st.ry += Math.sin(w * 0.4) * 24 * amp; st.rx += Math.sin(w * 0.27 + 1) * 6 * amp; break;
+          case 'tilt3d': st.rx += Math.sin(w * 0.5) * 22 * amp; break;
+          case 'orbit3d': st.ry += (local * sp * 60 * amp) % 360; break;
+          case 'wobble3d': st.rx += Math.sin(w * 0.6) * 12 * amp; st.ry += Math.cos(w * 0.5) * 16 * amp; st.rot += Math.sin(w * 0.35) * 3 * amp; break;
           default: break;
         }
       }
@@ -105,7 +119,7 @@
     return st;
   };
   /* Combina el movimiento de un elemento con otro ya calculado (por ejemplo, los efectos de impacto de la viñeta). */
-  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op });
+  MC.mergeAnim = (a, b) => (!a ? b : !b ? a : { dx: a.dx + b.dx, dy: a.dy + b.dy, sc: a.sc * b.sc, rot: a.rot + b.rot, op: a.op * b.op, rx: (a.rx || 0) + (b.rx || 0), ry: (a.ry || 0) + (b.ry || 0) });
 
   /* ---------- personaje por capas: parpadeo y boca con la voz ---------- */
   /* Amplitud (0 a 1) de la locución en un instante de la línea de tiempo, a partir de las ondas ya calculadas. */

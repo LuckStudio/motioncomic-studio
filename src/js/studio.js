@@ -16,7 +16,7 @@
 
     const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay', sb: 'subs' };
     const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, sb: null, swi: 0, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
-      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
+      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_3d: false, overlay_3d: false, capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
     const el = {};
@@ -1209,6 +1209,15 @@
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, disabled: !MC.hasItemLook(it), onClick: () => { it.look = null; commit(); } }, t('Quitar todo el aspecto', 'Clear all styling')));
         return nodes;
       };
+      const r3Nodes = (it) => {
+        const r = it.r3 || { x: 0, y: 0 }, set = (k, v) => { it.r3 = Object.assign({ x: 0, y: 0 }, it.r3 || {}, { [k]: v }); S.dirty = true; touch(); };
+        const PRS = [[t('Plano', 'Flat'), 0, 0], [t('Izquierda', 'Left'), 0, -35], [t('Derecha', 'Right'), 0, 35], [t('Arriba', 'Up'), 35, 0], [t('Abajo', 'Down'), -35, 0], [t('Isométrico', 'Isometric'), 30, -35], [t('De canto', 'Edge-on'), 0, 75]];
+        return [h('p', { class: 'cap' }, t('Gira la capa en el espacio, con perspectiva: X la inclina hacia delante o atrás, Y la gira como una puerta. El giro en Z es el «Giro» normal. Se puede animar con fotogramas clave y con las entradas y salidas 3D.', 'Turn the layer in space, with perspective: X tilts it forward or back, Y turns it like a door. Turning in Z is the normal “Rotation”. It can be animated with keyframes and the 3D entrances and exits.')),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Posiciones rápidas', 'Quick poses')), MC.ui.chips(PRS.map((q, i) => ({ v: i, l: q[0] })), PRS.findIndex((q) => Math.abs(q[1] - (r.x || 0)) < 0.5 && Math.abs(q[2] - (r.y || 0)) < 0.5), (i) => { it.r3 = { x: PRS[i][1], y: PRS[i][2] }; commit(); })),
+          MC.ui.slider({ label: t('Giro X (adelante y atrás)', 'Turn X (forward and back)'), min: -180, max: 180, step: 1, value: r.x || 0, fmt: (v) => v + '°', onInput: (v) => set('x', v), onChange: commit }),
+          MC.ui.slider({ label: t('Giro Y (como una puerta)', 'Turn Y (like a door)'), min: -180, max: 180, step: 1, value: r.y || 0, fmt: (v) => v + '°', onInput: (v) => set('y', v), onChange: commit }),
+          MC.ui.slider({ label: t('Perspectiva (más baja = más exagerada)', 'Perspective (lower = stronger)'), min: 0.8, max: 5, step: 0.05, value: it.persp || 1.8, fmt: (v) => v.toFixed(2), onInput: (v) => { it.persp = v; S.dirty = true; touch(); }, onChange: commit })];
+      };
       const kfNodes = (it, start, dur) => {
         const local = clamp(S.time - start, 0, dur), list = (it.kf || []).slice().sort((a, b) => a.t - b.t), cur = list.find((q) => q.id === S.kfid);
         const sel = (q) => { S.kfid = q.id; setTime(start + clamp(q.t, 0, Math.max(0, dur - 0.001))); renderInspector(); renderTimeline(); };
@@ -1229,13 +1238,15 @@
             MC.ui.slider({ label: t('Escala', 'Scale'), min: 0.1, max: 3, step: 0.01, value: cur.sc == null ? 1 : cur.sc, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => setK('sc', v), onChange: commit }),
             MC.ui.slider({ label: t('Giro', 'Rotation'), min: -360, max: 360, step: 1, value: cur.rot || 0, fmt: (v) => v + '°', onInput: (v) => setK('rot', v), onChange: commit }),
             MC.ui.slider({ label: t('Opacidad', 'Opacity'), min: 0, max: 1, step: 0.01, value: cur.op == null ? 1 : cur.op, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setK('op', v), onChange: commit }),
+            MC.ui.slider({ label: t('Giro X (3D)', 'Turn X (3D)'), min: -180, max: 180, step: 1, value: cur.rx || 0, fmt: (v) => v + '°', onInput: (v) => setK('rx', v), onChange: commit }),
+            MC.ui.slider({ label: t('Giro Y (3D)', 'Turn Y (3D)'), min: -180, max: 180, step: 1, value: cur.ry || 0, fmt: (v) => v + '°', onInput: (v) => setK('ry', v), onChange: commit }),
             h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva hasta el siguiente fotograma clave', 'Curve to the next keyframe')), MC.ui.curveEditor(cur.ease || 'smooth', (v) => { cur.ease = v; S.dirty = true; touch(); }, commit)),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { it.kf = it.kf.filter((z) => z.id !== cur.id); S.kfid = null; commit(); } }, MC.icon('trash', 14), t('Eliminar este fotograma clave', 'Delete this keyframe')));
         }
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
-      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
+      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
       const mItems = multiItems(), mNodes = [], mSet = (fn) => { mItems.forEach((q) => fn(q.it, q.k)); commit(); };
@@ -1616,7 +1627,7 @@
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }
@@ -1634,6 +1645,7 @@
       const chk = (key, label, disabled) => h('label', null, h('input', { type: 'checkbox', checked: !!S[key], disabled: !!disabled, onChange: (e) => { S[key] = e.target.checked; renderVbar(); S.dirty = true; } }), label);
       MC.put(MC.clear(el.vbar),
         MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: edit, l: edit === 'page' ? t('Página', 'Page') : edit === 'strip' ? t('Tira', 'Strip') : t('Cámara', 'Camera') }].concat(edit === 'cam' ? [{ v: 'depth', l: t('Profundidad', 'Depth') }] : []), S.view === 'out' || S.view === 'depth' ? S.view : edit, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
+        S.view === 'depth' ? MC.ui.seg([{ v: 'f', l: t('Frontal', 'Front') }, { v: 'iso', l: '45°' }, { v: 'side', l: t('Lado', 'Side') }, { v: 'top', l: t('Arriba', 'Top') }], S.v3.pose || 'iso', (v) => { S.v3.pose = v; Object.assign(S.v3, { f: { yaw: 0, pitch: 0 }, iso: { yaw: 38, pitch: 18 }, side: { yaw: 90, pitch: 0 }, top: { yaw: 0, pitch: 78 } }[v]); S.dirty = true; renderVbar(); }, t('Punto de vista 3D', '3D viewpoint')) : null,
         S.view === 'cam' && !(sh && sh.camera.path && sh.camera.path.custom) ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
         S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
         S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
@@ -1735,27 +1747,41 @@
       if (S.mouse) { ctx.strokeStyle = '#e5333d'; ctx.beginPath(); ctx.moveTo(S.mouse.x, 0); ctx.lineTo(S.mouse.x, 16 * d); ctx.moveTo(0, S.mouse.y); ctx.lineTo(16 * d, S.mouse.y); ctx.stroke(); }
       ctx.restore();
     }
-    /* vista lateral de profundidad: las capas «de perfil», de lejos a cerca; se arrastran para cambiar su z */
-    const DEPTH = { pad: 70 };
+    /* vista 3D de profundidad: las capas como planos en el espacio, de lejos a cerca. Se gira con el ratón (órbita); arrastrar una capa cambia su profundidad. */
+    S.v3 = { yaw: 38, pitch: 18, zoom: 1 };
+    const V3 = { span: 1.7 };
+    function v3Project(W, H, aspect, x, y, z) {
+      const v = S.v3, ya = v.yaw * Math.PI / 180, pa = v.pitch * Math.PI / 180, cy = Math.cos(ya), sy = Math.sin(ya), cx = Math.cos(pa), sx = Math.sin(pa);
+      const x1 = x * cy + z * sy, z1 = -x * sy + z * cy, y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx, Dc = 3.4 / v.zoom, sc = Math.min(W / 1.5, H / (1.5 / aspect + 0.6)) * (Dc / 3.4) * 1.0, k = (Dc * sc) / Math.max(0.3, Dc - z2) * 0.86;
+      return { X: W / 2 + x1 * k, Y: H / 2 - y2 * k, z: z2 };
+    }
     function drawDepth(ctx, sh) {
-      const c = el.canvas, W = c.width, H = c.height, d = S.dpr, st = getComputedStyle(document.documentElement), acc = st.getPropertyValue('--accent').trim() || '#8C7CFF', fg = st.getPropertyValue('--fg').trim() || '#fff', mu = st.getPropertyValue('--muted').trim() || '#999', pad = DEPTH.pad * d;
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#16181B'; ctx.fillRect(0, 0, W, H);
-      const x0 = pad, x1 = W - pad, base = H - 46 * d; ctx.strokeStyle = mu; ctx.lineWidth = d; ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x1, base); ctx.stroke();
-      ctx.fillStyle = mu; ctx.font = (12 * d) + 'px system-ui, sans-serif'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillText(t('lejos · 0', 'far · 0'), x0, base + 10 * d); ctx.textAlign = 'right'; ctx.fillText(t('cerca · 1', 'near · 1'), x1, base + 10 * d); ctx.textAlign = 'center'; ctx.fillText(t('Arrastra una capa a izquierda o derecha para cambiar su profundidad', 'Drag a layer left or right to change its depth'), W / 2, 12 * d);
-      for (let q = 0; q <= 10; q++) { const X = x0 + (q / 10) * (x1 - x0); ctx.beginPath(); ctx.moveTo(X, base); ctx.lineTo(X, base + 5 * d); ctx.stroke(); }
-      const o = opts(), layers = sh.layers.map((l, i) => ({ l, i })).sort((a, b) => a.l.z - b.l.z), hit = [];
-      layers.forEach((q, n) => {
-        const l = q.l, a = MC.assets.get(l.assetId), X = x0 + clamp(l.z, 0, 1) * (x1 - x0), ch = (H - 120 * d), cw = Math.min(150 * d, ch * ((a ? a.w / a.h : 1)) * 0.5 + 24 * d), Y = base - ch + (n % 3) * 6 * d;
-        ctx.save(); ctx.globalAlpha = l.visible === false ? 0.3 : 1;
-        ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(X - cw / 2, Y, cw, ch);
-        if (a) { const src = a.video ? a.bitmap : a.bitmap, k = Math.min(cw / a.w, ch / a.h); try { ctx.drawImage(src, X - (a.w * k) / 2, Y + ch - a.h * k, a.w * k, a.h * k); } catch (e) { /* sin imagen */ } }
-        ctx.strokeStyle = i2sel(q.i) ? acc : mu; ctx.lineWidth = (i2sel(q.i) ? 2.5 : 1) * d; ctx.strokeRect(X - cw / 2, Y, cw, ch);
-        ctx.fillStyle = i2sel(q.i) ? acc : fg; ctx.textAlign = 'center'; ctx.font = (11 * d) + 'px system-ui, sans-serif'; ctx.fillText(l.name.slice(0, 16) + ' · ' + l.z.toFixed(2), X, Y - 14 * d);
-        ctx.restore(); hit.push({ i: q.i, x0: X - cw / 2, x1: X + cw / 2, y0: Y, y1: Y + ch });
+      const c = el.canvas, W = c.width, H = c.height, d = S.dpr, o = opts(), aspect = o.W / o.H, st = getComputedStyle(document.documentElement), acc = st.getPropertyValue('--accent').trim() || '#8C7CFF', fg = st.getPropertyValue('--fg').trim() || '#fff', mu = st.getPropertyValue('--muted').trim() || '#999';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#1c1f26'); bg.addColorStop(1, '#101215'); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      const P = (x, y, z) => v3Project(W, H, aspect, x, y, z), zw = (l) => (clamp(l.z, 0, 1) - 0.5) * V3.span, PH = 1 / aspect;
+      /* suelo con rejilla y eje de profundidad */
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = d;
+      for (let q = -4; q <= 4; q++) { const a = P(q * 0.25, -PH / 2 - 0.05, -V3.span / 2 - 0.1), b2 = P(q * 0.25, -PH / 2 - 0.05, V3.span / 2 + 0.3), a2 = P(-1, -PH / 2 - 0.05, (q / 4) * (V3.span / 2 + 0.2)), b3 = P(1, -PH / 2 - 0.05, (q / 4) * (V3.span / 2 + 0.2)); ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b2.X, b2.Y); ctx.moveTo(a2.X, a2.Y); ctx.lineTo(b3.X, b3.Y); ctx.stroke(); }
+      ctx.restore();
+      const items = sh.layers.map((l, i) => { const a = MC.assets.get(l.assetId); const w = 1, h = a ? Math.min(PH * 1.5, w * a.h / a.w) : PH; const pts = [[-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]].map((q) => P(q[0], q[1], zw(l))); return { l, i, a, w, h, pts, depth: P(0, 0, zw(l)).z }; }).sort((x, y) => x.depth - y.depth);
+      const hit = [];
+      items.forEach((q, rank) => {
+        const l = q.l, a = q.a; ctx.save(); ctx.globalAlpha = l.visible === false ? 0.2 : Math.max(0.35, l.opacity == null ? 1 : l.opacity);
+        if (a) { const src = a.bitmap, sw = src.videoWidth || src.width, sh2 = src.videoHeight || src.height; try { MC.texQuad(ctx, src, sw, sh2, (u, v2) => { const p2 = P((u - 0.5) * q.w, (0.5 - v2) * q.h, zw(l)); return [p2.X, p2.Y]; }, 6); } catch (e) { /* sin textura */ } }
+        else { ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.beginPath(); q.pts.forEach((p2, k) => (k ? ctx.lineTo(p2.X, p2.Y) : ctx.moveTo(p2.X, p2.Y))); ctx.closePath(); ctx.fill(); }
+        ctx.globalAlpha = 1; const sel = q.i === S.li; ctx.strokeStyle = sel ? acc : 'rgba(255,255,255,.35)'; ctx.lineWidth = (sel ? 2.5 : 1) * d; ctx.beginPath(); q.pts.forEach((p2, k) => (k ? ctx.lineTo(p2.X, p2.Y) : ctx.moveTo(p2.X, p2.Y))); ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = sel ? acc : fg; ctx.font = (11 * d) + 'px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(l.name.slice(0, 18) + ' · ' + l.z.toFixed(2), q.pts[0].X, q.pts[0].Y - (4 + (rank % 3) * 14) * d);
+        ctx.restore(); hit.push({ i: q.i, poly: q.pts.map((p2) => [p2.X, p2.Y]) });
       });
       S.depthHit = hit;
-      /* cámara a la derecha */
-      ctx.fillStyle = fg; const cx = x1 + 34 * d, cy = base - 40 * d; ctx.fillRect(cx - 14 * d, cy - 10 * d, 20 * d, 20 * d); ctx.beginPath(); ctx.moveTo(cx + 6 * d, cy); ctx.lineTo(cx + 18 * d, cy - 9 * d); ctx.lineTo(cx + 18 * d, cy + 9 * d); ctx.closePath(); ctx.fill();
+      /* cámara delante: pirámide hacia el plano más lejano */
+      const cam = P(0, 0, V3.span / 2 + 0.55), f0 = [[-0.5, PH / 2], [0.5, PH / 2], [0.5, -PH / 2], [-0.5, -PH / 2]].map((q) => P(q[0], q[1], -V3.span / 2));
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.setLineDash([5 * d, 5 * d]); ctx.lineWidth = d; ctx.beginPath(); f0.forEach((p2) => { ctx.moveTo(cam.X, cam.Y); ctx.lineTo(p2.X, p2.Y); }); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = fg; ctx.fillRect(cam.X - 12 * d, cam.Y - 8 * d, 20 * d, 16 * d); ctx.beginPath(); ctx.moveTo(cam.X + 8 * d, cam.Y); ctx.lineTo(cam.X + 19 * d, cam.Y - 8 * d); ctx.lineTo(cam.X + 19 * d, cam.Y + 8 * d); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = mu; ctx.font = (12 * d) + 'px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(t('Cámara', 'Camera'), cam.X, cam.Y + 12 * d);
+      const far = P(0, -PH / 2 - 0.08, -V3.span / 2), near = P(0, -PH / 2 - 0.08, V3.span / 2); ctx.fillText(t('lejos', 'far'), far.X, far.Y + 4 * d); ctx.fillText(t('cerca', 'near'), near.X, near.Y + 4 * d);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = mu; ctx.fillText(t('Arrastra el fondo para girar · rueda para acercar · arrastra una capa para moverla en profundidad', 'Drag the background to orbit · wheel to zoom · drag a layer to move it in depth'), W / 2, 10 * d);
+      ctx.restore();
     }
     const i2sel = (i) => i === S.li;
     function draw() {
@@ -1925,8 +1951,13 @@
         const sh = shot(), o = opts(), p = px(e);
         if (!sh) return;
         if (S.view === 'depth') {
-          const hit = (S.depthHit || []).slice().reverse().find((q) => p.x >= q.x0 && p.x <= q.x1 && p.y >= q.y0 && p.y <= q.y1);
-          if (hit) { S.li = hit.i; S.tx = null; S.cl = null; drag = { m: 'depthz', l: sh.layers[hit.i] }; c.setPointerCapture(e.pointerId); S.dragging = true; renderLayers(); renderInspector(); S.dirty = true; }
+          const inPoly = (poly, x, y) => { let ins = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if (((poly[i][1] > y) !== (poly[j][1] > y)) && (x < ((poly[j][0] - poly[i][0]) * (y - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0])) ins = !ins; } return ins; };
+          const hit = (S.depthHit || []).slice().reverse().find((q) => inPoly(q.poly, p.x, p.y));
+          if (hit && !sh.layers[hit.i].locked) {
+            const l = sh.layers[hit.i]; S.li = hit.i; S.tx = null; S.cl = null; const o2 = opts(), a0 = v3Project(c.width, c.height, o2.W / o2.H, 0, 0, (l.z - 0.5) * V3.span), a1 = v3Project(c.width, c.height, o2.W / o2.H, 0, 0, (l.z - 0.5) * V3.span + 0.1);
+            drag = { m: 'depthz', l, p0: p, z0: l.z, vx: a1.X - a0.X, vy: a1.Y - a0.Y }; renderLayers(); renderInspector();
+          } else drag = { m: 'orbit', p0: p, yaw: S.v3.yaw, pitch: S.v3.pitch };
+          c.setPointerCapture(e.pointerId); S.dragging = true; S.dirty = true;
           return;
         }
         if (S.view === 'page') {
@@ -2018,7 +2049,8 @@
         if (!drag) return;
         if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0); S.vz.y = drag.vy + (e.clientY - drag.y0); applyViewXf(); return; }
         const p = px(e), sh = shot();
-        if (drag.m === 'depthz') { drag.l.z = clamp(Math.round(((p.x - DEPTH.pad * S.dpr) / (c.width - 2 * DEPTH.pad * S.dpr)) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
+        if (drag.m === 'orbit') { S.v3.yaw = drag.yaw + (p.x - drag.p0.x) * 0.35; S.v3.pitch = clamp(drag.pitch - (p.y - drag.p0.y) * 0.3, -85, 85); S.dirty = true; return; }
+        if (drag.m === 'depthz') { const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, vl = Math.hypot(drag.vx, drag.vy); let dz; if (vl > 4 * S.dpr) dz = ((dx * drag.vx + dy * drag.vy) / (vl * vl)) * 0.1 / V3.span; else dz = dx / (c.width * 0.4); drag.l.z = clamp(Math.round((drag.z0 + dz) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
         if (drag.m === 'pnmove') {
           const q = drag.q, o0 = drag.o0, dx = clamp((p.x - drag.p0.x) / drag.iw, -o0.x0, 1 - o0.x1), dy = clamp((p.y - drag.p0.y) / drag.ih, -o0.y0, 1 - o0.y1);
           q.x0 = o0.x0 + dx; q.x1 = o0.x1 + dx; q.y0 = o0.y0 + dy; q.y1 = o0.y1 + dy;
@@ -2071,11 +2103,13 @@
           pg.manual = true;
         }
         if (drag.m === 'vpan') { drag = null; S.dragging = false; return; }
+        if (drag.m === 'orbit') { drag = null; S.dragging = false; return; }
         if (drag.m === 'depthz') { const sh0 = shot(); if (sh0) S.li = placeByZ(sh0, drag.l); }
         drag = null; S.dragging = false; commit();
       };
       c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
       c.addEventListener('wheel', (e) => {
+        if (S.view === 'depth') { e.preventDefault(); S.v3.zoom = clamp(S.v3.zoom * Math.exp(-e.deltaY * 0.0012), 0.5, 3); S.dirty = true; return; }
         if (e.ctrlKey || e.metaKey) { e.preventDefault(); setViewZoom(S.vz.z * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY); return; }
         const sh = shot(), f = Math.exp(-e.deltaY * 0.0012);
         if (S.view === 'cam' && sh) { const kf = sh.camera[S.kf]; kf.zoom = clamp(kf.zoom * f, 1, 4); sh.camera.preset = 'custom'; }
