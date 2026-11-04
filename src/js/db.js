@@ -46,6 +46,12 @@
 
   /* Imágenes: el archivo original se guarda tal cual, sin recomprimir. */
   const cache = new Map();
+  /* Proxies de edición: las imágenes de más de 4096 px se editan con una copia ligera (2048 px) y la exportación usa la original. */
+  const PROXY_LIMIT = 4096, PROXY_SIZE = 2048;
+  const small = async (src, w, h) => {
+    const k = PROXY_SIZE / Math.max(w, h);
+    return createImageBitmap(src, { resizeWidth: Math.max(1, Math.round(w * k)), resizeHeight: Math.max(1, Math.round(h * k)), resizeQuality: 'high' });
+  };
   MC.assets = {
     cache,
     get: (id) => cache.get(id) || null,
@@ -53,25 +59,51 @@
       if (cache.has(id)) return cache.get(id);
       const rec = await db.get('assets', id);
       if (!rec) return null;
-      const bitmap = await createImageBitmap(rec.blob);
-      const a = { id, name: rec.name, w: bitmap.width, h: bitmap.height, bitmap, thumb: rec.thumb };
+      let bitmap, proxy = false, w = rec.w, h = rec.h;
+      if (w && h && Math.max(w, h) > PROXY_LIMIT) { bitmap = await small(rec.blob, w, h); proxy = true; }
+      else { bitmap = await createImageBitmap(rec.blob); w = bitmap.width; h = bitmap.height; }
+      const a = { id, name: rec.name, w, h, bitmap, proxy, thumb: rec.thumb };
       cache.set(id, a);
       return a;
     },
     async add(blob, name, existingId) {
-      const bitmap = await createImageBitmap(blob);
-      const id = existingId || MC.uid();
+      let bitmap = await createImageBitmap(blob);
+      const w = bitmap.width, h = bitmap.height, id = existingId || MC.uid();
       const c = document.createElement('canvas');
-      const k = 72 / Math.max(bitmap.width, bitmap.height);
-      c.width = Math.max(1, Math.round(bitmap.width * k));
-      c.height = Math.max(1, Math.round(bitmap.height * k));
+      const k = 72 / Math.max(w, h);
+      c.width = Math.max(1, Math.round(w * k));
+      c.height = Math.max(1, Math.round(h * k));
       c.getContext('2d').drawImage(bitmap, 0, 0, c.width, c.height);
       const thumb = c.toDataURL('image/png');
-      await db.put('assets', { id, name, blob, type: blob.type, w: bitmap.width, h: bitmap.height, thumb });
-      const a = { id, name, w: bitmap.width, h: bitmap.height, bitmap, thumb };
+      let proxy = false;
+      if (Math.max(w, h) > PROXY_LIMIT) { const sm = await small(bitmap, w, h); bitmap.close(); bitmap = sm; proxy = true; }
+      await db.put('assets', { id, name, blob, type: blob.type, w, h, thumb });
+      const a = { id, name, w, h, bitmap, proxy, thumb };
       cache.set(id, a);
       return a;
     },
+    /* Antes de exportar: carga las originales de lo que usa el proyecto. Después: vuelve a los proxies. */
+    async useFull(ids) {
+      for (const id of ids) {
+        const a = cache.get(id);
+        if (!a || !a.proxy || a.small) continue;
+        const rec = await db.get('assets', id);
+        if (!rec) continue;
+        a.small = a.bitmap; a.bitmap = await createImageBitmap(rec.blob);
+      }
+    },
+    useProxy() {
+      cache.forEach((a) => { if (a.small) { try { a.bitmap.close(); } catch (e) { /* ya cerrada */ } a.bitmap = a.small; delete a.small; } });
+    },
+  };
+  /* Memoria de las imágenes (RGBA sin comprimir): en edición y al exportar. */
+  MC.memEstimate = (p) => {
+    let edit = 0, full = 0;
+    new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
+      const a = cache.get(id); if (!a) return;
+      full += a.w * a.h * 4; edit += (a.proxy ? a.bitmap.width * a.bitmap.height : a.w * a.h) * 4;
+    });
+    return { edit, full };
   };
 
   MC.projectAssetIds = (p) => {

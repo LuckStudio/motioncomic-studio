@@ -14,8 +14,8 @@
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false },
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, sp: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
@@ -80,14 +80,21 @@
     async function importFiles(files, mode) {
       let list = [...files];
       const psds = list.filter((f) => /\.psd$/i.test(f.name)), auds = list.filter((f) => /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg|aac)$/i.test(f.name));
-      if (list.some((f) => /\.pdf$/i.test(f.name))) MC.toast(t('El PDF llega más adelante. Por ahora usa PSD, PNG, JPEG o WebP.', 'PDF arrives later. For now use PSD, PNG, JPEG or WebP.'));
+      for (const f of list.filter((x) => /\.pdf$/i.test(x.name))) {
+        try {
+          const wpx = clamp(Math.round(opts().W * (S.project.zoomPlan || 1.5)), 1200, 3200);
+          const r = await MC.pdfToImages(f, wpx, (i, n) => MC.toast(t('Leyendo el PDF · página ' + i + ' de ' + n, 'Reading the PDF · page ' + i + ' of ' + n)));
+          list.push(...r.files); if (r.truncated) MC.toast(t('El PDF tiene más de 80 páginas: se importan las 80 primeras.', 'The PDF has more than 80 pages: the first 80 are imported.'));
+        } catch (e) { console.error(e); MC.toast(t('No se pudo leer ese PDF.', 'Could not read that PDF.')); }
+      }
       const pageMode = S.project.mode === 'page';
-      if (pageMode) { for (const f of psds) { try { list.push(await MC.psdComposite(f)); } catch (e) { MC.toast(t('No se pudo leer ese PSD.', 'Could not read that PSD.')); } } }
+      if (S.project.mode !== 'free') { for (const f of psds) { try { list.push(await MC.psdComposite(f)); } catch (e) { MC.toast(t('No se pudo leer ese PSD.', 'Could not read that PSD.')); } } }
       else for (const f of psds) await importPsd(f);
       if (auds.length) await importAudio(auds, 'auto');
       list = list.filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name));
       if (!list.length) return;
       list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      if (S.project.mode === 'webtoon') { await importStrip(list); return; }
       if (pageMode) { await importPages(list); return; }
       try {
         if (mode === 'shots') {
@@ -111,6 +118,22 @@
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
 
+    async function importStrip(list) {
+      const p = S.project, empty = p.shots.length === 1 && !p.shots[0].layers.length && !p.shots[0].webtoon && !p.shots[0].page;
+      MC.toast(t('Montando la tira…', 'Building the strip…')); await new Promise((r) => setTimeout(r, 30));
+      try {
+        let asset, shrunk = false;
+        if (list.length === 1) asset = await MC.assets.add(list[0], list[0].name);
+        else { const st2 = await MC.stackImages(list); shrunk = st2.shrunk; asset = await MC.assets.add(st2.blob, t('Tira', 'Strip') + ' ' + list.length + '.png'); }
+        const sh = MC.webtoonShot(p, asset, t('Tira ', 'Strip ') + (empty ? 1 : p.shots.length + 1));
+        sh.webtoon.stops = MC.suggestStops(asset);
+        if (!empty) sh.transition = { type: 'fade', dur: 0.6 };
+        const first = empty ? 0 : p.shots.length;
+        if (empty) p.shots[0] = sh; else p.shots.push(sh);
+        S.view = 'strip'; S.sp = null; commit(); selectShot(first, true); fit();
+        MC.toast(t('Tira lista' + (sh.webtoon.stops.length ? ' con ' + sh.webtoon.stops.length + ' pausas sugeridas' : '') + (shrunk ? ' (se redujo para caber en memoria)' : '') + '. Ajusta las pausas en la vista «Tira».', 'Strip ready' + (sh.webtoon.stops.length ? ' with ' + sh.webtoon.stops.length + ' suggested pauses' : '') + (shrunk ? ' (reduced to fit in memory)' : '') + '. Adjust the pauses in the “Strip” view.'));
+      } catch (e) { console.error(e); MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
+    }
     async function importPages(list) {
       const p = S.project, style = MC.myStyle.get() || MC.myStyle.DEFAULT, empty = p.shots.length === 1 && !p.shots[0].layers.length && !p.shots[0].page;
       MC.toast(t('Detectando viñetas…', 'Detecting panels…')); await new Promise((r) => setTimeout(r, 30));
@@ -321,8 +344,9 @@
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
           MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; commit(); })),
       ];
-      if (sh.page) camNodes.length = 0;
-      if (S.adv && !sh.page) {
+      const autoCam = !!(sh.page || sh.webtoon);
+      if (autoCam) camNodes.length = 0;
+      if (S.adv && !autoCam) {
         const kf = cam[S.kf];
         camNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Fotogramas clave', 'Keyframes')),
           MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; renderInspector(); renderVbar(); S.dirty = true; })),
@@ -332,9 +356,9 @@
           MC.ui.slider({ label: t('Giro', 'Rotation'), min: -20, max: 20, step: 0.5, value: kf.rot || 0, fmt: (v) => v.toFixed(1) + '°', onInput: (v) => setKf('rot', v), onChange: commit }),
           MC.ui.slider({ label: t('Temblor', 'Shake'), min: 0, max: 3, step: 0.05, value: cam.shake || 0, fmt: (v) => v.toFixed(2), onInput: (v) => { cam.shake = v; cam.preset = 'custom'; S.dirty = true; touch(); }, onChange: commit }));
       }
-      if (sh.page) camNodes.push(h('p', { class: 'cap' }, t('En un plano de página la cámara sigue las viñetas. Se ajusta en la sección «Página».', 'In a page shot the camera follows the panels. Adjust it in the “Page” section.')));
+      if (autoCam) camNodes.push(h('p', { class: 'cap' }, sh.page ? t('En un plano de página la cámara sigue las viñetas. Se ajusta en la sección «Página».', 'In a page shot the camera follows the panels. Adjust it in the “Page” section.') : t('En una tira la cámara hace scroll. Se ajusta en la sección «Tira».', 'In a strip the camera scrolls. Adjust it in the “Strip” section.')));
       else camNodes.push(h('p', { class: 'cap' }, t('Arrastra el marco en la vista «Cámara» para encuadrar a mano.', 'Drag the frame in the “Camera” view to frame by hand.')));
-      if (hi.any && !sh.page) camNodes.push(h('p', { class: 'cap ' + (p.overscan !== false || hi.ratio <= 1.002 ? 'good' : 'bad') },
+      if (hi.any && !autoCam) camNodes.push(h('p', { class: 'cap ' + (p.overscan !== false || hi.ratio <= 1.002 ? 'good' : 'bad') },
         p.overscan !== false ? (hi.ratio > 1.002 ? t('Sin huecos: el fondo se sobreescala ×', 'No gaps: the background is scaled ×') + hi.ratio.toFixed(2) : t('Sin huecos: el fondo cubre todo el movimiento.', 'No gaps: the background covers all movement.'))
           : (hi.ratio > 1.002 ? t('Hay huecos. Faltaría estirar el fondo ×', 'There are gaps. The background needs stretching ×') + hi.ratio.toFixed(2) : t('Margen seguro: ', 'Safe margin: ') + Math.round(Math.min(hi.margin.x, hi.margin.y) * 100) + ' %')));
 
@@ -470,15 +494,44 @@
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const L = sh.layers.find((l) => l.page), img = MC.assets.get(L.assetId); pg.panels = MC.detectPanels(img.bitmap, pg.dir); pg.manual = false; S.pn = null; commit(); MC.toast(t(pg.panels.length + ' viñetas detectadas', pg.panels.length + ' panels detected')); } }, t('Detectar viñetas', 'Detect panels')),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const q = { id: MC.uid(), x0: 0.3, y0: 0.3, x1: 0.7, y1: 0.7, hold: null }; pg.panels.push(q); S.pn = q.id; edit(); S.view = 'page'; commit(); fit(); } }, MC.icon('plus', 14), t('Añadir viñeta', 'Add panel'))),
           h('div', { style: { display: 'grid', gap: '2px' } }, rowsP),
-          h('p', { class: 'cap' }, t('En la vista «Página» arrastra una viñeta para moverla, sus esquinas para cambiarla, o dibuja en un hueco para crear otra. Las viñetas son rectángulos; el polígono libre llega más adelante.', 'In the “Page” view drag a panel to move it, its corners to resize it, or draw in an empty spot to create another. Panels are rectangles; free polygons come later.')),
+          h('p', { class: 'cap' }, t('En la vista «Página» arrastra una viñeta para moverla, sus esquinas para cambiarla, o dibuja en un hueco para crear otra. Para viñetas con forma libre usa «Polígono» o «Convertir en polígono».', 'In the “Page” view drag a panel to move it, its corners to resize it, or draw in an empty spot to create another. For free-shaped panels use “Polygon” or “Turn into polygon”.')),
         ];
         if (selP) nodes.push(
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, selP.pts
+            ? [h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { selP.pts = null; S.pv = null; edit(); commit(); } }, t('Volver a rectángulo', 'Back to rectangle')),
+              S.pv != null && selP.pts.length > 3 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { selP.pts.splice(S.pv, 1); S.pv = null; MC.syncPanel(selP); edit(); commit(); } }, t('Quitar vértice', 'Remove vertex')) : null]
+            : h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.toPolygon(selP); edit(); commit(); } }, t('Convertir en polígono', 'Turn into polygon'))),
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: selP.hold == null, onChange: (e) => { selP.hold = e.target.checked ? null : Math.round(MC.panelHold(selP) * 10) / 10; edit(); commit(); } }), h('span', null, t('Permanencia automática', 'Automatic hold'), h('small', null, t('Según el tamaño de la viñeta.', 'Based on the panel size.')))),
           selP.hold != null ? MC.ui.slider({ label: t('Permanencia de la viñeta', 'Panel hold'), min: 0.5, max: 10, step: 0.1, value: selP.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selP.hold = v; touch(); }, onChange: () => { edit(); commit(); } }) : null,
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const a = await MC.cropPanel(sh, selP), ns = MC.newShot(t('Viñeta ', 'Panel ') + (pg.panels.indexOf(selP) + 1)); ns.layers.push(MC.newLayer(a, { z: 0.1, role: 'fondo' })); MC.applyPreset(ns.camera, 'zoomin', 0.8); p.shots.splice(S.si + 1, 0, ns); commit(); MC.toast(t('Viñeta convertida en un plano libre después de esta página', 'Panel turned into a free shot after this page')); } }, t('Convertir en plano libre', 'Turn into free shot')),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { pg.panels = pg.panels.filter((q) => q !== selP); S.pn = null; edit(); commit(); } }, MC.icon('trash', 14), t('Quitar viñeta', 'Remove panel'))));
         pageSecs.push(sec('pagina', t('Página', 'Page') + ' · ' + pg.panels.length + ' ' + t('viñetas', 'panels'), nodes));
+      }
+      if (sh.webtoon) {
+        const wt = sh.webtoon, selS = wt.stops.find((q) => q.id === S.sp), L = sh.layers.find((l) => l.strip), asset = L && MC.assets.get(L.assetId);
+        const sorted = wt.stops.slice().sort((a, b) => a.y - b.y);
+        const nodes = [
+          MC.ui.slider({ label: t('Velocidad del scroll', 'Scroll speed'), min: 0.05, max: 1.2, step: 0.05, value: wt.speed, fmt: (v) => v.toFixed(2) + ' ' + t('pantallas/s', 'screens/s'), onInput: (v) => { wt.speed = v; touch(); }, onChange: commit }),
+          MC.ui.slider({ label: t('Pausa al empezar', 'Hold at start'), min: 0, max: 4, step: 0.1, value: wt.head, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { wt.head = v; touch(); }, onChange: commit }),
+          MC.ui.slider({ label: t('Pausa al final', 'Hold at end'), min: 0, max: 4, step: 0.1, value: wt.tail, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { wt.tail = v; touch(); }, onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !asset, onClick: () => { wt.stops = MC.suggestStops(asset); S.sp = null; commit(); MC.toast(wt.stops.length ? t(wt.stops.length + ' pausas sugeridas', wt.stops.length + ' pauses suggested') : t('No se han encontrado bloques separados', 'No separate blocks found')); } }, t('Sugerir pausas', 'Suggest pauses')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !asset, onClick: () => {
+              const o2 = opts(), tl = clamp(S.time - MC.shotStarts(p)[S.si], 0, sh.duration), cam = MC.camAt(sh, tl, false), s0 = Math.max(o2.W / asset.w, o2.H / asset.h), PH = asset.h * s0;
+              const sp = { id: MC.uid(), y: Math.round(clamp((o2.H / 2 + cam.y * o2.H - (o2.H / 2 - PH / 2)) / PH, 0, 1) * 1000) / 1000, hold: 1.5, zoom: 1, x: 0 }; wt.stops.push(sp); S.sp = sp.id; commit();
+            } }, MC.icon('plus', 14), t('Pausa en el cabezal', 'Pause at playhead')),
+            h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: !wt.stops.length, onClick: () => { wt.stops = []; S.sp = null; commit(); } }, t('Quitar todas', 'Remove all'))),
+          h('div', { style: { display: 'grid', gap: '2px' } }, sorted.map((sp, i) => h('div', { class: 'layer' + (sp.id === S.sp ? ' on' : ''), onClick: () => { S.sp = sp.id; if (S.view !== 'strip') { S.view = 'strip'; renderVbar(); fit(); } S.dirty = true; renderInspector(); } },
+            h('span', { class: 'ln' }, t('Pausa ', 'Pause ') + (i + 1)), h('span', { class: 'lz' }, Math.round(sp.y * 100) + ' % · ' + sp.hold.toFixed(1) + ' s' + (sp.zoom > 1.01 ? ' · ×' + sp.zoom.toFixed(1) : ''))))),
+          h('p', { class: 'cap' }, t('En la vista «Tira» haz clic para añadir una pausa y arrástrala para moverla. Una pausa con zoom enseña un detalle.', 'In the “Strip” view click to add a pause and drag it to move it. A pause with zoom shows a detail.')),
+        ];
+        if (selS) nodes.push(
+          MC.ui.slider({ label: t('Permanencia', 'Hold'), min: 0.3, max: 10, step: 0.1, value: selS.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selS.hold = v; touch(); S.dirty = true; }, onChange: commit }),
+          MC.ui.slider({ label: 'Zoom', min: 1, max: 3, step: 0.05, value: selS.zoom, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selS.zoom = v; touch(); }, onChange: commit }),
+          selS.zoom > 1.01 ? MC.ui.slider({ label: t('Desplazamiento lateral', 'Sideways offset'), min: -0.4, max: 0.4, step: 0.01, value: selS.x || 0, fmt: (v) => v.toFixed(2), onInput: (v) => { selS.x = v; touch(); }, onChange: commit }) : null,
+          h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { wt.stops = wt.stops.filter((q) => q !== selS); S.sp = null; commit(); } }, MC.icon('trash', 14), t('Quitar pausa', 'Remove pause')));
+        pageSecs.push(sec('tira', t('Tira', 'Strip') + ' · ' + wt.stops.length + ' ' + t('pausas', 'pauses'), nodes));
       }
       const styleIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-style', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -531,9 +584,11 @@
       const tog = (key, label, title) => h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S[key]), title, onClick: () => { S[key] = !S[key]; renderVbar(); S.dirty = true; } }, label);
       const portrait = opts().W / opts().H < 0.8;
       MC.put(MC.clear(el.vbar), 
-        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
+        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : shot() && shot().webtoon ? [{ v: 'strip', l: t('Tira', 'Strip') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
         S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
-        S.view === 'page' ? h('span', { class: 'status' }, t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
+        S.view === 'page' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S.ptool === 'poly'), title: t('Dibujar una viñeta con vértices libres: un clic por vértice, Intro o clic en el primero para cerrar', 'Draw a free-vertex panel: one click per vertex, Enter or click the first to close'), onClick: () => { S.ptool = S.ptool === 'poly' ? 'rect' : 'poly'; S.poly = null; renderVbar(); S.dirty = true; } }, t('Polígono', 'Polygon')) : null,
+        S.view === 'page' ? h('span', { class: 'status' }, S.ptool === 'poly' ? t('Un clic por vértice. Intro o clic en el primero para cerrar. Esc cancela.', 'One click per vertex. Enter or click the first to close. Esc cancels.') : t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
+        S.view === 'strip' ? h('span', { class: 'status' }, t('Clic en la tira para añadir una pausa; arrástrala para moverla', 'Click the strip to add a pause; drag it to move')) : null,
         S.view !== 'page' ? tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')) : null,
         portrait && S.view === 'out' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(!!S.sim), title: t('Vista previa con la interfaz de una red social encima', 'Preview with a social app interface on top'), onClick: () => { S.sim = S.sim ? null : 'tiktok'; renderVbar(); buildSim(); } }, t('Simulador', 'Simulator')) : null,
         S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
@@ -599,7 +654,9 @@
       S.hits = hits;
       el.empty.hidden = !!(sh && sh.layers.length);
       if (S.view === 'page' && !(sh && sh.page)) { S.view = 'out'; renderVbar(); }
+      if (S.view === 'strip' && !(sh && sh.webtoon)) { S.view = 'out'; renderVbar(); }
       if (S.view === 'page') return drawPage(ctx, sh);
+      if (S.view === 'strip') return drawStrip(ctx, sh);
       if (S.view === 'cam' && sh) return drawCam(ctx, o, sh);
       const k = c.width / o.W;
       ctx.setTransform(k, 0, 0, k, 0, 0);
@@ -622,20 +679,55 @@
       S.pageMap = { kp, ox, oy, img };
       ctx.drawImage(img.bitmap, ox, oy, iw, ih);
       const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', pg = sh.page, d = S.dpr;
-      const R = (q) => [ox + q.x0 * iw, oy + q.y0 * ih, (q.x1 - q.x0) * iw, (q.y1 - q.y0) * ih];
-      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.rect(ox, oy, iw, ih); pg.panels.forEach((q) => { const r = R(q); ctx.rect(r[0], r[1], r[2], r[3]); }); ctx.fill('evenodd'); ctx.restore();
+      const pth = (q) => { if (q.pts) { q.pts.forEach((pt, i) => { const X = ox + pt[0] * iw, Y = oy + pt[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); } else ctx.rect(ox + q.x0 * iw, oy + q.y0 * ih, (q.x1 - q.x0) * iw, (q.y1 - q.y0) * ih); };
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.rect(ox, oy, iw, ih); pg.panels.forEach((q) => { ctx.moveTo(0, 0); pth(q); }); ctx.fill('evenodd'); ctx.restore();
       ctx.save(); ctx.strokeStyle = acc; ctx.lineWidth = 1.2 * d; ctx.setLineDash([5 * d, 5 * d]); ctx.beginPath();
-      pg.panels.forEach((q, i) => { const r = R(q), cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2; i ? ctx.lineTo(cx, cy) : ctx.moveTo(cx, cy); }); ctx.stroke(); ctx.restore();
+      pg.panels.forEach((q, i) => { const cx = ox + ((q.x0 + q.x1) / 2) * iw, cy = oy + ((q.y0 + q.y1) / 2) * ih; i ? ctx.lineTo(cx, cy) : ctx.moveTo(cx, cy); }); ctx.stroke(); ctx.restore();
       const all = drag && drag.m === 'pnnew' ? pg.panels.concat([drag.q]) : pg.panels;
       all.forEach((q, i) => {
-        const r = R(q), sel = q.id === S.pn;
-        ctx.save(); ctx.strokeStyle = sel ? acc : 'rgba(255,255,255,.75)'; ctx.lineWidth = (sel ? 3 : 2) * d; ctx.strokeRect(r[0], r[1], r[2], r[3]);
-        if (sel) { ctx.fillStyle = acc; [[r[0], r[1]], [r[0] + r[2], r[1]], [r[0], r[1] + r[3]], [r[0] + r[2], r[1] + r[3]]].forEach((pt) => ctx.fillRect(pt[0] - 5 * d, pt[1] - 5 * d, 10 * d, 10 * d)); }
-        if (pg.panels.includes(q)) {
-          const rad = 12 * d; ctx.fillStyle = sel ? acc : '#0F1012'; ctx.strokeStyle = sel ? '#0F1012' : acc; ctx.lineWidth = 2 * d;
-          ctx.beginPath(); ctx.arc(r[0] + rad + 4 * d, r[1] + rad + 4 * d, rad, 0, 6.283); ctx.fill(); ctx.stroke();
-          ctx.fillStyle = sel ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + 13 * d + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), r[0] + rad + 4 * d, r[1] + rad + 4.5 * d);
+        const sel = q.id === S.pn;
+        ctx.save(); ctx.strokeStyle = sel ? acc : 'rgba(255,255,255,.75)'; ctx.lineWidth = (sel ? 3 : 2) * d; ctx.beginPath(); pth(q); ctx.stroke();
+        if (sel) {
+          ctx.fillStyle = acc;
+          const hs = q.pts ? q.pts.map((pt) => [ox + pt[0] * iw, oy + pt[1] * ih]) : [[ox + q.x0 * iw, oy + q.y0 * ih], [ox + q.x1 * iw, oy + q.y0 * ih], [ox + q.x0 * iw, oy + q.y1 * ih], [ox + q.x1 * iw, oy + q.y1 * ih]];
+          hs.forEach((pt, k) => { const big = q.pts && S.pv === k ? 7 : 5; ctx.fillRect(pt[0] - big * d, pt[1] - big * d, big * 2 * d, big * 2 * d); });
         }
+        if (pg.panels.includes(q)) {
+          const rad = 12 * d, bx = ox + q.x0 * iw + rad + 4 * d, by = oy + q.y0 * ih + rad + 4 * d;
+          ctx.fillStyle = sel ? acc : '#0F1012'; ctx.strokeStyle = sel ? '#0F1012' : acc; ctx.lineWidth = 2 * d;
+          ctx.beginPath(); ctx.arc(bx, by, rad, 0, 6.283); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = sel ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + 13 * d + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), bx, by + 0.5 * d);
+        }
+        ctx.restore();
+      });
+      if (S.poly && S.poly.length) {
+        ctx.save(); ctx.strokeStyle = acc; ctx.fillStyle = acc; ctx.lineWidth = 2.5 * d; ctx.beginPath();
+        S.poly.forEach((pt, i) => { const X = ox + pt[0] * iw, Y = oy + pt[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+        if (S.polyCur) ctx.lineTo(ox + S.polyCur[0] * iw, oy + S.polyCur[1] * ih);
+        ctx.stroke(); S.poly.forEach((pt, i) => { ctx.beginPath(); ctx.arc(ox + pt[0] * iw, oy + pt[1] * ih, (i ? 4 : 7) * d, 0, 6.283); ctx.fill(); });
+        ctx.restore();
+      }
+    }
+    function drawStrip(ctx, sh) {
+      const c = el.canvas, L = sh.layers.find((l) => l.strip), img = L && MC.assets.get(L.assetId);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#16181B'; ctx.fillRect(0, 0, c.width, c.height);
+      if (!img) return;
+      const o = opts(), ks = Math.min((c.height * 0.97) / img.h, (c.width * 0.6) / img.w), iw = img.w * ks, ih = img.h * ks, ox = (c.width - iw) / 2, oy = (c.height - ih) / 2, d = S.dpr;
+      S.stripMap = { ks, ox, oy, img, iw, ih };
+      ctx.drawImage(img.bitmap, ox, oy, iw, ih);
+      const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', wt = sh.webtoon;
+      const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), cam = MC.camAt(sh, tl, false);
+      const s0 = Math.max(o.W / img.w, o.H / img.h) * (L.scale || 1), PW = img.w * s0, PH = img.h * s0, cyw = o.H / 2 + cam.y * o.H, cxw = o.W / 2 + cam.x * o.W;
+      const wy = (cyw - (o.H / 2 - PH / 2)) / PH, wh = o.H / cam.zoom / PH, wx = (cxw - (o.W / 2 - PW / 2)) / PW, ww = o.W / cam.zoom / PW;
+      ctx.save(); ctx.fillStyle = 'rgba(140,124,255,.18)'; ctx.strokeStyle = acc; ctx.lineWidth = 2 * d;
+      ctx.fillRect(ox + (wx - ww / 2) * iw, oy + (wy - wh / 2) * ih, ww * iw, wh * ih); ctx.strokeRect(ox + (wx - ww / 2) * iw, oy + (wy - wh / 2) * ih, ww * iw, wh * ih); ctx.restore();
+      wt.stops.slice().sort((a, b) => a.y - b.y).forEach((sp, i) => {
+        const Y = oy + sp.y * ih, sel = sp.id === S.sp;
+        ctx.save(); ctx.strokeStyle = sel ? acc : 'rgba(255,255,255,.8)'; ctx.lineWidth = (sel ? 3 : 2) * d; ctx.setLineDash(sel ? [] : [6 * d, 4 * d]);
+        ctx.beginPath(); ctx.moveTo(ox - 40 * d, Y); ctx.lineTo(ox + iw + 40 * d, Y); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = sel ? acc : '#0F1012'; ctx.strokeStyle = acc; ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(ox + iw + 40 * d, Y, 9 * d, 0, 6.283); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ECEEF0'; ctx.font = '600 ' + 12 * d + 'px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText((i + 1) + ' · ' + sp.hold.toFixed(1) + ' s' + (sp.zoom > 1.01 ? ' · ×' + sp.zoom.toFixed(1) : ''), ox - 46 * d, Y - 10 * d);
         ctx.restore();
       });
     }
@@ -665,6 +757,12 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
+    function closePoly() {
+      const sh = shot(), pg = sh && sh.page;
+      if (!pg || !S.poly || S.poly.length < 3) return;
+      const q = MC.syncPanel({ id: MC.uid(), pts: S.poly.map((pt) => pt.slice()), x0: 0, y0: 0, x1: 1, y1: 1, hold: null });
+      pg.panels.push(q); S.pn = q.id; pg.manual = true; S.poly = null; S.polyCur = null; S.ptool = 'rect'; renderVbar(); commit();
+    }
     const txById = (id) => S.project.texts.find((x) => x.id === id);
     /* interacción con el visor */
     let drag = null;
@@ -676,17 +774,34 @@
         if (S.view === 'page') {
           const pg = sh.page, M = S.pageMap; if (!pg || !M) return;
           const iw = M.img.w * M.kp, ih = M.img.h * M.kp, nx = (p.x - M.ox) / iw, ny = (p.y - M.oy) / ih, sel = pg.panels.find((q) => q.id === S.pn);
-          if (sel) {
+          if (S.ptool === 'poly') {
+            const pt = [clamp(nx, 0, 1), clamp(ny, 0, 1)];
+            if (S.poly && S.poly.length >= 3 && Math.hypot((S.poly[0][0] - pt[0]) * iw, (S.poly[0][1] - pt[1]) * ih) < 14 * S.dpr) closePoly(); else S.poly = (S.poly || []).concat([pt]);
+            S.dirty = true; return;
+          }
+          if (sel && sel.pts) {
+            const idx = sel.pts.findIndex((q) => Math.hypot(M.ox + q[0] * iw - p.x, M.oy + q[1] * ih - p.y) < 14 * S.dpr);
+            if (idx >= 0) { S.pv = idx; drag = { m: 'pnvert', q: sel, idx, M, iw, ih }; }
+          }
+          if (!drag && sel && !sel.pts) {
             const cs = [['tl', sel.x0, sel.y0], ['tr', sel.x1, sel.y0], ['bl', sel.x0, sel.y1], ['br', sel.x1, sel.y1]];
             const hit = cs.find((q) => Math.hypot(M.ox + q[1] * iw - p.x, M.oy + q[2] * ih - p.y) < 16 * S.dpr);
             if (hit) drag = { m: 'pnsize', q: sel, corner: hit[0], M, iw, ih };
           }
           if (!drag) {
-            const hit = pg.panels.filter((q) => nx >= q.x0 && nx <= q.x1 && ny >= q.y0 && ny <= q.y1).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0];
-            if (hit) { S.pn = hit.id; drag = { m: 'pnmove', q: hit, p0: p, o0: Object.assign({}, hit), iw, ih }; renderInspector(); }
+            const hit = pg.panels.filter((q) => MC.panelHas(q, nx, ny)).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0];
+            if (hit) { S.pn = hit.id; S.pv = null; drag = { m: 'pnmove', q: hit, p0: p, o0: Object.assign({}, hit, { pts: hit.pts ? hit.pts.map((q) => q.slice()) : null }), iw, ih }; renderInspector(); }
             else { S.pn = null; drag = { m: 'pnnew', q: { id: MC.uid(), x0: clamp(nx, 0, 1), y0: clamp(ny, 0, 1), x1: clamp(nx, 0, 1), y1: clamp(ny, 0, 1), hold: null }, M, iw, ih, s0: { x: clamp(nx, 0, 1), y: clamp(ny, 0, 1) } }; }
           }
           if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; S.dirty = true; }
+          return;
+        }
+        if (S.view === 'strip') {
+          const M = S.stripMap, wt = sh.webtoon; if (!M || !wt) return;
+          const hit = wt.stops.find((sp) => Math.abs(M.oy + sp.y * M.ih - p.y) < 14 * S.dpr && p.x > M.ox - 60 * S.dpr && p.x < M.ox + M.iw + 60 * S.dpr);
+          if (hit) { S.sp = hit.id; drag = { m: 'spmove', sp: hit, M }; renderInspector(); }
+          else if (p.x >= M.ox && p.x <= M.ox + M.iw && p.y >= M.oy && p.y <= M.oy + M.ih) drag = { m: 'spnew', y: clamp((p.y - M.oy) / M.ih, 0, 1), moved: false };
+          if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
           return;
         }
         if (S.view === 'cam') {
@@ -716,11 +831,19 @@
         if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
       });
       c.addEventListener('pointermove', (e) => {
+        if (!drag && S.view === 'page' && S.poly) { const M = S.pageMap, q = px(e); if (M) { S.polyCur = [clamp((q.x - M.ox) / (M.img.w * M.kp), 0, 1), clamp((q.y - M.oy) / (M.img.h * M.kp), 0, 1)]; S.dirty = true; } return; }
         if (!drag) return;
         const p = px(e), sh = shot();
         if (drag.m === 'pnmove') {
-          const q = drag.q, o0 = drag.o0, dx = (p.x - drag.p0.x) / drag.iw, dy = (p.y - drag.p0.y) / drag.ih, w = o0.x1 - o0.x0, hh = o0.y1 - o0.y0;
-          q.x0 = clamp(o0.x0 + dx, 0, 1 - w); q.y0 = clamp(o0.y0 + dy, 0, 1 - hh); q.x1 = q.x0 + w; q.y1 = q.y0 + hh;
+          const q = drag.q, o0 = drag.o0, dx = clamp((p.x - drag.p0.x) / drag.iw, -o0.x0, 1 - o0.x1), dy = clamp((p.y - drag.p0.y) / drag.ih, -o0.y0, 1 - o0.y1);
+          q.x0 = o0.x0 + dx; q.x1 = o0.x1 + dx; q.y0 = o0.y0 + dy; q.y1 = o0.y1 + dy;
+          if (o0.pts) q.pts = o0.pts.map((pt) => [pt[0] + dx, pt[1] + dy]);
+        } else if (drag.m === 'pnvert') {
+          drag.q.pts[drag.idx] = [clamp((p.x - drag.M.ox) / drag.iw, 0, 1), clamp((p.y - drag.M.oy) / drag.ih, 0, 1)]; MC.syncPanel(drag.q);
+        } else if (drag.m === 'spmove') {
+          drag.sp.y = clamp((p.y - drag.M.oy) / drag.M.ih, 0, 1);
+        } else if (drag.m === 'spnew') {
+          drag.moved = true;
         } else if (drag.m === 'pnsize') {
           const q = drag.q, nx = clamp((p.x - drag.M.ox) / drag.iw, 0, 1), ny = clamp((p.y - drag.M.oy) / drag.ih, 0, 1), cn = drag.corner;
           if (cn[1] === 'l') q.x0 = Math.min(nx, q.x1 - 0.03); else q.x1 = Math.max(nx, q.x0 + 0.03);
@@ -746,6 +869,9 @@
       });
       const up = () => {
         if (!drag) return;
+        if (drag.m === 'spnew') {
+          const wt = shot().webtoon; if (!drag.moved) { const sp = { id: MC.uid(), y: Math.round(drag.y * 1000) / 1000, hold: 1.5, zoom: 1, x: 0 }; wt.stops.push(sp); S.sp = sp.id; }
+        }
         if (drag.m && drag.m.slice(0, 2) === 'pn') {
           const pg = shot().page;
           if (drag.m === 'pnnew') { const q = drag.q; if (q.x1 - q.x0 > 0.04 && q.y1 - q.y0 > 0.03) { pg.panels.push(q); S.pn = q.id; } }
@@ -831,7 +957,7 @@
           onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
           h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = clip.querySelector('.rz');
-        if (sh.page) rz.remove();
+        if (sh.page || sh.webtoon) rz.remove();
         else rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = sh.duration; clip._moved = true;
@@ -913,8 +1039,8 @@
     }
 
     /* ---------- montaje de la interfaz ---------- */
-    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
-    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
+    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
+    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
     const fileAudio = h('input', { type: 'file', accept: 'audio/*,.wav,.mp3,.m4a,.ogg', multiple: true, hidden: true, id: 'f-audio', onChange: (e) => { importAudio([...e.target.files], fileAudio.dataset.track || 'auto'); e.target.value = ''; } });
     el.top = h('div', { class: 's-top' });
     el.layersBody = h('div', { class: 'pbody' });
@@ -922,7 +1048,7 @@
     el.vbar = h('div', { class: 'vbar' });
     el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer') });
     el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
-      h('div', null, t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
+      h('div', null, S.project.mode === 'page' ? t('Arrastra aquí tus páginas (PNG, JPEG, WebP, PSD o PDF). Se detectan las viñetas.', 'Drag your pages here (PNG, JPEG, WebP, PSD or PDF). Panels are detected.') : S.project.mode === 'webtoon' ? t('Arrastra aquí tu tira vertical, o varias imágenes para apilarlas.', 'Drag your vertical strip here, or several images to stack them.') : t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileLayers.click() }, MC.icon('upload', 15), t('Importar', 'Import'))));
     el.sim = h('div', { class: 'sim', hidden: true, 'aria-hidden': 'true' });
     el.stage = h('div', { class: 'stage' }, el.canvas, el.empty, el.sim);
@@ -999,6 +1125,8 @@
       else if (k === 'home') setTime(0);
       else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
       else if ((k === 'delete' || k === 'backspace') && S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
+      else if (k === 'enter' && S.poly) closePoly();
+      else if (k === 'escape' && S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; }
       else if (k === 's' && S.cl) splitClip();
       else if ((k === 'delete' || k === 'backspace') && S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); }
       else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }

@@ -26,7 +26,7 @@
   function pathCam(path, tl) {
     const pts = path.pts;
     let t = tl;
-    const from = (q, drift) => ({ x: q.x, y: q.y, zoom: q.zoom * (1 + (path.drift || 0) * drift), rot: 0, sx: 0, sy: 0, rect: q.rect });
+    const from = (q, drift) => ({ x: q.x, y: q.y, zoom: q.zoom * (1 + (path.drift || 0) * drift), rot: 0, sx: 0, sy: 0, rect: q.rect, poly: q.poly });
     for (let i = 0; i < pts.length; i++) {
       const q = pts[i];
       if (t < q.hold) return from(q, t / Math.max(0.01, q.hold));
@@ -154,7 +154,9 @@
       if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {
         const r = cam.rect, big = 1e5;
         ctx.fillStyle = 'rgba(0,0,0,' + pg.dim + ')';
-        ctx.beginPath(); ctx.rect(-big, -big, big * 2, big * 2); ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
+        ctx.beginPath(); ctx.rect(-big, -big, big * 2, big * 2);
+        if (cam.poly) { cam.poly.forEach((q, i) => { const X = ix + q[0] * iw, Y = iy + q[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+        else ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
         ctx.fill('evenodd');
       }
       ctx.restore();

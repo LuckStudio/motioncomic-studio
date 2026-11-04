@@ -39,7 +39,7 @@
   }
 
   /* opt: { res, fps, mbps, from, to, audio, normalize } */
-  E.run = async (project, opt, onProgress, signal) => {
+  const runOne = async (project, opt, onProgress, signal) => {
     const p = Object.assign({}, project, { res: opt.res || project.res });
     const size = MC.frameSize(p.ratio, p.res), W = size.w, H = size.h, fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
     const total = MC.totalTime(p), from = opt.from || 0, to = Math.min(opt.to == null ? total : opt.to, total), dur = Math.max(0.1, to - from);
@@ -88,6 +88,16 @@
     return { blob: new Blob([target.buffer], { type: 'video/mp4' }), codec: vid.label, audio: aud ? (aud.mux === 'aac' ? 'AAC' : 'Opus') : mixBuf ? 'sin' : '', W, H, fps, dur };
   };
 
+  /* Reencuadra al formato pedido (la cámara de página y de tira se recalcula), carga las imágenes originales y libera la memoria al acabar. */
+  E.run = async (project, opt, onProgress, signal) => {
+    const p = project;
+    if (opt.ratio) p.ratio = opt.ratio;
+    p.res = opt.res || p.res;
+    MC.finalizePages(p);
+    await MC.assets.useFull([...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))]);
+    try { return await runOne(p, opt, onProgress, signal); } finally { MC.assets.useProxy(); }
+  };
+
   const download = (blob, name) => {
     const a = h('a', { href: URL.createObjectURL(blob), download: name });
     document.body.append(a); a.click(); a.remove();
@@ -97,7 +107,7 @@
   /* Ventana de exportación. api: { project, time, shot, applyFormat(ratio,res) } */
   MC.openExport = (api) => {
     const p = api.project;
-    const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
+    const st = { multi: false, plats: ['tiktok', 'yt'], plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
     const body = h('div', { style: { display: 'grid', gap: '16px' } });
     let offJob = () => {};
     const hasAudio = () => (p.clips || []).length > 0;
@@ -109,24 +119,32 @@
     };
     const range = () => { const total = MC.totalTime(p); if (st.range === 'shot') { const s = MC.shotStarts(p)[api.shotIndex()]; return [s, s + p.shots[api.shotIndex()].duration]; } return [0, total]; };
 
+    const memNote = (c) => {
+      const me = MC.memEstimate(p), mb = (me.full + c.size.w * c.size.h * 4 * 6) / 1048576, dm = navigator.deviceMemory ? navigator.deviceMemory * 1024 : 0;
+      const high = mb > 1800 || (dm && mb > dm * 0.5);
+      return h('p', { class: 'cap ' + (high ? 'warn' : '') }, t('Memoria estimada al exportar: ≈ ' + Math.round(mb) + ' MB', 'Estimated memory when exporting: ≈ ' + Math.round(mb) + ' MB') + (high ? t('. Es mucho para este equipo: baja la resolución o reduce las imágenes.', '. That is a lot for this device: lower the resolution or reduce the images.') : ''));
+    };
     const draw = () => {
       MC.clear(body);
       const c = cur(), pl = plat(), mbps = st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), r = range(), secs = r[1] - r[0];
       const sum = h('div', { class: 'calc', 'aria-live': 'polite' });
       MC.put(body,
-        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Plataforma', 'Platform')),
-          MC.ui.chips(MC.PLATFORMS.map((x) => ({ v: x.id, l: t(x.es, x.en) })), st.plat, (v) => { st.plat = v; st.mbps = null; st.fps = plat().fps || 30; draw(); })),
-        c.mismatch ? h('div', { class: 'calc' }, h('span', { class: 'warn' }, t('Tu proyecto es ' + p.ratio + ' y esta plataforma pide ' + c.ratio + '.', 'Your project is ' + p.ratio + ' and this platform asks for ' + c.ratio + '.')),
+        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, st.multi ? t('Formatos (elige varios)', 'Formats (pick several)') : t('Plataforma', 'Platform')),
+          st.multi ? h('div', { class: 'chips' }, MC.PLATFORMS.filter((x) => x.id !== 'proj').map((x) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(st.plats.includes(x.id)), onClick: () => { st.plats = st.plats.includes(x.id) ? st.plats.filter((q) => q !== x.id) : st.plats.concat([x.id]); draw(); } }, t(x.es, x.en))))
+            : MC.ui.chips(MC.PLATFORMS.map((x) => ({ v: x.id, l: t(x.es, x.en) })), st.plat, (v) => { st.plat = v; st.mbps = null; st.fps = plat().fps || 30; draw(); }),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.multi, onChange: (e) => { st.multi = e.target.checked; if (st.multi) st.range = 'all'; draw(); } }), h('span', null, t('Exportar varios formatos a la vez', 'Export several formats at once'), h('small', null, t('La cámara se reencuadra para cada formato; los ajustes de cada plataforma se aplican solos.', 'The camera is reframed for each format; each platform’s settings apply automatically.'))))),
+        c.mismatch && !st.multi ? h('div', { class: 'calc' }, h('span', { class: 'warn' }, t('Tu proyecto es ' + p.ratio + ' y esta plataforma pide ' + c.ratio + '.', 'Your project is ' + p.ratio + ' and this platform asks for ' + c.ratio + '.')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { api.applyFormat(c.ratio, c.res); st.plat = 'proj'; draw(); } }, t('Cambiar el proyecto a ' + c.ratio, 'Change the project to ' + c.ratio))) : null,
         h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Fotogramas por segundo', 'Frames per second')), MC.ui.seg([24, 30, 60].map((v) => ({ v, l: v + ' fps' })), st.fps, (v) => { st.fps = +v; draw(); })),
         p.langs.length > 1 ? h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Idioma del texto', 'Text language')), MC.ui.seg(p.langs.map((l) => ({ v: l, l: l.toUpperCase() })), st.lang, (v) => { st.lang = v; })) : null,
         hasSubs() ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.subs, onChange: (e) => { st.subs = e.target.checked; } }), h('span', null, t('Mostrar los subtítulos en el vídeo', 'Show subtitles in the video'), h('small', null, t('Desactívalo si los subirás aparte como archivo SRT.', 'Turn it off if you will upload them separately as an SRT file.')))) : null,
         MC.ui.slider({ label: t('Calidad (bitrate)', 'Quality (bitrate)'), min: 2, max: 60, step: 1, value: mbps, fmt: (v) => v + ' Mbps', onInput: (v) => { st.mbps = v; refreshSum(); }, onChange: draw }),
-        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Qué exportar', 'What to export')), MC.ui.seg([{ v: 'all', l: t('Todo el vídeo', 'Whole video') }, { v: 'shot', l: t('Solo el plano actual', 'Current shot only') }], st.range, (v) => { st.range = v; draw(); })),
+        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Qué exportar', 'What to export')), MC.ui.seg([{ v: 'all', l: t('Todo el vídeo', 'Whole video') }, { v: 'shot', l: t('Solo el plano actual', 'Current shot only'), off: st.multi }], st.range, (v) => { st.range = v; draw(); })),
         hasAudio() ? h('div', { style: { display: 'grid', gap: '8px' } },
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.audio, onChange: (e) => { st.audio = e.target.checked; draw(); } }), h('span', null, t('Incluir el audio de la línea de tiempo', 'Include timeline audio'))),
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.normalize, disabled: !st.audio, onChange: (e) => { st.normalize = e.target.checked; } }), h('span', null, t('Normalizar el volumen', 'Normalize volume'), h('small', null, t('Sube o baja la mezcla a un nivel cómodo para redes, sin saturar.', 'Raises or lowers the mix to a comfortable level for social media, without clipping.'))))) : null,
         sum,
+        memNote(c),
         c.size.w * c.size.h > 3000000 ? h('p', { class: 'cap warn' }, t('4K usa mucha memoria. Si el navegador se queda sin ella, exporta en 1080p.', '4K uses a lot of memory. If the browser runs out, export at 1080p.')) : null,
         !E.supported() ? h('p', { class: 'cap bad' }, t('Este navegador no puede exportar vídeo. Usa una versión reciente de Chrome, Edge o Safari.', 'This browser cannot export video. Use a recent Chrome, Edge or Safari.')) : null);
       function refreshSum() {
@@ -149,7 +167,7 @@
       let shown = '', bar = null, label = null;
       const showJob = () => {
         const job = MC.exportJob;
-        if (!job) { if (shown) { shown = ''; progress.style.display = 'none'; body.style.display = 'grid'; } go.disabled = !E.supported(); still.disabled = false; return; }
+        if (!job) { if (shown) { shown = ''; progress.style.display = 'none'; body.style.display = 'grid'; } go.disabled = !E.supported() || (st.multi && !st.plats.length); still.disabled = false; return; }
         body.style.display = 'none'; progress.style.display = 'grid';
         go.disabled = true; still.disabled = job.state === 'running';
         if (job.state === 'running') {
@@ -165,16 +183,17 @@
         }
         if (shown === job.state) return;
         shown = job.state; MC.clear(progress);
-        const back = h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { if (job.url) URL.revokeObjectURL(job.url); MC.exportJob = null; emit(); } }, t('Volver a los ajustes', 'Back to settings'));
+        const back = h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { (job.items || []).forEach((it) => URL.revokeObjectURL(it.url)); MC.exportJob = null; emit(); } }, t('Volver a los ajustes', 'Back to settings'));
         if (job.state === 'done') {
-          const res = job.result;
-          MC.put(progress, h('div', { class: 'eyebrow' }, t('Listo', 'Done')),
-            h('video', { src: job.url, controls: true, style: { width: '100%', maxHeight: '46vh', background: '#000', borderRadius: '8px' } }),
-            h('p', { class: 'cap' }, res.W + '×' + res.H + ' · ' + res.fps + ' fps · ' + res.codec + (res.audio && res.audio !== 'sin' ? ' + ' + res.audio : '') + ' · ' + (res.blob.size / 1e6).toFixed(1) + ' MB'),
-            res.codec !== 'H.264' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica H.264, así que el vídeo está en VP9. Para subirlo a redes, exporta desde Chrome, Edge o Safari de escritorio.', 'This browser does not encode H.264, so the video is VP9. To upload it to social media, export from desktop Chrome, Edge or Safari.')) : null,
-            res.audio === 'Opus' ? h('p', { class: 'cap warn' }, t('El audio está en Opus porque este navegador no codifica AAC. Algunas redes y reproductores lo rechazan: exporta desde Chrome, Edge o Safari de escritorio.', 'Audio is Opus because this browser cannot encode AAC. Some networks and players reject it: export from desktop Chrome, Edge or Safari.')) : null,
-            res.audio === 'sin' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica audio: el vídeo se ha exportado sin sonido.', 'This browser does not encode audio: the video was exported without sound.')) : null,
-            h('div', { class: 'row-end' }, back, h('button', { class: 'btn btn-p', type: 'button', onClick: () => { download(res.blob, job.file); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 15), t('Descargar MP4', 'Download MP4'))));
+          const items = job.items, first = items[0].result, vid = h('video', { src: items[0].url, controls: true, style: { width: '100%', maxHeight: '40vh', background: '#000', borderRadius: '8px' } });
+          const rows = items.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, it.label), h('span', { class: 'lz' }, it.result.W + '×' + it.result.H + ' · ' + (it.result.blob.size / 1e6).toFixed(1) + ' MB'),
+            items.length > 1 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { vid.src = it.url; } }, t('Ver', 'View')) : null,
+            h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { download(it.result.blob, it.file); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 13), t('Descargar', 'Download'))));
+          MC.put(progress, h('div', { class: 'eyebrow' }, t('Listo', 'Done') + (items.length > 1 ? ' · ' + items.length + ' ' + t('formatos', 'formats') : '')), vid, h('div', { style: { display: 'grid', gap: '2px' } }, rows),
+            first.codec !== 'H.264' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica H.264, así que el vídeo está en VP9. Para subirlo a redes, exporta desde Chrome, Edge o Safari de escritorio.', 'This browser does not encode H.264, so the video is VP9. To upload it to social media, export from desktop Chrome, Edge or Safari.')) : null,
+            first.audio === 'Opus' ? h('p', { class: 'cap warn' }, t('El audio está en Opus porque este navegador no codifica AAC. Algunas redes y reproductores lo rechazan: exporta desde Chrome, Edge o Safari de escritorio.', 'Audio is Opus because this browser cannot encode AAC. Some networks and players reject it: export from desktop Chrome, Edge or Safari.')) : null,
+            first.audio === 'sin' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica audio: el vídeo se ha exportado sin sonido.', 'This browser does not encode audio: the video was exported without sound.')) : null,
+            h('div', { class: 'row-end' }, back, items.length > 1 ? h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { for (const it of items) { download(it.result.blob, it.file); await new Promise((r) => setTimeout(r, 500)); } } }, MC.icon('download', 15), t('Descargar todos', 'Download all')) : null));
         } else {
           MC.put(progress, h('p', { class: job.state === 'cancelled' ? 'cap' : 'cap bad' }, job.state === 'cancelled' ? t('Exportación cancelada.', 'Export cancelled.') : job.error || ''), back);
         }
@@ -182,13 +201,20 @@
       offJob = MC.onExportJob(showJob);
       go.addEventListener('click', async () => {
         if (MC.exportJob && MC.exportJob.state === 'running') return;
-        const c = cur(), pl = plat(), r = range(), snap = JSON.parse(JSON.stringify(p));
-        const job = (MC.exportJob = { state: 'running', progress: 0, label: '', ctl: new AbortController(), name: p.name, file: p.name.replace(/[^\w\- ]+/g, '') + '.mp4' });
+        const targets = st.multi ? st.plats.map((id) => MC.PLATFORMS.find((x) => x.id === id)) : [plat()];
+        if (!targets.length) return;
+        const r = range(), base = p.name.replace(/[^\w\- ]+/g, '');
+        const job = (MC.exportJob = { state: 'running', progress: 0, label: '', ctl: new AbortController(), name: p.name, items: [] });
         emit();
         try {
-          job.result = await E.run(snap, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
-            (f, msg) => { job.progress = f; job.label = msg; emit(); }, job.ctl.signal);
-          job.url = URL.createObjectURL(job.result.blob); job.state = 'done'; MC.toast(t('Exportación lista: «' + p.name + '»', 'Export ready: “' + p.name + '”'));
+          for (let i = 0; i < targets.length; i++) {
+            const pl = targets[i], ratio = pl.ratio || p.ratio, res = pl.res || p.res, size = MC.frameSize(ratio, res), tag = targets.length > 1 ? '(' + (i + 1) + '/' + targets.length + ') ' + t(pl.es, pl.en) + ' · ' : '';
+            const result = await E.run(JSON.parse(JSON.stringify(p)), { ratio, res, fps: st.multi ? pl.fps || 30 : st.fps, mbps: st.multi ? pl.mbps || defaultMbps(size.w, size.h) : st.mbps || pl.mbps || defaultMbps(size.w, size.h),
+              from: r[0], to: st.range === 'shot' ? r[1] : null, audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
+            (f, msg) => { job.progress = (i + f) / targets.length; job.label = tag + msg; emit(); }, job.ctl.signal);
+            job.items.push({ label: t(pl.es, pl.en), result, url: URL.createObjectURL(result.blob), file: base + (targets.length > 1 ? '-' + pl.id : '') + '.mp4' });
+          }
+          job.state = 'done'; MC.toast(t('Exportación lista: «' + p.name + '»', 'Export ready: “' + p.name + '”'));
         } catch (e) { job.state = e.message === 'cancelado' ? 'cancelled' : 'error'; job.error = e.message || String(e); }
         emit();
       });

@@ -65,7 +65,7 @@
         h('div', { class: 'modes' },
           h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'free'), onClick: () => { st.mode = 'free'; draw(); onChange && onChange(); } }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
           h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'page'), onClick: () => { st.mode = 'page'; draw(); onChange && onChange(); } }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('La cámara recorre las viñetas de cada página', 'The camera walks through each page’s panels'))),
-          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version')))),
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'webtoon'), onClick: () => { st.mode = 'webtoon'; draw(); onChange && onChange(); } }, h('b', null, 'Webtoon'), h('span', null, t('Scroll vertical con pausas y zooms', 'Vertical scroll with pauses and zooms')))),
         st.mode === 'page' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Orden de lectura', 'Reading order')),
           MC.ui.seg([{ v: 'ltr', l: t('Occidental →', 'Western →') }, { v: 'rtl', l: t('Manga ←', 'Manga ←') }], st.dir, (v) => { st.dir = v; onChange && onChange(); })) : null);
     };
@@ -99,8 +99,8 @@
     const go = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Crear borrador', 'Create draft'));
     const body = h('div', { style: { display: 'grid', gap: '16px' } },
       h('p', { class: 'cap' }, t('Sube tus páginas o ilustraciones. Se detectan las viñetas, se fija el orden de lectura y se montan la cámara, las duraciones y las transiciones. Es un punto de partida: todo se puede cambiar. Se calcula en este navegador y se aplica «Mi estilo» si lo tienes guardado.', 'Upload your pages or artwork. Panels are detected, reading order is set, and camera, timing and transitions are assembled. It is a starting point: everything can be changed. It is computed in this browser and applies “My style” if you saved one.')),
-      h('div', { class: 'field' }, h('label', { for: fileId }, t('Páginas o imágenes (PNG, JPEG, WebP)', 'Pages or images (PNG, JPEG, WebP)')),
-        h('input', { id: fileId, class: 'input', type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/webp', onChange: (e) => {
+      h('div', { class: 'field' }, h('label', { for: fileId }, t('Páginas o imágenes (PNG, JPEG, WebP o PDF)', 'Pages or images (PNG, JPEG, WebP or PDF)')),
+        h('input', { id: fileId, class: 'input', type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/webp,.pdf', onChange: (e) => {
           files = [...e.target.files]; go.disabled = !files.length; MC.clear(info).append(files.length + t(' archivo(s) · se ordenan por nombre', ' file(s) · sorted by name'));
         } }), info),
       MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Borrador', 'Chapter 1 · Draft'), onInput: (e) => { st.name = e.target.value; } }), nameId),
@@ -112,7 +112,7 @@
         try {
           const r = await MC.buildDraft({ files, name: st.name.trim() || t('Borrador', 'Draft'), ratio: st.ratio, res: st.res, zoom: st.zoom, mode: st.mode, dir: st.dir });
           close();
-          MC.toast(st.mode === 'page' ? t('Borrador listo: ' + r.pages + ' página(s) y ' + r.panels + ' viñeta(s). Revísalo en la vista «Página».', 'Draft ready: ' + r.pages + ' page(s) and ' + r.panels + ' panel(s). Check it in the “Page” view.') : t('Borrador listo: ' + r.pages + ' plano(s).', 'Draft ready: ' + r.pages + ' shot(s).'));
+          MC.toast(st.mode === 'page' ? t('Borrador listo: ' + r.pages + ' página(s) y ' + r.panels + ' viñeta(s). Revísalo en la vista «Página».', 'Draft ready: ' + r.pages + ' page(s) and ' + r.panels + ' panel(s). Check it in the “Page” view.') : st.mode === 'webtoon' ? t('Borrador listo: una tira con ' + r.panels + ' pausa(s) sugeridas.', 'Draft ready: one strip with ' + r.panels + ' suggested pause(s).') : t('Borrador listo: ' + r.pages + ' plano(s).', 'Draft ready: ' + r.pages + ' shot(s).'));
           MC.app.openProject(r.project);
         } catch (e) { console.error(e); go.disabled = false; info.textContent = t('No se pudo montar el borrador. Comprueba que son imágenes PNG, JPEG o WebP.', 'Could not build the draft. Check that they are PNG, JPEG or WebP images.'); }
       });

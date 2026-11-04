@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 4 · modo Página y borrador en un clic
+## Estado: paso 5 · Webtoon, PDF, polígonos y lotes
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -34,9 +34,18 @@ Paso 4 (hecho):
 - **Simulador de plataformas** (interfaz genérica estilo TikTok, Reels y Shorts, sin marcas) para ver qué tapa la interfaz.
 - **Exportación en segundo plano**: se puede cerrar la ventana y seguir editando; avisa en la barra superior cuando termina.
 
-Siguiente (paso 5): modo Webtoon (scroll vertical), PDF, polígonos libres para viñetas, trayectoria de cámara dibujada, exportación por lotes y revisión de rendimiento con archivos pesados.
+Paso 5 (hecho):
+- **Modo Webtoon**: importa una tira vertical larga (o varias imágenes, que se apilan en una) y la cámara hace scroll con velocidad ajustable, pausas en puntos clave y zooms sobre detalles. «Sugerir pausas» propone una por bloque; en la vista «Tira» se añaden con un clic y se mueven arrastrando.
+- **Importar PDF**: cada página se rasteriza a la resolución elegida (hasta 80 páginas) y entra como página, plano o parte de la tira según el modo.
+- **Viñetas con polígonos libres**: dibujar con vértices, convertir un rectángulo, mover vértices y quitarlos; la cámara y el efecto de enfoque siguen la forma.
+- **Exportación por lotes** con reencuadre automático: varios formatos a la vez (por ejemplo 16:9 y 9:16); en páginas y tiras la cámara se recalcula para cada formato.
+- **Rendimiento y memoria**: las imágenes de más de 4096 px se editan con una copia ligera de 2048 px y la exportación usa la original; el modal de exportar estima la memoria y avisa si es mucha.
 
-Pendiente conocido: el PDF no se importa todavía y las viñetas son solo rectángulos.
+Límites recomendados (a calibrar con pruebas reales): hasta unos 100 megapíxeles de imágenes en total por proyecto en edición, y avisar a partir de ~1,8 GB estimados al exportar. Las imágenes de más de 4096 px entran con proxy, pero la exportación carga las originales: en 4K con muchos PSD pesados conviene exportar en 1080p.
+
+Siguiente (paso 6): trayectoria de cámara dibujada a mano, estilos de animación dentro de la viñeta (temblor, golpe, pulso), rack focus y efectos de acción (líneas de velocidad, aberración cromática), y pruebas con archivos reales de Goti.
+
+Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efecto de enfoque de un polígono salta de la caja a la forma al llegar a la viñeta, y los PDF con tipografías CJK no embebidas pueden verse con fuentes de reserva.
 
 ## Ejecutar
 
@@ -58,3 +67,4 @@ Abre `http://localhost:8000`. Para generar el archivo único de previsualizació
 
 - [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) (MIT): empaqueta el vídeo y el audio codificados en MP4.
 - [ag-psd](https://github.com/Agamnentzar/ag-psd) (MIT): lee los archivos PSD.
+- [pdf.js](https://github.com/mozilla/pdf.js) 3.11.174 (Apache-2.0): rasteriza las páginas de un PDF.

@@ -1,6 +1,6 @@
 /* Modo sin conexión: guarda la aplicación la primera vez que se abre y la sirve desde caché después. */
-const CACHE = 'motioncomic-v4';
-const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'src/styles.css', 'src/vendor/mp4-muxer.js', 'src/vendor/ag-psd.js', 'src/js/util.js', 'src/js/audio.js', 'src/js/psd.js', 'src/js/text.js', 'src/js/style.js', 'src/js/page.js', 'src/js/export.js', 'src/js/formats.js', 'src/js/db.js', 'src/js/render.js', 'src/js/sample.js', 'src/js/home.js', 'src/js/studio.js', 'src/js/main.js'];
+const CACHE = 'motioncomic-v5';
+const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'src/styles.css', 'src/vendor/mp4-muxer.js', 'src/vendor/ag-psd.js', 'src/vendor/pdf.min.js', 'src/vendor/pdf.worker.min.js', 'src/js/util.js', 'src/js/audio.js', 'src/js/psd.js', 'src/js/pdf.js', 'src/js/text.js', 'src/js/style.js', 'src/js/page.js', 'src/js/export.js', 'src/js/formats.js', 'src/js/db.js', 'src/js/render.js', 'src/js/sample.js', 'src/js/home.js', 'src/js/studio.js', 'src/js/main.js'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {

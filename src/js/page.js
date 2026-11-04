@@ -89,6 +89,26 @@
     return rows.flatMap((r) => r.items.sort((a, b) => (dir === 'rtl' ? b.x1 - a.x1 : a.x0 - b.x0)));
   };
 
+  /* ---------- polígonos ---------- */
+  MC.panelBox = (pn) => ({ x0: pn.x0, y0: pn.y0, x1: pn.x1, y1: pn.y1 });
+  /* La caja (x0..y1) siempre es la envolvente de los vértices, así la cámara y el resto del código no cambian. */
+  MC.syncPanel = (pn) => {
+    if (!pn.pts) return pn;
+    pn.x0 = Math.min(...pn.pts.map((q) => q[0])); pn.x1 = Math.max(...pn.pts.map((q) => q[0]));
+    pn.y0 = Math.min(...pn.pts.map((q) => q[1])); pn.y1 = Math.max(...pn.pts.map((q) => q[1]));
+    return pn;
+  };
+  MC.toPolygon = (pn) => { pn.pts = [[pn.x0, pn.y0], [pn.x1, pn.y0], [pn.x1, pn.y1], [pn.x0, pn.y1]]; return pn; };
+  MC.inPolygon = (pts, x, y) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i], b = pts[j];
+      if ((a[1] > y) !== (b[1] > y) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  };
+  MC.panelHas = (pn, x, y) => (pn.pts ? MC.inPolygon(pn.pts, x, y) : x >= pn.x0 && x <= pn.x1 && y >= pn.y0 && y <= pn.y1);
+
   /* ---------- trayectoria de cámara ---------- */
   const holdOf = (pn) => (pn.hold != null ? pn.hold : clamp(1.3 + 4.2 * Math.sqrt((pn.x1 - pn.x0) * (pn.y1 - pn.y0)), 1.2, 5));
   MC.panelHold = holdOf;
@@ -112,8 +132,8 @@
       const ww = W / z, wh = H / z;
       const clampX = (v) => (PW <= ww ? W / 2 : clamp(v, W / 2 - PW / 2 + ww / 2, W / 2 + PW / 2 - ww / 2));
       const clampY = (v) => (PH <= wh ? H / 2 : clamp(v, H / 2 - PH / 2 + wh / 2, H / 2 + PH / 2 - wh / 2));
-      const rect = { x0: pn.x0, y0: pn.y0, x1: pn.x1, y1: pn.y1 };
-      const mk = (px, py, hold) => ({ x: (clampX(px) - W / 2) / W, y: (clampY(py) - H / 2) / H, zoom: z, hold, travel: 0, rect, panel: idx });
+      const rect = { x0: pn.x0, y0: pn.y0, x1: pn.x1, y1: pn.y1 }, poly = pn.pts ? pn.pts.map((q) => q.slice()) : null;
+      const mk = (px, py, hold) => ({ x: (clampX(px) - W / 2) / W, y: (clampY(py) - H / 2) / H, zoom: z, hold, travel: 0, rect, poly, panel: idx });
       const hold = holdOf(pn);
       if (pan === 'x') {
         const a = pn.x0 * PW - PW / 2 + W / 2 + ww / 2, b = pn.x1 * PW - PW / 2 + W / 2 - ww / 2;
@@ -134,7 +154,60 @@
     shot.camera.preset = 'path'; shot.camera.shake = 0;
     shot.duration = Math.round((MC.pathDuration(shot.camera.path) + 0.3) * 10) / 10;
   };
-  MC.finalizePages = (p) => { const o = MC.renderOpts(p); p.shots.forEach((sh) => { if (sh.page) MC.rebuildPagePath(sh, o); }); };
+  MC.finalizePages = (p) => { const o = MC.renderOpts(p); p.shots.forEach((sh) => { if (sh.page) MC.rebuildPagePath(sh, o); else if (sh.webtoon) MC.rebuildWebtoonPath(sh, o); }); };
+
+  /* ---------- Webtoon: scroll vertical con pausas y zooms ---------- */
+  MC.rebuildWebtoonPath = (shot, o) => {
+    const wt = shot.webtoon, L = shot.layers.find((l) => l.strip);
+    if (!wt || !L) return;
+    const img = o.getImg(L.assetId);
+    if (!img) return;
+    const { W, H } = o, s0 = Math.max(W / img.w, H / img.h) * (L.scale || 1), PW = img.w * s0, PH = img.h * s0;
+    const mk = (ny, zoom, nx, hold) => {
+      const z = Math.max(1, zoom || 1), ww = W / z, wh = H / z;
+      const cx = PW <= ww ? W / 2 : clamp(W / 2 + (nx || 0) * PW, W / 2 - PW / 2 + ww / 2, W / 2 + PW / 2 - ww / 2);
+      const cy = PH <= wh ? H / 2 : clamp(H / 2 - PH / 2 + ny * PH, H / 2 - PH / 2 + wh / 2, H / 2 + PH / 2 - wh / 2);
+      return { x: (cx - W / 2) / W, y: (cy - H / 2) / H, zoom: z, hold, travel: 0, rect: null };
+    };
+    const stops = wt.stops.slice().sort((a, b) => a.y - b.y);
+    const pts = [mk(0, 1, 0, wt.head != null ? wt.head : 0.8)];
+    stops.forEach((sp) => pts.push(mk(sp.y, sp.zoom, sp.x, sp.hold)));
+    pts.push(mk(1, 1, 0, wt.tail != null ? wt.tail : 1.2));
+    const speed = Math.max(0.05, wt.speed || 0.3) * H;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      pts[i].travel = Math.max(0.4, (Math.abs(b.y - a.y) * H + Math.abs(b.x - a.x) * W * 0.5 + Math.abs(Math.log(b.zoom / a.zoom)) * H * 0.4) / speed);
+    }
+    shot.camera.path = { pts, drift: 0, curve: 'smooth' };
+    shot.camera.preset = 'path'; shot.camera.shake = 0;
+    shot.duration = Math.round((MC.pathDuration(shot.camera.path) + 0.2) * 10) / 10;
+  };
+  MC.webtoonShot = (p, asset, name) => {
+    const sh = MC.newShot(name || asset.name.replace(/\.[a-z0-9]+$/i, ''));
+    const l = MC.newLayer(asset, { z: 0.5, role: '' });
+    l.strip = true; l.z = 0.5; l.role = ''; l.name = MC.t('Tira', 'Strip');
+    sh.layers.push(l);
+    sh.webtoon = { speed: 0.3, stops: [], head: 0.8, tail: 1.2 };
+    return sh;
+  };
+  /* Pausas sugeridas: una por bloque de la tira, con permanencia según su altura. */
+  MC.suggestStops = (asset) => {
+    const panels = MC.detectPanels(asset.bitmap, 'ltr');
+    if (panels.length < 2) return [];
+    return panels.map((q) => ({ id: MC.uid(), y: Math.round(((q.y0 + q.y1) / 2) * 1000) / 1000, hold: Math.round(clamp(1 + (q.y1 - q.y0) * 14, 1, 3.5) * 10) / 10, zoom: 1, x: 0 }));
+  };
+  /* Varias imágenes apiladas: se unen en una sola tira al mismo ancho. */
+  MC.stackImages = async (files) => {
+    const bms = [];
+    for (const f of files) bms.push(await createImageBitmap(f));
+    let w = Math.min(2000, Math.max(...bms.map((b) => b.width))), total = bms.reduce((a, b) => a + (b.height * w) / b.width, 0), k = 1;
+    if (total > 16000) { k = 16000 / total; w = Math.round(w * k); total = 16000; }
+    const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(total);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    let y = 0;
+    bms.forEach((b) => { const hh = (b.height * c.width) / b.width; g.drawImage(b, 0, y, c.width, hh); y += hh; b.close(); });
+    return { blob: await new Promise((res) => c.toBlob(res, 'image/png')), shrunk: k < 1 };
+  };
 
   /* ---------- páginas ---------- */
   MC.pageShot = (p, asset, dir, name) => {
@@ -147,9 +220,15 @@
   };
   MC.cropPanel = async (shot, pn) => {
     const L = shot.layers.find((l) => l.page), img = MC.assets.get(L.assetId);
-    const x = Math.round(pn.x0 * img.w), y = Math.round(pn.y0 * img.h), w = Math.max(2, Math.round((pn.x1 - pn.x0) * img.w)), hh = Math.max(2, Math.round((pn.y1 - pn.y0) * img.h));
+    let src = img.bitmap, own = false;
+    if (img.proxy) { const rec = await MC.db.get('assets', L.assetId); if (rec) { src = await createImageBitmap(rec.blob); own = true; } }
+    const f = src.width / img.w, bb = MC.panelBox(pn);
+    const x = Math.round(bb.x0 * img.w * f), y = Math.round(bb.y0 * img.h * f), w = Math.max(2, Math.round((bb.x1 - bb.x0) * img.w * f)), hh = Math.max(2, Math.round((bb.y1 - bb.y0) * img.h * f));
     const c = document.createElement('canvas'); c.width = w; c.height = hh;
-    c.getContext('2d').drawImage(img.bitmap, x, y, w, hh, 0, 0, w, hh);
+    const g = c.getContext('2d');
+    if (pn.pts) { g.beginPath(); pn.pts.forEach((q, i) => { const px = q[0] * img.w * f - x, py = q[1] * img.h * f - y; i ? g.lineTo(px, py) : g.moveTo(px, py); }); g.closePath(); g.clip(); }
+    g.drawImage(src, x, y, w, hh, 0, 0, w, hh);
+    if (own) src.close();
     const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
     return MC.assets.add(blob, shot.name + ' · ' + MC.t('viñeta', 'panel') + '.png');
   };
@@ -159,9 +238,18 @@
     const p = MC.newProject({ name: o.name, ratio: o.ratio, res: o.res, zoom: o.zoom });
     p.mode = o.mode; p.dir = o.dir || 'ltr'; p.shots = [];
     const st = MC.myStyle.get() || MC.myStyle.DEFAULT;
-    const files = [...o.files].filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const size = MC.frameSize(o.ratio, o.res);
+    let src = [...o.files];
+    for (const f of src.filter((x) => /\.pdf$/i.test(x.name))) { const r = await MC.pdfToImages(f, clamp(Math.round(size.w * (o.zoom || 1.5)), 1200, 3200)); src.push(...r.files); }
+    const files = src.filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     if (!files.length) throw new Error('sin imágenes');
     let panels = 0;
+    if (o.mode === 'webtoon') {
+      const st2 = await MC.stackImages(files), asset = await MC.assets.add(st2.blob, o.name + '.png'), sh = MC.webtoonShot(p, asset, MC.t('Tira', 'Strip'));
+      sh.webtoon.stops = MC.suggestStops(asset); panels = sh.webtoon.stops.length; p.shots.push(sh);
+      MC.finalizePages(p); p.thumb = MC.makeThumb(p); await MC.db.put('projects', p);
+      return { project: p, pages: files.length, panels };
+    }
     for (let i = 0; i < files.length; i++) {
       const asset = await MC.assets.add(files[i], files[i].name);
       let sh;
