@@ -7,3 +7,19 @@
 @font-face { font-family: 'Bangers'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/bangers-latin-400-normal.woff2) format('woff2'); }
 @font-face { font-family: 'Comic Neue'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/comic-neue-latin-700-normal.woff2) format('woff2'); }
 @font-face { font-family: 'Permanent Marker'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/permanent-marker-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Anton'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/anton-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Bebas Neue'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/bebas-neue-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/oswald-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/montserrat-latin-800-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/poppins-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Luckiest Guy'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/luckiest-guy-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Lilita One'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/lilita-one-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Archivo Black'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/archivo-black-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Caveat'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/caveat-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Rubik'; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/rubik-latin-800-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Righteous'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/righteous-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Bungee'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/bungee-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Press Start 2P'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/press-start-2p-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Courier Prime'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/courier-prime-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/playfair-display-latin-800-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/fredoka-latin-600-normal.woff2) format('woff2'); }

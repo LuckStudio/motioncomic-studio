@@ -7,21 +7,45 @@
 
   /* ---------- estilos y presets ---------- */
   MC.SUB_DEFAULT = { font: 'bric', size: 0.045, color: '#ffffff', hi: '#ffd84a', upAlpha: 1, doneColor: null, mode: 'line', upper: false, strokeW: 0, strokeColor: '#000000', shadow: 0, shadowColor: '#000000',
-    bg: true, bgColor: '#000000', bgAlpha: 0.62, bgMode: 'block', pad: 0.35, radius: 0, y: null, maxW: 0.82, maxChars: 34, lines: 2, hiScale: 1, hiBg: null, anim: 'fade', gapBreak: 0.7 };
+    bg: true, bgColor: '#000000', bgAlpha: 0.62, bgMode: 'block', pad: 0.35, radius: 0, y: null, maxW: 0.82, maxChars: 34, lines: 2, hiScale: 1, hiBg: null, anim: 'fade', gapBreak: 0.7,
+    align: 'center', ls: 0, lineH: 1.18, hs: 0, hsColor: '#000000', rot: 0, hiPop: false, hiUnder: false, hiBounce: false, hiGlow: false, grad: null, bgStroke: 0, bgStrokeColor: '#ffffff' };
+  MC.SUB_CATS = [['todos', 'Todos', 'All'], ['redes', 'Redes', 'Social'], ['cine', 'Cine y serie', 'Film and TV'], ['comic', 'Cómic', 'Comic'], ['creativo', 'Creativos', 'Creative']];
   MC.SUB_PRESETS = [
-    { v: 'classic', es: 'Clásico', en: 'Classic', s: {} },
-    { v: 'cine', es: 'Cine', en: 'Cinema', s: { bg: false, shadow: 0.5, size: 0.042, anim: 'fade' } },
-    { v: 'tiktok', es: 'TikTok', en: 'TikTok', s: { bg: false, upper: true, strokeW: 0.16, mode: 'karaoke', hi: '#ffd84a', hiScale: 1.12, size: 0.058, maxChars: 22, anim: 'pop' } },
-    { v: 'karaoke', es: 'Karaoke', en: 'Karaoke', s: { mode: 'karaoke', hi: '#ffd84a', upAlpha: 0.55, bgAlpha: 0.7, size: 0.05 } },
-    { v: 'comic', es: 'Cómic', en: 'Comic', s: { font: 'bangers', bg: false, upper: true, strokeW: 0.2, strokeColor: '#14141c', mode: 'karaoke', hi: '#ffd84a', size: 0.062, shadow: 0.4, anim: 'pop', maxChars: 24 } },
-    { v: 'neon', es: 'Neón', en: 'Neon', s: { font: 'marker', bg: false, color: '#f1e9ff', shadow: 1, shadowColor: '#8C7CFF', size: 0.05, anim: 'fade' } },
-    { v: 'caja', es: 'Caja moderna', en: 'Modern box', s: { bgColor: '#8C7CFF', bgAlpha: 0.96, radius: 0.45, pad: 0.55, size: 0.046, bgMode: 'block', anim: 'slide' } },
-    { v: 'minimo', es: 'Mínimo', en: 'Minimal', s: { bg: false, size: 0.034, color: '#ECEEF0', shadow: 0.3, anim: 'fade', maxChars: 44 } },
-    { v: 'palabra', es: 'Una palabra', en: 'One word', s: { mode: 'word', bg: false, upper: true, strokeW: 0.18, size: 0.1, anim: 'pop', y: 0.12 } },
-    { v: 'chip', es: 'Palabra resaltada', en: 'Highlighted word', s: { mode: 'karaoke', bg: false, color: '#ffffff', hi: '#14141c', hiBg: '#ffd84a', strokeW: 0.1, radius: 0.3, size: 0.052, upAlpha: 1, anim: 'fade' } },
-    { v: 'papel', es: 'Papel', en: 'Paper', s: { font: 'comic', bgColor: '#fbf7ee', bgAlpha: 1, color: '#14141c', radius: 0.12, pad: 0.45, size: 0.046, strokeW: 0, anim: 'fade' } },
-    { v: 'manga', es: 'Manga', en: 'Manga', s: { font: 'comic', bg: false, strokeW: 0.16, size: 0.052, maxChars: 26, anim: 'fade' } },
-    { v: 'revelado', es: 'Revelado', en: 'Reveal', s: { mode: 'reveal', bgAlpha: 0.7, size: 0.048, anim: 'none' } },
+    /* redes */
+    { v: 'tiktok', c: 'redes', es: 'TikTok', en: 'TikTok', s: { font: 'montserrat', bg: false, upper: true, strokeW: 0.2, mode: 'karaoke', hi: '#ffd84a', hiScale: 1.1, hiPop: true, size: 0.058, maxChars: 20, lines: 2, anim: 'pop' } },
+    { v: 'reels', c: 'redes', es: 'Reels', en: 'Reels', s: { font: 'poppins', bg: false, strokeW: 0.14, shadow: 0.35, mode: 'karaoke', hi: '#ff5d9e', hiPop: true, size: 0.054, maxChars: 22, anim: 'pop' } },
+    { v: 'shorts', c: 'redes', es: 'Shorts', en: 'Shorts', s: { font: 'archivo', bg: false, upper: true, strokeW: 0.16, mode: 'karaoke', hi: '#ff3b3b', hiScale: 1.12, size: 0.056, maxChars: 18, anim: 'zoom' } },
+    { v: 'palabra', c: 'redes', es: 'Una palabra', en: 'One word', s: { font: 'anton', mode: 'word', bg: false, upper: true, strokeW: 0.18, size: 0.11, anim: 'pop', y: 0.1, color: '#ffffff' } },
+    { v: 'chip', c: 'redes', es: 'Palabra con fondo', en: 'Word on a chip', s: { font: 'poppins', mode: 'karaoke', bg: false, color: '#ffffff', hi: '#14141c', hiBg: '#ffd84a', strokeW: 0.12, radius: 0.3, size: 0.052, anim: 'fade', hiPop: true } },
+    { v: 'subrayado', c: 'redes', es: 'Subrayado que sigue', en: 'Following underline', s: { font: 'montserrat', mode: 'karaoke', bg: false, strokeW: 0.1, hi: '#ffffff', hiUnder: true, upAlpha: 0.65, size: 0.052, shadow: 0.3 } },
+    { v: 'caja', c: 'redes', es: 'Caja moderna', en: 'Modern box', s: { font: 'poppins', bgColor: '#8C7CFF', bgAlpha: 0.97, radius: 0.5, pad: 0.55, size: 0.046, bgMode: 'block', anim: 'slide' } },
+    { v: 'pildora', c: 'redes', es: 'Píldora por línea', en: 'Pill per line', s: { font: 'rubik', bgColor: '#ffffff', bgAlpha: 1, color: '#14141c', bgMode: 'line', radius: 0.9, pad: 0.4, size: 0.05, anim: 'pop', strokeW: 0 } },
+    /* cine y serie */
+    { v: 'classic', c: 'cine', es: 'Clásico', en: 'Classic', s: {} },
+    { v: 'cine', c: 'cine', es: 'Cine', en: 'Cinema', s: { bg: false, shadow: 0.55, size: 0.042, anim: 'fade', font: 'bric' } },
+    { v: 'pelicula', c: 'cine', es: 'Película (serif)', en: 'Film (serif)', s: { font: 'playfair', bg: false, color: '#fff7e0', shadow: 0.5, size: 0.046, anim: 'fade', ls: 1 } },
+    { v: 'netflix', c: 'cine', es: 'Serie', en: 'Series', s: { font: 'oswald', bg: false, color: '#ffffff', strokeW: 0.1, shadow: 0.4, size: 0.05, anim: 'fade' } },
+    { v: 'minimo', c: 'cine', es: 'Mínimo', en: 'Minimal', s: { bg: false, size: 0.034, color: '#ECEEF0', shadow: 0.3, anim: 'fade', maxChars: 44 } },
+    { v: 'documental', c: 'cine', es: 'Documental', en: 'Documentary', s: { font: 'bric', bgColor: '#000000', bgAlpha: 0.78, radius: 0, pad: 0.5, size: 0.04, align: 'left', anim: 'slide' } },
+    { v: 'tercio', c: 'cine', es: 'Tercio inferior', en: 'Lower third', s: { font: 'montserrat', bgColor: '#e5333d', bgAlpha: 1, color: '#ffffff', align: 'left', radius: 0, pad: 0.5, size: 0.044, bgMode: 'line', anim: 'slide', y: 0.3 } },
+    { v: 'papel', c: 'cine', es: 'Papel', en: 'Paper', s: { font: 'courier', bgColor: '#fbf7ee', bgAlpha: 1, color: '#14141c', radius: 0.1, pad: 0.45, size: 0.044, strokeW: 0, anim: 'fade' } },
+    /* cómic */
+    { v: 'comic', c: 'comic', es: 'Cómic', en: 'Comic', s: { font: 'bangers', bg: false, upper: true, strokeW: 0.22, strokeColor: '#14141c', mode: 'karaoke', hi: '#ffd84a', size: 0.062, hs: 0.1, hsColor: '#14141c', anim: 'pop', maxChars: 24, hiPop: true, hiScale: 1.08 } },
+    { v: 'luckiest', c: 'comic', es: 'Cómic gordo', en: 'Bold comic', s: { font: 'luckiest', bg: false, color: '#ffffff', strokeW: 0.24, strokeColor: '#14141c', hs: 0.12, hsColor: '#e5333d', size: 0.06, upper: false, anim: 'pop', mode: 'karaoke', hi: '#ffd84a', maxChars: 22 } },
+    { v: 'manga', c: 'comic', es: 'Manga', en: 'Manga', s: { font: 'comic', bg: false, strokeW: 0.18, size: 0.052, maxChars: 26, anim: 'fade' } },
+    { v: 'rotulador', c: 'comic', es: 'Rotulador', en: 'Marker', s: { font: 'marker', bg: false, color: '#fff7a8', strokeW: 0.12, strokeColor: '#14141c', size: 0.05, rot: -2, anim: 'pop' } },
+    { v: 'globo', c: 'comic', es: 'Globo de texto', en: 'Speech bubble', s: { font: 'comic', bgColor: '#ffffff', bgAlpha: 1, color: '#14141c', radius: 0.8, pad: 0.7, size: 0.046, bgStroke: 0.08, bgStrokeColor: '#14141c', anim: 'pop' } },
+    { v: 'cartela', c: 'comic', es: 'Cartela', en: 'Caption box', s: { font: 'comic', bgColor: '#FFE08A', bgAlpha: 1, color: '#14141c', radius: 0, pad: 0.5, size: 0.042, bgStroke: 0.08, bgStrokeColor: '#14141c', align: 'left', anim: 'slide' } },
+    /* creativos */
+    { v: 'karaoke', c: 'creativo', es: 'Karaoke', en: 'Karaoke', s: { font: 'fredoka', mode: 'karaoke', hi: '#ffd84a', upAlpha: 0.5, bgAlpha: 0.7, size: 0.052, hiPop: true } },
+    { v: 'neon', c: 'creativo', es: 'Neón', en: 'Neon', s: { font: 'marker', bg: false, color: '#f1e9ff', shadow: 1, shadowColor: '#8C7CFF', hiGlow: true, mode: 'karaoke', hi: '#ffffff', size: 0.05, anim: 'fade' } },
+    { v: 'retro', c: 'creativo', es: 'Retro 8 bits', en: 'Retro 8-bit', s: { font: 'pixel', bg: true, bgColor: '#101030', bgAlpha: 0.9, color: '#7cff9a', size: 0.032, maxChars: 28, radius: 0, anim: 'none', upper: true, lineH: 1.5 } },
+    { v: 'maquina', c: 'creativo', es: 'Máquina de escribir', en: 'Typewriter', s: { font: 'courier', mode: 'reveal', bg: true, bgAlpha: 0.7, size: 0.044, anim: 'none' } },
+    { v: 'revelado', c: 'creativo', es: 'Va apareciendo', en: 'Builds up', s: { font: 'bric', mode: 'reveal', bgAlpha: 0.7, size: 0.048, anim: 'none' } },
+    { v: 'bungee', c: 'creativo', es: 'Rótulo urbano', en: 'Urban sign', s: { font: 'bungee', bg: false, color: '#ffffff', strokeW: 0.14, hs: 0.1, hsColor: '#8C7CFF', size: 0.05, upper: true, anim: 'slide' } },
+    { v: 'manuscrito', c: 'creativo', es: 'Manuscrito', en: 'Handwritten', s: { font: 'caveat', bg: false, color: '#fff', size: 0.07, shadow: 0.45, rot: -1.5, anim: 'fade', maxChars: 28 } },
+    { v: 'dorado', c: 'creativo', es: 'Dorado', en: 'Golden', s: { font: 'playfair', bg: false, grad: ['#fff2a8', '#c98a1a'], strokeW: 0.08, strokeColor: '#4a2e00', shadow: 0.4, size: 0.056, upper: true, ls: 2, anim: 'fade' } },
+    { v: 'tecno', c: 'creativo', es: 'Futurista', en: 'Futuristic', s: { font: 'righteous', bg: false, color: '#7de3ff', shadow: 0.9, shadowColor: '#2a8cff', size: 0.05, upper: true, ls: 3, anim: 'zoom', hiBounce: false } },
   ];
   MC.subStyle = (st) => Object.assign({}, MC.SUB_DEFAULT, st || {});
   MC.applySubPreset = (it, id) => { const p = MC.SUB_PRESETS.find((x) => x.v === id); if (p) { const keepY = it.style && it.style.y; it.style = MC.subStyle(p.s); it.style.preset = id; if (keepY != null && p.s.y == null) it.style.y = keepY; } return it.style; };
@@ -77,8 +101,9 @@
 
   /* Pinta una línea concreta. cue: { s, e, words }, time: instante. Devuelve los límites. */
   MC.drawSubCue = (ctx, p, st, cue, time, W, H, yOver) => {
-    const font = MC.fontSpec(p, st.font), size = st.size * H, lineH = size * 1.18, upper = !!st.upper;
+    const font = MC.fontSpec(p, st.font), size = st.size * H, lineH = size * (st.lineH || 1.18), upper = !!st.upper;
     ctx.save(); ctx.font = font.w + ' ' + size + 'px ' + font.css; ctx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = (st.ls || 0) * size * 0.03 + 'px';
     const txt = (w) => (upper ? w.toUpperCase() : w), sp = ctx.measureText(' ').width * 1.15 + st.strokeW * size * 0.45, maxW = st.maxW * W;
     let words = cue.words, curIdx = -1;
     words.forEach((w, i) => { if (time >= w.s) curIdx = i; });
@@ -86,7 +111,7 @@
     if (st.mode === 'reveal') { words = cue.words.slice(0, Math.max(1, curIdx + 1)); }
     /* reparto en líneas (se mide con todas las palabras para que el texto no «salte» al revelarse) */
     const layoutWords = st.mode === 'reveal' ? cue.words : words, lines = []; let line = [], lw = 0;
-    layoutWords.forEach((w, i) => { const wd = ctx.measureText(txt(w.w)).width * (st.mode === 'word' ? 1 : 1); if (line.length && lw + sp + wd > maxW) { lines.push({ ws: line, w: lw }); line = []; lw = 0; } line.push({ w, wd, i }); lw += (line.length > 1 ? sp : 0) + wd; });
+    layoutWords.forEach((w, i) => { const wd = ctx.measureText(txt(w.w)).width; if (line.length && lw + sp + wd > maxW) { lines.push({ ws: line, w: lw }); line = []; lw = 0; } line.push({ w, wd, i }); lw += (line.length > 1 ? sp : 0) + wd; });
     if (line.length) lines.push({ ws: line, w: lw });
     let blockW = 0; lines.forEach((l) => { blockW = Math.max(blockW, l.w); });
     const blockH = lines.length * lineH, cx = W / 2, cy = H / 2 + (yOver != null ? yOver : MC.subY(p, W, H)) * H;
@@ -94,25 +119,30 @@
     const a = time - cue.s, left = cue.e - time; let alpha = 1, sc = 1, dy = 0;
     if (st.anim === 'fade') alpha = clamp(a / 0.15, 0, 1); else if (st.anim === 'pop') { const k = clamp(a / 0.25, 0, 1); sc = 0.4 + 0.6 * easeOutBack(k); alpha = clamp(a / 0.07, 0, 1); } else if (st.anim === 'slide') { dy = (1 - clamp(a / 0.25, 0, 1)) * H * 0.04; alpha = clamp(a / 0.18, 0, 1); } else if (st.anim === 'zoom') { sc = 1.35 - 0.35 * clamp(a / 0.25, 0, 1); alpha = clamp(a / 0.12, 0, 1); }
     if (left < 0.12) alpha *= Math.max(0, left / 0.12);
-    ctx.globalAlpha = alpha; ctx.translate(cx, cy + dy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+    ctx.globalAlpha = alpha; ctx.translate(cx, cy + dy); if (st.rot) ctx.rotate((st.rot * Math.PI) / 180); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
     const top = cy - blockH / 2, padPx = st.pad * size, rad = st.radius * size;
-    const drawBg = (x, y, w, h, color, aa) => { ctx.save(); ctx.fillStyle = hexA(color, aa); rrect(ctx, x, y, w, h, rad); ctx.fill(); ctx.restore(); };
+    const drawBg = (x, y, w, h, color, aa) => { ctx.save(); ctx.fillStyle = hexA(color, aa); rrect(ctx, x, y, w, h, rad); ctx.fill(); if (st.bgStroke > 0) { ctx.strokeStyle = st.bgStrokeColor || '#fff'; ctx.lineWidth = st.bgStroke * size; ctx.stroke(); } ctx.restore(); };
+    const lx = (l) => (st.align === 'left' ? cx - blockW / 2 : st.align === 'right' ? cx + blockW / 2 - l.w : cx - l.w / 2);
     if (st.bg && st.bgMode !== 'none') {
-      if (st.bgMode === 'line') lines.forEach((l, li) => drawBg(cx - l.w / 2 - padPx, top + li * lineH - padPx * 0.1, l.w + padPx * 2, lineH + padPx * 0.2, st.bgColor, st.bgAlpha));
+      if (st.bgMode === 'line') lines.forEach((l, li) => drawBg(lx(l) - padPx, top + li * lineH - padPx * 0.1, l.w + padPx * 2, lineH + padPx * 0.2, st.bgColor, st.bgAlpha));
       else drawBg(cx - blockW / 2 - padPx, top - padPx * 0.55, blockW + padPx * 2, blockH + padPx * 1.1, st.bgColor, st.bgAlpha);
     }
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     lines.forEach((l, li) => {
-      let x = cx - l.w / 2; const y = top + li * lineH + size * 0.92;
+      let x = lx(l); const y = top + li * lineH + size * 0.92;
       l.ws.forEach((q) => {
-        const w = q.w, isCur = st.mode === 'karaoke' && w === cue.words[curIdx], spoken = st.mode === 'karaoke' && cue.words.indexOf(w) < curIdx, upcoming = st.mode === 'karaoke' && cue.words.indexOf(w) > curIdx;
-        const s2 = isCur ? Math.max(1, st.hiScale) : 1;
-        ctx.save(); ctx.translate(x + q.wd / 2, y); ctx.scale(s2, s2); ctx.translate(-(x + q.wd / 2), -y);
+        const w = q.w, ci = cue.words.indexOf(w), isCur = st.mode === 'karaoke' && ci === curIdx, spoken = st.mode === 'karaoke' && ci < curIdx, upcoming = st.mode === 'karaoke' && ci > curIdx;
+        const pw = isCur ? clamp((time - w.s) / 0.16, 0, 1) : 1, pop = isCur && st.hiPop ? 1 + 0.25 * (1 - pw) : 1, s2 = (isCur ? Math.max(1, st.hiScale) : 1) * pop, by = isCur && st.hiBounce ? -size * 0.14 * Math.sin(Math.PI * pw) : 0;
+        ctx.save(); ctx.translate(x + q.wd / 2, y + by); ctx.scale(s2, s2); ctx.translate(-(x + q.wd / 2), -y);
         if (isCur && st.hiBg) { ctx.save(); ctx.fillStyle = st.hiBg; rrect(ctx, x - size * 0.16, y - size * 0.86, q.wd + size * 0.32, size * 1.12, rad || size * 0.18); ctx.fill(); ctx.restore(); }
-        if (st.shadow > 0) { ctx.shadowColor = hexA(st.shadowColor, 0.9); ctx.shadowBlur = st.shadow * size * 0.5; ctx.shadowOffsetY = st.shadow * size * 0.06; }
-        if (st.strokeW > 0) { ctx.save(); ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW * size; ctx.strokeText(txt(w.w), x, y); ctx.restore(); ctx.shadowColor = 'transparent'; }
+        const col = isCur ? st.hi : spoken && st.doneColor ? st.doneColor : st.color;
+        if (st.hs > 0) { ctx.save(); ctx.fillStyle = st.hsColor; ctx.strokeStyle = st.hsColor; if (st.strokeW > 0) { ctx.lineWidth = st.strokeW * size; ctx.strokeText(txt(w.w), x + st.hs * size, y + st.hs * size); } ctx.fillText(txt(w.w), x + st.hs * size, y + st.hs * size); ctx.restore(); }
+        if (st.shadow > 0 || (isCur && st.hiGlow)) { const gl = isCur && st.hiGlow; ctx.shadowColor = hexA(gl ? st.hi : st.shadowColor, 0.95); ctx.shadowBlur = (gl ? 0.7 : st.shadow * 0.5) * size; ctx.shadowOffsetY = gl ? 0 : st.shadow * size * 0.06; }
+        if (st.strokeW > 0) { ctx.save(); ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW * size; ctx.strokeText(txt(w.w), x, y); ctx.restore(); ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; }
         ctx.globalAlpha = alpha * (upcoming ? st.upAlpha : 1);
-        ctx.fillStyle = isCur ? st.hi : spoken && st.doneColor ? st.doneColor : st.color; ctx.fillText(txt(w.w), x, y);
+        if (st.grad && !isCur) { const gg = ctx.createLinearGradient(0, y - size * 0.85, 0, y + size * 0.1); gg.addColorStop(0, st.grad[0]); gg.addColorStop(1, st.grad[1]); ctx.fillStyle = gg; } else ctx.fillStyle = col;
+        ctx.fillText(txt(w.w), x, y);
+        if (isCur && st.hiUnder) { ctx.shadowColor = 'transparent'; ctx.fillStyle = st.hi; ctx.fillRect(x, y + size * 0.12, q.wd * (0.35 + 0.65 * pw), Math.max(2, size * 0.09)); }
         ctx.restore(); x += q.wd + sp;
       });
     });
@@ -129,12 +159,12 @@
     });
   };
   /* Miniatura de un estilo (para las tarjetas de presets). */
-  MC.subPreview = (canvas, p, style, sample) => {
+  MC.subPreview = (canvas, p, style, sample, at) => {
     const W = canvas.width, H = canvas.height, g = canvas.getContext('2d'), st = MC.subStyle(style);
     const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#2b2a45'); gr.addColorStop(1, '#6b4a5f'); g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = gr; g.fillRect(0, 0, W, H);
     const ws = (sample || MC.t('Así se verá tu texto', 'This is how your text looks')).split(' ').map((w, i) => ({ w, s: i * 0.4, e: i * 0.4 + 0.4 })), cue = { s: 0, e: 99, words: ws };
     const st2 = Object.assign({}, st, { size: Math.min(0.24, st.size * 3.3), maxW: 0.94, anim: 'none', y: 0 });
-    MC.drawSubCue(g, p, st2, cue, 0.4 * Math.min(2, ws.length - 1) + 0.05, W, H, 0);
+    MC.drawSubCue(g, p, st2, cue, at != null ? at : 0.4 * Math.min(2, ws.length - 1) + 0.05, W, H, 0);
   };
 
   /* ---------- importar tiempos de palabras ---------- */

@@ -1466,10 +1466,20 @@
       touch(); renderPanels(); renderTimeline(); S.dirty = true;
     }
     function subCountText(it) { const l = subWords(it).filter((e) => !e.sil); return l.length + t(' palabras · ', ' words · ') + l.filter((e) => e.s != null).length + t(' con su momento', ' timed'); }
-    const subPresetGrid = (apply, current) => h('div', { class: 'subprs', role: 'group', 'aria-label': t('Estilos de subtítulos', 'Subtitle styles') }, MC.SUB_PRESETS.map((pr) => {
-      const cv = h('canvas', { width: 220, height: 92, 'aria-hidden': 'true' }); try { MC.subPreview(cv, S.project, MC.subStyle(pr.s)); } catch (e) { /* sin muestra */ }
-      return h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
-    }));
+    S.sbCat = 'todos';
+    const subPresetGrid = (apply, current) => {
+      const list = MC.SUB_PRESETS.filter((pr) => S.sbCat === 'todos' || pr.c === S.sbCat);
+      const grid = h('div', { class: 'subprs', role: 'group', 'aria-label': t('Estilos de subtítulos', 'Subtitle styles') }, list.map((pr) => {
+        const cv = h('canvas', { width: 280, height: 118, 'aria-hidden': 'true' }), nW = 5, still = () => { try { MC.subPreview(cv, S.project, MC.subStyle(pr.s), null, nW * 0.4 * 0.5); } catch (e) { /* sin muestra */ } };
+        still(); MC.ensureFonts().then(still);
+        let raf = 0; const loop = (ts) => { try { MC.subPreview(cv, S.project, MC.subStyle(pr.s), null, ((ts / 1000) % (nW * 0.4 + 0.6))); } catch (e) { /* nada */ } raf = requestAnimationFrame(loop); };
+        const btn = h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
+        btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
+        btn.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); raf = 0; still(); });
+        return btn;
+      }));
+      return h('div', { class: 'subpresets' }, MC.ui.chips(MC.SUB_CATS.map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.sbCat, (v) => { S.sbCat = v; renderPanels(); }), grid);
+    };
     function subsPanel() {
       const p = S.project, lang = p.lang, it = subById(S.sb), out = [];
       const imp = h('input', { type: 'file', accept: '.json,.srt,.vtt,.csv,.tsv,.txt,application/json,text/*', hidden: true, onChange: async (e) => {
@@ -1538,10 +1548,21 @@
           sl('shadow', t('Sombra y brillo', 'Shadow and glow'), 0, 1, 0.01, pc), st.shadow > 0 ? col('shadowColor', t('Color de la sombra', 'Shadow colour')) : null,
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.bg, onChange: (e) => setC('bg', e.target.checked) }), h('span', null, t('Fondo detrás del texto', 'Background behind the text'))),
           st.bg ? [col('bgColor', t('Color del fondo', 'Background colour')), sl('bgAlpha', t('Opacidad del fondo', 'Background opacity'), 0, 1, 0.01, pc), h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma del fondo', 'Background shape')), MC.ui.seg([{ v: 'block', l: t('Un bloque', 'One block') }, { v: 'line', l: t('Por línea', 'Per line') }], st.bgMode === 'line' ? 'line' : 'block', (v) => setC('bgMode', v))), sl('pad', t('Margen interior', 'Padding'), 0, 1.2, 0.01, (v) => v.toFixed(2) + ' em'), sl('radius', t('Radio de las esquinas', 'Corner radius'), 0, 0.8, 0.01, (v) => (v === 0 ? t('rectas', 'square') : v.toFixed(2) + ' em'))] : null,
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Alineación', 'Alignment')), MC.ui.seg([{ v: 'left', l: t('Izquierda', 'Left') }, { v: 'center', l: t('Centro', 'Centre') }, { v: 'right', l: t('Derecha', 'Right') }], st.align || 'center', (v) => setC('align', v))),
+          sl('ls', t('Espacio entre letras', 'Letter spacing'), -2, 8, 0.25, (v) => v.toFixed(2)), sl('lineH', t('Espacio entre líneas', 'Line spacing'), 0.9, 1.8, 0.01, (v) => '×' + v.toFixed(2)), sl('rot', t('Inclinación', 'Tilt'), -12, 12, 0.5, (v) => v + '°'),
+          sl('hs', t('Sombra dura (como en cómic)', 'Hard shadow (comic style)'), 0, 0.3, 0.01, (v) => (v === 0 ? t('sin sombra', 'none') : pc(v / 0.3))), st.hs > 0 ? col('hsColor', t('Color de la sombra dura', 'Hard shadow colour')) : null,
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.grad, onChange: (e) => setC('grad', e.target.checked ? ['#fff2a8', '#c98a1a'] : null) }), h('span', null, t('Texto con degradado', 'Gradient text'))),
+          st.grad ? h('div', { class: 'field' }, h('label', null, t('Colores del degradado (arriba y abajo)', 'Gradient colours (top and bottom)')), h('div', { style: { display: 'flex', gap: '8px' } }, [0, 1].map((k) => h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '70px' }, value: st.grad[k], onInput: (e) => { const g2 = st.grad.slice(); g2[k] = e.target.value; setS('grad', g2); }, onChange: commit })))) : null,
+          st.bg ? [sl('bgStroke', t('Borde del fondo', 'Background border'), 0, 0.3, 0.01, (v) => (v === 0 ? t('sin borde', 'none') : pc(v / 0.3))), st.bgStroke > 0 ? col('bgStrokeColor', t('Color del borde del fondo', 'Background border colour')) : null] : null,
+          st.mode === 'karaoke' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Efectos de la palabra que suena', 'Spoken word effects')), h('div', { class: 'chips' }, [['hiPop', t('Salto al entrar', 'Pop in')], ['hiBounce', t('Rebote', 'Bounce')], ['hiUnder', t('Subrayado', 'Underline')], ['hiGlow', t('Brillo', 'Glow')]].map((q) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(!!st[q[0]]), onClick: () => setC(q[0], !st[q[0]]) }, q[1])))) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación de cada línea', 'Animation of each line')), MC.ui.chips([['none', t('Ninguna', 'None')], ['fade', t('Aparecer', 'Fade')], ['pop', 'Pop'], ['slide', t('Deslizar', 'Slide')], ['zoom', 'Zoom']].map((q) => ({ v: q[0], l: q[1] })), st.anim, (v) => setC('anim', v))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Posición rápida', 'Quick position')), MC.ui.chips([['top', t('Arriba', 'Top'), -0.34], ['mid', t('Centro', 'Middle'), 0], ['low', t('Tercio inferior', 'Lower third'), 0.27], ['safe', t('Abajo (zona segura)', 'Bottom (safe)'), null]].map((q) => ({ v: q[0], l: q[1] })), (() => { const y0 = it.style && it.style.y; return y0 == null ? 'safe' : Math.abs(y0 + 0.34) < 0.02 ? 'top' : Math.abs(y0) < 0.02 ? 'mid' : Math.abs(y0 - 0.27) < 0.02 ? 'low' : null; })(), (v) => { const y = { top: -0.34, mid: 0, low: 0.27, safe: null }[v]; it.style = Object.assign(MC.subStyle(it.style), { y }); commit(); })),
           MC.ui.slider({ label: t('Altura', 'Position'), min: -0.3, max: 0.48, step: 0.01, value: it.style && it.style.y != null ? it.style.y : MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => setS('y', v), onChange: commit }),
           sl('maxW', t('Ancho máximo', 'Maximum width'), 0.4, 0.95, 0.01, pc), sl('maxChars', t('Letras por línea', 'Letters per line'), 8, 60, 1, (v) => String(v)), sl('lines', t('Líneas a la vez', 'Lines at once'), 1, 4, 1, (v) => String(v)),
-          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { p.subDefault = JSON.parse(JSON.stringify(it.style)); MC.toast(t('Este estilo se usará en los nuevos subtítulos.', 'This style will be used for new subtitles.')); touch(); } }, t('Usar para los nuevos', 'Use for new ones')))));
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.subs.length < 2, onClick: () => { p.subs.forEach((q) => { if (q !== it) q.style = JSON.parse(JSON.stringify(it.style)); }); commit(); MC.toast(t('Estilo aplicado a todas las capas de subtítulos', 'Style applied to every subtitle layer')); } }, t('Aplicar a todos los subtítulos', 'Apply to all subtitles')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !st.preset, onClick: () => { MC.applySubPreset(it, st.preset); commit(); } }, MC.icon('undo', 14), t('Restablecer al estilo', 'Reset to the style')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { p.subDefault = JSON.parse(JSON.stringify(it.style)); MC.toast(t('Este estilo se usará en los nuevos subtítulos.', 'This style will be used for new subtitles.')); touch(); } }, t('Usar para los nuevos', 'Use for new ones')))));
         /* capa */
         out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Capa', 'Layer')), nameIn(t('Nombre', 'Name'), it.name, (v) => { if (v) { it.name = v; commit(); } }),
           MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(MC.totalTime(p), it.start + 1), step: 0.05, value: it.start, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { const d = v - it.start; Object.keys(it.words || {}).forEach((l2) => it.words[l2].forEach((e) => { if (e.s != null) e.s = Math.max(0, Math.round((e.s + d) * 1000) / 1000); })); it.start = v; layoutClips(); S.dirty = true; touch(); }, onChange: commit }),
@@ -1573,15 +1594,22 @@
           h('span', { class: 'ln' }, label(x)), h('span', { class: 'lz' }, { bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: 'sfx', sub: t('subt.', 'sub') }[x.kind] + ' · ' + MC.fmtTime(MC.textSpan(x, p).start)))))
           : h('p', { class: 'cap' }, t('Aún no hay textos.', 'No texts yet.')))];
     }
+    S.snd = { q: '', cat: 'todos' };
     function soundsPanel() {
       let cur = null; const stopPrev = () => { if (cur) { try { cur.stop(); } catch (e) { /* parado */ } cur = null; } };
-      const rows = MC.audio.LIBRARY.map((it) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
+      const q = (S.snd.q || '').toLowerCase().trim(), all = MC.audio.LIBRARY, cats = MC.audio.CATS;
+      const shown = all.filter((it) => (S.snd.cat === 'todos' || it.cat === S.snd.cat) && (!q || (it.es + ' ' + it.en).toLowerCase().includes(q)));
+      const rows = shown.map((it) => h('div', { class: 'layer sndrow', draggable: 'true', title: t('Arrástralo a la línea de tiempo', 'Drag it to the timeline'), onDragstart: (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([{ lib: it.id, kind: 'audio' }])); e.dataTransfer.effectAllowed = 'copy'; } },
+        h('span', { class: 'lt au' }, MC.icon(it.kind === 'music' ? 'note' : 'speaker', 16)), h('span', { class: 'ln' }, t(it.es, it.en)), h('span', { class: 'lz' }, it.dur.toFixed(1) + ' s'),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-label': t('Oír ', 'Play ') + t(it.es, it.en), onClick: async () => { stopPrev(); cur = await MC.audio.preview(await MC.audio.renderLibrary(it)); } }, MC.icon('play', 12)),
-        h('button', { class: 'btn btn-p btn-sm', type: 'button', 'aria-label': t('Añadir ', 'Add ') + t(it.es, it.en), onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(it, S.time); S.cl = c.id; commit(); MC.toast(t('Añadido en el cabezal', 'Added at the playhead')); } }, MC.icon('plus', 12))));
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', 'aria-label': t('Añadir ', 'Add ') + t(it.es, it.en), onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(it, S.time); S.cl = c.id; commit(); b2.disabled = false; } }, MC.icon('plus', 12))));
       return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('upload', 20), t('Importar audio', 'Import audio')),
         h('button', { class: 'btn btn-s', type: 'button', onClick: recordVoice }, MC.icon('mic', 20), t('Grabar locución', 'Record voice-over')))),
-      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca de sonidos', 'Sound library')), h('p', { class: 'cap' }, t('Efectos y música ambiente generados por código, sin licencias. Se añaden donde está el cabezal.', 'Effects and ambient music generated by code, no licences. They are added at the playhead.')), h('div', { style: { display: 'grid', gap: '2px' } }, rows))];
+      h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca de sonidos · ', 'Sound library · ') + all.length), h('p', { class: 'cap' }, t('Efectos y músicas generados por código, sin licencias. Pulsa + para añadirlos donde está el cabezal, o arrástralos a la línea de tiempo.', 'Effects and music generated by code, no licences. Press + to add them at the playhead, or drag them to the timeline.')),
+        h('input', { class: 'input', type: 'search', 'aria-label': t('Buscar un sonido', 'Search for a sound'), placeholder: t('Buscar: lluvia, golpe, láser…', 'Search: rain, hit, laser…'), value: S.snd.q, onInput: (e) => { S.snd.q = e.target.value; const pos = e.target.selectionStart; renderPanels(); const n = el.leftBody.querySelector('input[type=search]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } } }),
+        MC.ui.chips(cats.map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.snd.cat, (v) => { S.snd.cat = v; renderPanels(); }),
+        shown.length ? h('div', { style: { display: 'grid', gap: '2px' } }, rows) : h('p', { class: 'cap' }, t('No hay sonidos con ese nombre.', 'No sounds match.')))];
     }
     function summaryPanel() {
       const p = S.project, total = MC.totalTime(p), me = MC.memEstimate(p), size = MC.frameSize(p.ratio, p.res);
@@ -2565,7 +2593,7 @@
       else if (dt.files && dt.files.length) { const fs = await MC.collectDropped(dt); MC.toast(t('Leyendo los archivos…', 'Reading the files…')); const r = await storeFiles(fs); items = r.items; rest = r.rest; }
       const imgs = items.filter((q) => q.kind !== 'audio'), auds = items.filter((q) => q.kind === 'audio'), key = info.key;
       if (auds.length && (key === 'voz' || key === 'sfx' || key === 'musica' || key === 'shots' || key === 'text')) {
-        for (const q of auds) { const a = MC.audio.get(q.id) || (await MC.audio.load(q.id)); if (!a) continue; const c = MC.audio.newClip(AU.includes(key) ? key : a.dur >= 20 ? 'musica' : 'sfx', a, info.time); p.clips.push(c); S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; }
+        for (const q of auds) { if (q.lib) { const it = MC.audio.LIBRARY.find((x) => x.id === q.lib); if (it) { const c = await addLibrarySound(it, info.time); if (AU.includes(key)) c.track = key; S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; } continue; } const a = MC.audio.get(q.id) || (await MC.audio.load(q.id)); if (!a) continue; const c = MC.audio.newClip(AU.includes(key) ? key : a.dur >= 20 ? 'musica' : 'sfx', a, info.time); p.clips.push(c); S.cl = c.id; S.tx = null; S.ov = null; S.li = -1; }
         commit(); return;
       }
       if (/^o\d+$/.test(key) && imgs.length) { let at = info.time; for (const q of imgs) { const a = await MC.assets.load(q.id); if (!a) continue; const it = MC.newOverlay(a, { track: +key.slice(1), start: at, dur: 4 }); it.scale = 0.6; if (!a.video) it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; p.overlays.push(it); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1; at += it.dur; } commit(); return; }

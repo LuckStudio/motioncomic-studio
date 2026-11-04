@@ -2,3 +2,5 @@ Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateli
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 Bricolage Grotesque, Bangers, Comic Neue y Permanent Marker: SIL Open Font License 1.1 (fuente: paquetes @fontsource).
+
+Anton, Bebas Neue, Oswald, Montserrat, Poppins, Luckiest Guy, Lilita One, Archivo Black, Caveat, Rubik, Righteous, Bungee, Press Start 2P, Courier Prime, Playfair Display y Fredoka: SIL Open Font License 1.1 (fuente: paquetes @fontsource; cada paquete incluye el aviso de copyright de sus autores).

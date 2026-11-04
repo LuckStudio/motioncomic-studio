@@ -9,6 +9,22 @@
     { id: 'comic', css: '"Comic Neue", "Comic Sans MS", sans-serif', w: 700, es: 'Cómic', en: 'Comic' },
     { id: 'bangers', css: 'Bangers, Impact, sans-serif', w: 400, es: 'Onomatopeya (Bangers)', en: 'Sound effect (Bangers)' },
     { id: 'marker', css: '"Permanent Marker", cursive', w: 400, es: 'Rotulador', en: 'Marker' },
+    { id: 'anton', css: '"Anton", sans-serif', w: 400, es: 'Anton (titulares)', en: 'Anton (headlines)' },
+    { id: 'bebas', css: '"Bebas Neue", sans-serif', w: 400, es: 'Bebas (alta y estrecha)', en: 'Bebas (tall and narrow)' },
+    { id: 'oswald', css: '"Oswald", sans-serif', w: 700, es: 'Oswald (condensada)', en: 'Oswald (condensed)' },
+    { id: 'montserrat', css: '"Montserrat", sans-serif', w: 800, es: 'Montserrat (moderna)', en: 'Montserrat (modern)' },
+    { id: 'poppins', css: '"Poppins", sans-serif', w: 700, es: 'Poppins (geométrica)', en: 'Poppins (geometric)' },
+    { id: 'luckiest', css: '"Luckiest Guy", sans-serif', w: 400, es: 'Luckiest Guy (cómic gordo)', en: 'Luckiest Guy (bold comic)' },
+    { id: 'lilita', css: '"Lilita One", sans-serif', w: 400, es: 'Lilita One (divertida)', en: 'Lilita One (playful)' },
+    { id: 'archivo', css: '"Archivo Black", sans-serif', w: 400, es: 'Archivo Black (potente)', en: 'Archivo Black (heavy)' },
+    { id: 'caveat', css: '"Caveat", sans-serif', w: 700, es: 'Caveat (manuscrita)', en: 'Caveat (handwritten)' },
+    { id: 'rubik', css: '"Rubik", sans-serif', w: 800, es: 'Rubik (redondeada)', en: 'Rubik (rounded)' },
+    { id: 'righteous', css: '"Righteous", sans-serif', w: 400, es: 'Righteous (futurista)', en: 'Righteous (futuristic)' },
+    { id: 'bungee', css: '"Bungee", sans-serif', w: 400, es: 'Bungee (rótulo urbano)', en: 'Bungee (urban sign)' },
+    { id: 'pixel', css: '"Press Start 2P", sans-serif', w: 400, es: '8 bits (retro)', en: '8-bit (retro)' },
+    { id: 'courier', css: '"Courier Prime", sans-serif', w: 700, es: 'Máquina de escribir', en: 'Typewriter' },
+    { id: 'playfair', css: '"Playfair Display", sans-serif', w: 800, es: 'Playfair (serif elegante)', en: 'Playfair (elegant serif)' },
+    { id: 'fredoka', css: '"Fredoka", sans-serif', w: 600, es: 'Fredoka (suave)', en: 'Fredoka (soft)' },
   ];
   MC.fontSpec = (p, id) => {
     const b = MC.FONTS.find((f) => f.id === id);
