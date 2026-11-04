@@ -252,6 +252,23 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 select.input { appearance: auto; }
 
+/* simulador de plataformas (interfaz genérica, sin marcas) */
+.sim { position: absolute; pointer-events: none; overflow: hidden; border-radius: 3px; color: #fff; font-size: calc(var(--u, 4px) * 3.3); line-height: 1.25; text-shadow: 0 1px 4px rgba(0,0,0,.55); }
+.sim-top { position: absolute; top: 3.5%; left: 0; right: 0; display: flex; gap: 1.6em; justify-content: center; font-weight: 500; opacity: .95; }
+.sim-top.l { justify-content: flex-start; padding-left: 5%; font-size: 1.15em; }
+.sim-top b { font-weight: 700; }
+.sim-side { position: absolute; right: 3%; bottom: 17%; display: grid; gap: 1.1em; justify-items: center; }
+.sim-act { display: grid; justify-items: center; gap: .1em; font-size: .78em; font-weight: 600; }
+.sim-act svg { width: 2.2em; height: 2.2em; stroke-width: 1.8; fill: rgba(255,255,255,.1); }
+.sim-av { width: 2.6em; height: 2.6em; border-radius: 50%; border: .14em solid #fff; background: linear-gradient(135deg, #8C7CFF, #FFB070); }
+.sim-bot { position: absolute; left: 4%; right: 22%; bottom: 9%; display: grid; gap: .35em; }
+.sim-bot span { font-size: .85em; }
+.sim-snd { display: inline-flex; align-items: center; gap: .4em; }
+.sim-prog { position: absolute; left: 0; right: 0; bottom: 0; height: .3em; background: rgba(255,255,255,.3); }
+.sim-prog i { display: block; height: 100%; background: #fff; }
+.sim-note { position: absolute; left: 0; right: 0; bottom: 2.4%; margin: 0; text-align: center; font-size: .55em; opacity: .7; }
+.sim[data-p="shorts"] .sim-side { bottom: 14%; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -26405,6 +26422,11 @@ module.exports = ZStream;
   const h = MC.h;
   /* Añade hijos ignorando null/false y aplanando listas (append nativo escribiría «null»). */
   MC.put = (el, ...kids) => { kids.flat(Infinity).forEach((c) => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); }); return el; };
+  MC.download = (blob, name) => {
+    const a = MC.h('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+  };
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
@@ -26435,6 +26457,12 @@ module.exports = ZStream;
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
     note: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
     cut: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>',
+    heart: '<path d="M12 20s-7-4.4-9-9.2C1.8 7 4.2 4 7.3 4c1.9 0 3.4 1 4.7 2.8C13.3 5 14.800 4 16.700 4 19.800 4 22.200 7 21 10.800 19 15.600 12 20 12 20z"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    send: '<path d="M21 3L3 10.500l7 2.500 2.500 7z"/><path d="M10 13l11-10"/>',
+    bookmark: '<path d="M6 3h12v18l-6-4.500L6 21z"/>',
+    dots: '<circle cx="5" cy="12" r="1.600" fill="currentColor"/><circle cx="12" cy="12" r="1.600" fill="currentColor"/><circle cx="19" cy="12" r="1.600" fill="currentColor"/>',
+    page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 10h16M11 3v7M11 10v11"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
   };
   MC.icon = (name, size) => {
@@ -26950,7 +26978,29 @@ module.exports = ZStream;
     return { i: 0, tl: 0 };
   };
 
+  /* Trayectoria con varios puntos (modo Página): mantiene cada viñeta y viaja a la siguiente. */
+  MC.pathDuration = (path) => path.pts.reduce((a, q, i) => a + q.hold + (i < path.pts.length - 1 ? q.travel || 0 : 0), 0);
+  function pathCam(path, tl) {
+    const pts = path.pts;
+    let t = tl;
+    const from = (q, drift) => ({ x: q.x, y: q.y, zoom: q.zoom * (1 + (path.drift || 0) * drift), rot: 0, sx: 0, sy: 0, rect: q.rect });
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (t < q.hold) return from(q, t / Math.max(0.01, q.hold));
+      t -= q.hold;
+      if (i < pts.length - 1) {
+        const tr = q.travel || 0;
+        if (t < tr) {
+          const e = MC.ease(path.curve || 'smooth', t / tr), n = pts[i + 1], a = from(q, 1), b = from(n, 0), r = a.rect && b.rect ? { x0: lerp(a.rect.x0, b.rect.x0, e), y0: lerp(a.rect.y0, b.rect.y0, e), x1: lerp(a.rect.x1, b.rect.x1, e), y1: lerp(a.rect.y1, b.rect.y1, e) } : b.rect;
+          return { x: lerp(a.x, b.x, e), y: lerp(a.y, b.y, e), zoom: a.zoom * Math.pow(b.zoom / a.zoom, e), rot: 0, sx: 0, sy: 0, rect: r };
+        }
+        t -= tr;
+      }
+    }
+    return from(pts[pts.length - 1], 1);
+  }
   MC.camAt = (shot, tl, withShake) => {
+    if (shot.camera.path && shot.camera.path.pts.length) return pathCam(shot.camera.path, tl);
     const c = shot.camera, d = Math.max(0.01, shot.duration), p = MC.ease(c.curve, tl / d);
     const z0 = c.from.zoom, z1 = c.to.zoom;
     const cam = { x: lerp(c.from.x, c.to.x, p), y: lerp(c.from.y, c.to.y, p), zoom: z0 * Math.pow(z1 / z0, p), rot: lerp(c.from.rot || 0, c.to.rot || 0, p), sx: 0, sy: 0 };
@@ -26984,8 +27034,9 @@ module.exports = ZStream;
   MC.coverNeeds = (layer, img, shot, o) => {
     const { W, H } = o, out = [];
     const shake = shot.camera.shake || 0;
-    for (let k = 0; k <= 4; k++) {
-      const cam = MC.camAt(shot, (shot.duration * k) / 4, false);
+    const N = shot.camera.path ? 24 : 4;
+    for (let k = 0; k <= N; k++) {
+      const cam = MC.camAt(shot, (shot.duration * k) / N, false);
       const g = MC.layerGeom(layer, img, cam, o);
       const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
       const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
@@ -27053,7 +27104,16 @@ module.exports = ZStream;
       if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
       ctx.scale(g.zl, g.zl);
       ctx.translate(-camx, -camy);
-      ctx.drawImage(img.bitmap, box.cx - (img.w * box.s) / 2, box.cy - (img.h * box.s) / 2, img.w * box.s, img.h * box.s);
+      const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
+      ctx.drawImage(img.bitmap, ix, iy, iw, ih);
+      /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
+      const pg = shot.page;
+      if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {
+        const r = cam.rect, big = 1e5;
+        ctx.fillStyle = 'rgba(0,0,0,' + pg.dim + ')';
+        ctx.beginPath(); ctx.rect(-big, -big, big * 2, big * 2); ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
+        ctx.fill('evenodd');
+      }
       ctx.restore();
     }
     ctx.restore();
@@ -27115,6 +27175,15 @@ module.exports = ZStream;
 (function () {
   const MC = window.MC;
   const { t } = MC;
+
+  /* Para el modo Página: el PSD se usa como una sola imagen (la composición ya aplanada). */
+  MC.psdComposite = async (file) => {
+    if (!window.agPsd) throw new Error('sin lector de PSD');
+    const psd = window.agPsd.readPsd(await file.arrayBuffer(), { skipThumbnail: true, skipLayerImageData: true });
+    if (!psd.canvas) throw new Error('sin composición');
+    const blob = await new Promise((res) => psd.canvas.toBlob(res, 'image/png'));
+    return new File([blob], file.name.replace(/\.psd$/i, '') + '.png', { type: 'image/png' });
+  };
 
   /* Devuelve { shot, warnings, doc }. El archivo original no se modifica. */
   MC.importPsd = async (file) => {
@@ -27209,6 +27278,7 @@ module.exports = ZStream;
     const lang = p.lang || 'es';
     const it = { id: MC.uid(), kind, t: {}, start, dur: 2.5, x: 0, y: -0.28, w: 0.4, size: 0.05, font: 'comic', color: '#14141c', fill: '#ffffff', stroke: '#14141c',
       align: 'center', shape: 'speech', tail: { x: -0.06, y: 0.17 }, rot: 0, reveal: 'all', speed: 30, fit: false, anim: 'pop', loop: 'none', link: null };
+    if (p.textFont && (kind === 'bubble' || kind === 'box')) it.font = p.textFont;
     if (kind === 'box') Object.assign(it, { x: -0.18, y: -0.4, w: 0.5, size: 0.04, fill: '#FFE08A', align: 'left', anim: 'slide', shape: 'box' });
     if (kind === 'sfx') Object.assign(it, { y: 0.08, w: 0.8, size: 0.17, font: 'bangers', color: '#E5333D', rot: -8, anim: 'shake', shape: 'sfx' });
     if (kind === 'sub') Object.assign(it, { anim: 'none', shape: 'sub' });
@@ -27376,6 +27446,227 @@ module.exports = ZStream;
   };
 })();
 
+/* «Mi estilo»: ajustes que se reutilizan en proyectos nuevos y en el borrador en un clic (PRD 13). Todo en este equipo. */
+(function () {
+  const MC = window.MC;
+
+  const DEFAULT = { parallax: 'normal', curve: 'smooth', intensity: 1, transition: { type: 'wipe', dur: 0.7 }, mode: 'pan', travel: 0.8, dim: 0.55, textFont: 'comic',
+    sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null } };
+
+  MC.myStyle = {
+    DEFAULT,
+    saved() { try { return JSON.parse(MC.store.get('mystyle', '')) || null; } catch (e) { return null; } },
+    get() { return this.saved(); },
+    set(st) { MC.store.set('mystyle', JSON.stringify(st)); },
+    clear() { MC.store.set('mystyle', ''); },
+  };
+
+  /* Lee los ajustes que definen la dirección visual del proyecto. */
+  MC.styleFromProject = (p) => {
+    const sh1 = p.shots.find((s) => s.page), second = p.shots[1] || p.shots[0], cam = p.shots[0].camera;
+    const bubble = p.texts.slice().reverse().find((x) => x.kind === 'bubble' || x.kind === 'box');
+    return {
+      parallax: p.parallax, curve: cam.curve, intensity: cam.intensity || 1, transition: { type: second.transition.type, dur: second.transition.dur },
+      mode: sh1 ? sh1.page.mode : DEFAULT.mode, travel: sh1 ? sh1.page.travel : DEFAULT.travel, dim: sh1 ? sh1.page.dim : DEFAULT.dim,
+      textFont: bubble ? bubble.font : p.textFont || DEFAULT.textFont, sub: Object.assign({}, p.sub),
+    };
+  };
+
+  /* Aplica el estilo a un proyecto. El llamador debe reconstruir las trayectorias de página si cambia el ritmo. */
+  MC.applyStyle = (p, st, isDraft) => {
+    p.parallax = st.parallax; p.sub = Object.assign({}, p.sub, st.sub); p.textFont = st.textFont;
+    p.shots.forEach((sh, i) => {
+      if (!sh.page) sh.camera.curve = st.curve;
+      if (i > 0) sh.transition = { type: st.transition.type, dur: st.transition.dur };
+      else if (isDraft) sh.transition = { type: 'cut', dur: 0.6 };
+      if (sh.page) Object.assign(sh.page, { mode: st.mode, travel: st.travel, dim: st.dim });
+    });
+  };
+})();
+
+/* Modo Página completa: detección de viñetas sin IA, orden de lectura, trayectoria de cámara y borrador en un clic (PRD 5.1, 5.4). */
+(function () {
+  const MC = window.MC;
+  const { clamp } = MC;
+
+  /* ---------- detección de viñetas ---------- */
+  function luminance(src, maxW) {
+    const k = Math.min(1, maxW / src.width), w = Math.max(8, Math.round(src.width * k)), h = Math.max(8, Math.round(src.height * k));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(src, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data, lum = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) lum[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+    return { lum, w, h };
+  }
+
+  /* Divide la página por los canales entre viñetas (corte XY recursivo). El orden sale de la propia división. */
+  MC.detectPanels = (src, dir) => {
+    const { lum, w, h } = luminance(src, 640);
+    const edge = [];
+    const bw = Math.max(2, Math.round(Math.min(w, h) * 0.012));
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < bw || y < bw || x >= w - bw || y >= h - bw) edge.push(lum[y * w + x]);
+    edge.sort((a, b) => a - b);
+    const gl = edge[edge.length >> 1];
+    const content = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) content[i] = Math.abs(lum[i] - gl) > 38 ? 1 : 0;
+    const rtl = dir === 'rtl', out = [];
+
+    const segs = (prof, eps, minGap) => {
+      const res = []; let start = -1, gap = 0;
+      for (let i = 0; i < prof.length; i++) {
+        if (prof[i] > eps) { if (start < 0) start = i; gap = 0; }
+        else if (start >= 0) { gap++; if (gap >= minGap) { res.push([start, i - gap + 1]); start = -1; gap = 0; } }
+      }
+      if (start >= 0) res.push([start, prof.length - gap]);
+      return res;
+    };
+    const cut = (x0, y0, x1, y1, depth) => {
+      const rw = x1 - x0, rh = y1 - y0;
+      if (rw < 8 || rh < 8 || depth > 8) return;
+      const rows = new Array(rh).fill(0), cols = new Array(rw).fill(0);
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (content[y * w + x]) { rows[y - y0]++; cols[x - x0]++; }
+      const sy = segs(rows, Math.max(1, rw * 0.004), Math.max(3, Math.round(h * 0.007)));
+      if (sy.length > 1) { sy.forEach((s) => cut(x0, y0 + s[0], x1, y0 + s[1], depth + 1)); return; }
+      const sx = segs(cols, Math.max(1, rh * 0.004), Math.max(3, Math.round(w * 0.007)));
+      if (sx.length > 1) { (rtl ? sx.slice().reverse() : sx).forEach((s) => cut(x0 + s[0], y0, x0 + s[1], y1, depth + 1)); return; }
+      const ty = sy[0] || [0, rh], tx = sx[0] || [0, rw];
+      if (!sy.length || !sx.length) return;
+      out.push({ x0: (x0 + tx[0]) / w, y0: (y0 + ty[0]) / h, x1: (x0 + tx[1]) / w, y1: (y0 + ty[1]) / h });
+    };
+    cut(0, 0, w, h, 0);
+    let panels = out.filter((q) => (q.x1 - q.x0) * (q.y1 - q.y0) > 0.02 && q.x1 - q.x0 > 0.08 && q.y1 - q.y0 > 0.05);
+
+    if (panels.length <= 1) panels = componentPanels(content, w, h, dir) || panels;
+    if (!panels.length) panels = [{ x0: 0, y0: 0, x1: 1, y1: 1 }];
+    return panels.map((q) => ({ id: MC.uid(), x0: round3(q.x0), y0: round3(q.y0), x1: round3(q.x1), y1: round3(q.y1), hold: null }));
+  };
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+
+  /* Plan B para páginas con viñetas que no se separan por canales rectos: manchas conectadas. */
+  function componentPanels(content, w, h, dir) {
+    const k = 3, sw = Math.ceil(w / k), sh = Math.ceil(h / k), m = new Uint8Array(sw * sh);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (content[y * w + x]) m[((y / k) | 0) * sw + ((x / k) | 0)] = 1;
+    const dil = new Uint8Array(sw * sh), r = 2;
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) if (m[y * sw + x]) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < sh && xx >= 0 && xx < sw) dil[yy * sw + xx] = 1; }
+    const seen = new Uint8Array(sw * sh), res = [];
+    for (let i = 0; i < sw * sh; i++) {
+      if (!dil[i] || seen[i]) continue;
+      const stack = [i]; seen[i] = 1; let x0 = sw, y0 = sh, x1 = 0, y1 = 0;
+      while (stack.length) {
+        const q = stack.pop(), qx = q % sw, qy = (q / sw) | 0;
+        x0 = Math.min(x0, qx); x1 = Math.max(x1, qx); y0 = Math.min(y0, qy); y1 = Math.max(y1, qy);
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d) => { const nx = qx + d[0], ny = qy + d[1]; if (nx >= 0 && nx < sw && ny >= 0 && ny < sh && dil[ny * sw + nx] && !seen[ny * sw + nx]) { seen[ny * sw + nx] = 1; stack.push(ny * sw + nx); } });
+      }
+      const b = { x0: x0 / sw, y0: y0 / sh, x1: (x1 + 1) / sw, y1: (y1 + 1) / sh };
+      if ((b.x1 - b.x0) * (b.y1 - b.y0) > 0.03) res.push(b);
+    }
+    return res.length > 1 ? MC.sortPanels(res, dir) : null;
+  }
+
+  /* Orden de lectura por filas: occidental (izquierda a derecha) o manga (derecha a izquierda). */
+  MC.sortPanels = (panels, dir) => {
+    const ps = panels.slice().sort((a, b) => a.y0 - b.y0), rows = [];
+    ps.forEach((q) => {
+      const row = rows.find((r) => { const ov = Math.min(r.y1, q.y1) - Math.max(r.y0, q.y0); return ov > 0.5 * Math.min(r.y1 - r.y0, q.y1 - q.y0); });
+      if (row) { row.items.push(q); row.y0 = Math.min(row.y0, q.y0); row.y1 = Math.max(row.y1, q.y1); } else rows.push({ y0: q.y0, y1: q.y1, items: [q] });
+    });
+    rows.sort((a, b) => a.y0 - b.y0);
+    return rows.flatMap((r) => r.items.sort((a, b) => (dir === 'rtl' ? b.x1 - a.x1 : a.x0 - b.x0)));
+  };
+
+  /* ---------- trayectoria de cámara ---------- */
+  const holdOf = (pn) => (pn.hold != null ? pn.hold : clamp(1.3 + 4.2 * Math.sqrt((pn.x1 - pn.x0) * (pn.y1 - pn.y0)), 1.2, 5));
+  MC.panelHold = holdOf;
+
+  MC.rebuildPagePath = (shot, o) => {
+    const pg = shot.page, L = shot.layers.find((l) => l.page);
+    if (!pg || !L) return;
+    const img = o.getImg(L.assetId);
+    if (!img) return;
+    const { W, H } = o, s0 = Math.max(W / img.w, H / img.h) * (L.scale || 1), PW = img.w * s0, PH = img.h * s0;
+    const panels = pg.panels.length ? pg.panels : [{ x0: 0, y0: 0, x1: 1, y1: 1, hold: null }];
+    const pts = [];
+    panels.forEach((pn, idx) => {
+      const rw = (pn.x1 - pn.x0) * PW, rh = (pn.y1 - pn.y0) * PH;
+      const cx = W / 2 + ((pn.x0 + pn.x1) / 2 - 0.5) * PW, cy = H / 2 + ((pn.y0 + pn.y1) / 2 - 0.5) * PH;
+      const zW = W / rw, zH = H / rh, zf = Math.min(zW, zH), margin = 0.94;
+      let z = 1, pan = null;
+      if (zf >= 1) z = zf * margin;
+      else if (zW < zH) { z = Math.max(1, zH * margin); pan = 'x'; }
+      else { z = Math.max(1, zW * margin); pan = 'y'; }
+      const ww = W / z, wh = H / z;
+      const clampX = (v) => (PW <= ww ? W / 2 : clamp(v, W / 2 - PW / 2 + ww / 2, W / 2 + PW / 2 - ww / 2));
+      const clampY = (v) => (PH <= wh ? H / 2 : clamp(v, H / 2 - PH / 2 + wh / 2, H / 2 + PH / 2 - wh / 2));
+      const rect = { x0: pn.x0, y0: pn.y0, x1: pn.x1, y1: pn.y1 };
+      const mk = (px, py, hold) => ({ x: (clampX(px) - W / 2) / W, y: (clampY(py) - H / 2) / H, zoom: z, hold, travel: 0, rect, panel: idx });
+      const hold = holdOf(pn);
+      if (pan === 'x') {
+        const a = pn.x0 * PW - PW / 2 + W / 2 + ww / 2, b = pn.x1 * PW - PW / 2 + W / 2 - ww / 2;
+        pts.push(mk(a, cy, 0.6), mk(b, cy, Math.max(0.6, hold - 0.6)));
+        pts[pts.length - 2].travel = clamp(Math.abs(b - a) / (0.3 * Math.max(W, H)), 1.2, 6);
+      } else if (pan === 'y') {
+        const a = pn.y0 * PH - PH / 2 + H / 2 + wh / 2, b = pn.y1 * PH - PH / 2 + H / 2 - wh / 2;
+        pts.push(mk(cx, a, 0.6), mk(cx, b, Math.max(0.6, hold - 0.6)));
+        pts[pts.length - 2].travel = clamp(Math.abs(b - a) / (0.3 * Math.max(W, H)), 1.2, 6);
+      } else pts.push(mk(cx, cy, hold));
+    });
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (pts[i].panel === pts[i + 1].panel) continue; // ya tiene su recorrido
+      const a = pts[i], b = pts[i + 1], dist = Math.hypot((b.x - a.x) * W, (b.y - a.y) * H);
+      pts[i].travel = pg.mode === 'cut' ? 0 : clamp((0.5 + Math.min(0.9, (dist / Math.max(PW, PH)) * 1.4)) * ((pg.travel || 0.8) / 0.8), 0.25, 3);
+    }
+    shot.camera.path = { pts, drift: 0.03, curve: 'smooth' };
+    shot.camera.preset = 'path'; shot.camera.shake = 0;
+    shot.duration = Math.round((MC.pathDuration(shot.camera.path) + 0.3) * 10) / 10;
+  };
+  MC.finalizePages = (p) => { const o = MC.renderOpts(p); p.shots.forEach((sh) => { if (sh.page) MC.rebuildPagePath(sh, o); }); };
+
+  /* ---------- páginas ---------- */
+  MC.pageShot = (p, asset, dir, name) => {
+    const sh = MC.newShot(name || asset.name.replace(/\.[a-z0-9]+$/i, ''));
+    const l = MC.newLayer(asset, { z: 0.5, role: '' });
+    l.page = true; l.z = 0.5; l.role = ''; l.name = MC.t('Página', 'Page');
+    sh.layers.push(l);
+    sh.page = { dir: dir || 'ltr', panels: MC.detectPanels(asset.bitmap, dir || 'ltr'), dim: 0.55, mode: 'pan', travel: 0.8, manual: false };
+    return sh;
+  };
+  MC.cropPanel = async (shot, pn) => {
+    const L = shot.layers.find((l) => l.page), img = MC.assets.get(L.assetId);
+    const x = Math.round(pn.x0 * img.w), y = Math.round(pn.y0 * img.h), w = Math.max(2, Math.round((pn.x1 - pn.x0) * img.w)), hh = Math.max(2, Math.round((pn.y1 - pn.y0) * img.h));
+    const c = document.createElement('canvas'); c.width = w; c.height = hh;
+    c.getContext('2d').drawImage(img.bitmap, x, y, w, hh, 0, 0, w, hh);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+    return MC.assets.add(blob, shot.name + ' · ' + MC.t('viñeta', 'panel') + '.png');
+  };
+
+  /* ---------- borrador en un clic ---------- */
+  MC.buildDraft = async (o) => {
+    const p = MC.newProject({ name: o.name, ratio: o.ratio, res: o.res, zoom: o.zoom });
+    p.mode = o.mode; p.dir = o.dir || 'ltr'; p.shots = [];
+    const st = MC.myStyle.get() || MC.myStyle.DEFAULT;
+    const files = [...o.files].filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (!files.length) throw new Error('sin imágenes');
+    let panels = 0;
+    for (let i = 0; i < files.length; i++) {
+      const asset = await MC.assets.add(files[i], files[i].name);
+      let sh;
+      if (o.mode === 'page') { sh = MC.pageShot(p, asset, p.dir, MC.t('Página ', 'Page ') + (i + 1)); panels += sh.page.panels.length; }
+      else {
+        sh = MC.newShot(files[i].name.replace(/\.[a-z0-9]+$/i, ''));
+        sh.layers.push(MC.newLayer(asset, { z: 0.1, role: 'fondo' }));
+        MC.applyPreset(sh.camera, 'zoomin', 0.7 * (st.intensity || 1)); sh.duration = 3.5;
+      }
+      p.shots.push(sh);
+    }
+    MC.applyStyle(p, st, true);
+    MC.finalizePages(p);
+    p.thumb = MC.makeThumb(p);
+    await MC.db.put('projects', p);
+    return { project: p, pages: files.length, panels };
+  };
+})();
+
 /* Exportación de vídeo MP4 en el propio navegador (WebCodecs + muxer). Usa el mismo motor de dibujo que el visor. */
 (function () {
   const MC = window.MC;
@@ -27391,6 +27682,11 @@ module.exports = ZStream;
   ];
   const defaultMbps = (w, h2) => Math.max(4, Math.round((w * h2) / 2073600 * 12));
 
+  /* Trabajo de exportación en segundo plano: sigue aunque se cierre la ventana. */
+  const jobListeners = new Set();
+  MC.exportJob = null;
+  MC.onExportJob = (fn) => { jobListeners.add(fn); return () => jobListeners.delete(fn); };
+  const emit = () => jobListeners.forEach((f) => f(MC.exportJob));
   const E = (MC.exporter = {});
   E.supported = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && !!window.Mp4Muxer;
 
@@ -27472,7 +27768,7 @@ module.exports = ZStream;
     const p = api.project;
     const st = { plat: 'proj', fps: 30, mbps: null, range: 'all', audio: true, normalize: true, res: p.res, lang: p.lang, subs: true };
     const body = h('div', { style: { display: 'grid', gap: '16px' } });
-    let ctl = null, resultUrl = null;
+    let offJob = () => {};
     const hasAudio = () => (p.clips || []).length > 0;
     const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub');
     const plat = () => MC.PLATFORMS.find((x) => x.id === st.plat);
@@ -27519,39 +27815,59 @@ module.exports = ZStream;
         MC.renderFrame(c.getContext('2d'), p, api.time(), MC.renderOpts(p, { lang: st.lang, subs: st.subs }));
         c.toBlob((b) => { download(b, p.name.replace(/[^\w\- ]+/g, '') + '-portada.png'); MC.toast(t('Portada exportada', 'Cover exported')); }, 'image/png');
       } }, t('Portada (PNG)', 'Cover (PNG)'));
-      go.addEventListener('click', async () => {
-        const c = cur(), pl = plat(), r = range();
-        ctl = new AbortController();
-        go.disabled = true; still.disabled = true; body.style.display = 'none'; progress.style.display = 'grid';
-        const bar = h('i', { style: { display: 'block', height: '100%', width: '0%', background: 'var(--accent)' } }), label = h('span', { class: 'cap' }, '');
-        MC.clear(progress);
-        MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', borderRadius: '99px', overflow: 'hidden' } }, bar), label,
-          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => ctl.abort() }, t('Cancelar exportación', 'Cancel export')));
-        try {
-          const res = await E.run(p, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
-            (f, msg) => { bar.style.width = Math.round(f * 100) + '%'; label.textContent = Math.round(f * 100) + ' % · ' + msg; }, ctl.signal);
-          resultUrl = URL.createObjectURL(res.blob);
-          const name = p.name.replace(/[^\w\- ]+/g, '') + '.mp4';
-          MC.clear(progress);
+      let shown = '', bar = null, label = null;
+      const showJob = () => {
+        const job = MC.exportJob;
+        if (!job) { if (shown) { shown = ''; progress.style.display = 'none'; body.style.display = 'grid'; } go.disabled = !E.supported(); still.disabled = false; return; }
+        body.style.display = 'none'; progress.style.display = 'grid';
+        go.disabled = true; still.disabled = job.state === 'running';
+        if (job.state === 'running') {
+          if (shown !== 'running') {
+            shown = 'running'; bar = h('i', { style: { display: 'block', height: '100%', width: '0%', background: 'var(--accent)' } }); label = h('span', { class: 'cap' }, '');
+            MC.clear(progress);
+            MC.put(progress, h('div', { class: 'eyebrow' }, t('Exportando', 'Exporting')), h('div', { style: { height: '8px', background: 'var(--raised)', borderRadius: '99px', overflow: 'hidden' } }, bar), label,
+              h('p', { class: 'cap' }, t('Puedes cerrar esta ventana y seguir editando: la exportación usa una copia del proyecto de ahora.', 'You can close this window and keep editing: the export uses a copy of the project as it is now.')),
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => job.ctl.abort() }, t('Cancelar exportación', 'Cancel export')));
+          }
+          bar.style.width = Math.round(job.progress * 100) + '%'; label.textContent = Math.round(job.progress * 100) + ' % · ' + job.label;
+          return;
+        }
+        if (shown === job.state) return;
+        shown = job.state; MC.clear(progress);
+        const back = h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { if (job.url) URL.revokeObjectURL(job.url); MC.exportJob = null; emit(); } }, t('Volver a los ajustes', 'Back to settings'));
+        if (job.state === 'done') {
+          const res = job.result;
           MC.put(progress, h('div', { class: 'eyebrow' }, t('Listo', 'Done')),
-            h('video', { src: resultUrl, controls: true, style: { width: '100%', maxHeight: '46vh', background: '#000', borderRadius: '8px' } }),
+            h('video', { src: job.url, controls: true, style: { width: '100%', maxHeight: '46vh', background: '#000', borderRadius: '8px' } }),
             h('p', { class: 'cap' }, res.W + '×' + res.H + ' · ' + res.fps + ' fps · ' + res.codec + (res.audio && res.audio !== 'sin' ? ' + ' + res.audio : '') + ' · ' + (res.blob.size / 1e6).toFixed(1) + ' MB'),
             res.codec !== 'H.264' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica H.264, así que el vídeo está en VP9. Para subirlo a redes, exporta desde Chrome, Edge o Safari de escritorio.', 'This browser does not encode H.264, so the video is VP9. To upload it to social media, export from desktop Chrome, Edge or Safari.')) : null,
             res.audio === 'Opus' ? h('p', { class: 'cap warn' }, t('El audio está en Opus porque este navegador no codifica AAC. Algunas redes y reproductores lo rechazan: exporta desde Chrome, Edge o Safari de escritorio.', 'Audio is Opus because this browser cannot encode AAC. Some networks and players reject it: export from desktop Chrome, Edge or Safari.')) : null,
             res.audio === 'sin' ? h('p', { class: 'cap warn' }, t('Este navegador no codifica audio: el vídeo se ha exportado sin sonido.', 'This browser does not encode audio: the video was exported without sound.')) : null,
-            h('div', { class: 'row-end' }, h('button', { class: 'btn btn-p', type: 'button', onClick: () => { download(res.blob, name); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 15), t('Descargar MP4', 'Download MP4'))));
-        } catch (e) {
-          MC.clear(progress);
-          MC.put(progress, h('p', { class: e.message === 'cancelado' ? 'cap' : 'cap bad' }, e.message === 'cancelado' ? t('Exportación cancelada.', 'Export cancelled.') : (e.message || String(e))),
-            h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { progress.style.display = 'none'; body.style.display = 'grid'; go.disabled = !E.supported(); still.disabled = false; } }, t('Volver', 'Back')));
+            h('div', { class: 'row-end' }, back, h('button', { class: 'btn btn-p', type: 'button', onClick: () => { download(res.blob, job.file); MC.toast(t('Vídeo descargado', 'Video downloaded')); } }, MC.icon('download', 15), t('Descargar MP4', 'Download MP4'))));
+        } else {
+          MC.put(progress, h('p', { class: job.state === 'cancelled' ? 'cap' : 'cap bad' }, job.state === 'cancelled' ? t('Exportación cancelada.', 'Export cancelled.') : job.error || ''), back);
         }
+      };
+      offJob = MC.onExportJob(showJob);
+      go.addEventListener('click', async () => {
+        if (MC.exportJob && MC.exportJob.state === 'running') return;
+        const c = cur(), pl = plat(), r = range(), snap = JSON.parse(JSON.stringify(p));
+        const job = (MC.exportJob = { state: 'running', progress: 0, label: '', ctl: new AbortController(), name: p.name, file: p.name.replace(/[^\w\- ]+/g, '') + '.mp4' });
+        emit();
+        try {
+          job.result = await E.run(snap, { res: c.res, fps: st.fps, mbps: st.mbps || pl.mbps || defaultMbps(c.size.w, c.size.h), from: r[0], to: r[1], audio: st.audio && hasAudio(), normalize: st.normalize, lang: st.lang, subs: st.subs },
+            (f, msg) => { job.progress = f; job.label = msg; emit(); }, job.ctl.signal);
+          job.url = URL.createObjectURL(job.result.blob); job.state = 'done'; MC.toast(t('Exportación lista: «' + p.name + '»', 'Export ready: “' + p.name + '”'));
+        } catch (e) { job.state = e.message === 'cancelado' ? 'cancelled' : 'error'; job.error = e.message || String(e); }
+        emit();
       });
+      showJob();
       const srt = h('button', { class: 'btn btn-s', type: 'button', onClick: () => {
         const txt = MC.srt(p, st.lang);
         if (!txt) { MC.toast(t('Aún no hay subtítulos con texto.', 'There are no subtitles with text yet.')); return; }
         download(new Blob([txt], { type: 'text/plain' }), p.name.replace(/[^\w\- ]+/g, '') + '-' + st.lang + '.srt'); MC.toast(t('Subtítulos exportados (SRT)', 'Subtitles exported (SRT)'));
       } }, t('Subtítulos (SRT)', 'Subtitles (SRT)'));
-      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { if (ctl) ctl.abort(); if (resultUrl) URL.revokeObjectURL(resultUrl); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
+      return [h('button', { class: 'btn btn-g', type: 'button', onClick: () => { offJob(); close(); } }, t('Cerrar', 'Close')), hasSubs() ? srt : null, still, go];
     });
     return modal;
   };
@@ -27697,6 +28013,36 @@ module.exports = ZStream;
     return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
   }
 
+  /* Página de cómic de ejemplo (1600×2300, cinco viñetas) para probar el modo Página. */
+  MC.createPageSample = async (lang) => {
+    const en = lang === 'en', PW = 1600, PH = 2300, c = document.createElement('canvas'); c.width = PW; c.height = PH;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH);
+    const s1 = shot1().layers, s2 = shot2().layers, s3 = shot3('"Arial Black", Impact, sans-serif').layers;
+    const panel = (x, y, w, h, layers, crop) => {
+      g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+      let cr = crop;
+      if (!cr) { const k = Math.max(w / SW, h / SH); cr = { w: w / k, h: h / k }; cr.x = (SW - cr.w) / 2; cr.y = (SH - cr.h) / 2; }
+      layers.forEach((l) => g.drawImage(l.c, cr.x, cr.y, cr.w, cr.h, x, y, w, h));
+      g.restore(); g.strokeStyle = '#0A0A14'; g.lineWidth = 9; g.strokeRect(x, y, w, h);
+    };
+    panel(70, 70, 860, 580, s1);
+    panel(980, 70, 550, 580, s1, { x: 760, y: 120, w: 620, h: 657 });
+    panel(70, 700, 1460, 550, s2);
+    panel(70, 1300, 650, 930, s3);
+    panel(770, 1300, 760, 930, s2, { x: 560, y: 120, w: 780, h: 955 });
+    const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+    const asset = await MC.assets.add(blob, (en ? 'Example page' : 'Página de ejemplo') + '.png');
+    const p = MC.newProject({ name: en ? 'Example project · Page mode' : 'Proyecto de ejemplo · Modo Página', ratio: '9:16', res: '1080p', zoom: 1.5 });
+    p.mode = 'page'; p.dir = 'ltr';
+    p.shots = [MC.pageShot(p, asset, 'ltr', en ? 'Page 1' : 'Página 1')];
+    const a = await MC.audio.add(MC.audio.wav(await MC.audio.renderLibrary(MC.audio.LIBRARY.find((x) => x.id === 'aventura'))), (en ? 'Music · Adventure' : 'Música · Aventura') + '.wav');
+    MC.finalizePages(p);
+    const cl = MC.audio.newClip('musica', a, 0); cl.dur = Math.min(a.dur, p.shots[0].duration); cl.vol = 0.8; cl.fadeOut = 1.5; p.clips.push(cl);
+    p.thumb = MC.makeThumb(p); p.sample = true; p.samplePage = true;
+    return p;
+  };
+
   MC.createSampleProject = async (lang) => {
     let font = '"Arial Black", Impact, sans-serif';
     try { await document.fonts.load('800 100px "Bricolage Grotesque"'); if (document.fonts.check('800 100px "Bricolage Grotesque"')) font = '"Bricolage Grotesque", ' + font; } catch (e) { /* usa la tipografía de reserva */ }
@@ -27796,25 +28142,68 @@ module.exports = ZStream;
     for (const id of MC.projectAssetIds(p)) if (!used.has(id)) { await MC.db.del('assets', id); MC.assets.cache.delete(id); }
   };
 
+  /* Selector de modo reutilizable: Libre, Página completa, Webtoon (segunda versión). */
+  const modePicker = (st, onChange) => {
+    const root = h('div', { class: 'field' });
+    const draw = () => {
+      MC.clear(root);
+      MC.put(root, h('span', { class: 'eyebrow' }, t('Modo de trabajo', 'Work mode')),
+        h('div', { class: 'modes' },
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'free'), onClick: () => { st.mode = 'free'; draw(); onChange && onChange(); } }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'page'), onClick: () => { st.mode = 'page'; draw(); onChange && onChange(); } }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('La cámara recorre las viñetas de cada página', 'The camera walks through each page’s panels'))),
+          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version')))),
+        st.mode === 'page' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Orden de lectura', 'Reading order')),
+          MC.ui.seg([{ v: 'ltr', l: t('Occidental →', 'Western →') }, { v: 'rtl', l: t('Manga ←', 'Manga ←') }], st.dir, (v) => { st.dir = v; onChange && onChange(); })) : null);
+    };
+    draw();
+    return root;
+  };
+
   MC.newProjectDialog = () => {
-    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free' };
+    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free', dir: 'ltr' };
     const nameId = 'np-' + MC.uid();
     const body = h('div', { style: { display: 'grid', gap: '16px' } },
       MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Tráiler', 'Chapter 1 · Trailer'), onInput: (e) => { st.name = e.target.value; } }), nameId),
-      h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Modo de trabajo', 'Work mode')),
-        h('div', { class: 'modes' },
-          h('button', { class: 'mode', type: 'button', 'aria-pressed': 'true' }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
-          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('Próximo paso', 'Next step'))),
-          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version'))))),
-      MC.formatPicker(st));
+      modePicker(st), MC.formatPicker(st));
     MC.modal(t('Proyecto nuevo', 'New project'), body, (close) => [
       h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: async () => {
         const p = MC.newProject({ name: st.name.trim() || t('Proyecto sin título', 'Untitled project'), ratio: st.ratio, res: st.res, zoom: st.zoom });
+        p.mode = st.mode; p.dir = st.dir;
+        const style = MC.myStyle.get(); if (style) MC.applyStyle(p, style);
         await MC.db.put('projects', p);
         close();
         MC.app.openProject(p);
       } }, t('Crear', 'Create'))]);
+  };
+
+  /* Borrador en un clic: sube las páginas o imágenes y sale un primer montaje para retocar. Sin IA ni servidor. */
+  MC.draftDialog = () => {
+    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'page', dir: 'ltr' };
+    let files = [];
+    const fileId = 'df-' + MC.uid(), nameId = 'dn-' + MC.uid(), info = h('p', { class: 'cap' }, t('Aún no has elegido archivos.', 'No files chosen yet.'));
+    const go = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Crear borrador', 'Create draft'));
+    const body = h('div', { style: { display: 'grid', gap: '16px' } },
+      h('p', { class: 'cap' }, t('Sube tus páginas o ilustraciones. Se detectan las viñetas, se fija el orden de lectura y se montan la cámara, las duraciones y las transiciones. Es un punto de partida: todo se puede cambiar. Se calcula en este navegador y se aplica «Mi estilo» si lo tienes guardado.', 'Upload your pages or artwork. Panels are detected, reading order is set, and camera, timing and transitions are assembled. It is a starting point: everything can be changed. It is computed in this browser and applies “My style” if you saved one.')),
+      h('div', { class: 'field' }, h('label', { for: fileId }, t('Páginas o imágenes (PNG, JPEG, WebP)', 'Pages or images (PNG, JPEG, WebP)')),
+        h('input', { id: fileId, class: 'input', type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/webp', onChange: (e) => {
+          files = [...e.target.files]; go.disabled = !files.length; MC.clear(info).append(files.length + t(' archivo(s) · se ordenan por nombre', ' file(s) · sorted by name'));
+        } }), info),
+      MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Borrador', 'Chapter 1 · Draft'), onInput: (e) => { st.name = e.target.value; } }), nameId),
+      modePicker(st), MC.formatPicker(st));
+    MC.modal(t('Borrador en un clic', 'One-click draft'), body, (close) => {
+      go.addEventListener('click', async () => {
+        go.disabled = true; info.textContent = t('Detectando viñetas y montando el borrador…', 'Detecting panels and assembling the draft…');
+        await new Promise((r) => setTimeout(r, 30));
+        try {
+          const r = await MC.buildDraft({ files, name: st.name.trim() || t('Borrador', 'Draft'), ratio: st.ratio, res: st.res, zoom: st.zoom, mode: st.mode, dir: st.dir });
+          close();
+          MC.toast(st.mode === 'page' ? t('Borrador listo: ' + r.pages + ' página(s) y ' + r.panels + ' viñeta(s). Revísalo en la vista «Página».', 'Draft ready: ' + r.pages + ' page(s) and ' + r.panels + ' panel(s). Check it in the “Page” view.') : t('Borrador listo: ' + r.pages + ' plano(s).', 'Draft ready: ' + r.pages + ' shot(s).'));
+          MC.app.openProject(r.project);
+        } catch (e) { console.error(e); go.disabled = false; info.textContent = t('No se pudo montar el borrador. Comprueba que son imágenes PNG, JPEG o WebP.', 'Could not build the draft. Check that they are PNG, JPEG or WebP images.'); }
+      });
+      return [h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), go];
+    });
   };
 
   MC.renderHome = async (root) => {
@@ -27834,6 +28223,7 @@ module.exports = ZStream;
           h('p', null, t('Un cuarto oscuro para que el arte brille. Todo se guarda en este equipo y funciona sin conexión.', 'A dark room where the art shines. Everything is saved on this device and works offline.'))),
         h('div', { class: 'top-actions' },
           h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileIn.click() }, MC.icon('upload'), t('Importar copia', 'Import backup')), fileIn,
+          h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('frame'), t('Borrador en un clic', 'One-click draft')),
           h('button', { class: 'btn btn-p', type: 'button', onClick: MC.newProjectDialog }, MC.icon('plus'), t('Proyecto nuevo', 'New project')))),
       h('div', { class: 'notice' },
         h('span', { class: 'cap', style: { color: 'var(--fg)' } }, MC.db.persistent
@@ -27869,7 +28259,7 @@ module.exports = ZStream;
         info.append(inp); setTimeout(() => { inp.focus(); inp.select(); }, 0);
       } else info.append(nm);
       const [rw, rh] = MC.parseRatio(p.ratio), sz = MC.frameSize(p.ratio, p.res);
-      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
+      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), p.mode === 'page' ? h('span', { class: 'tag' }, t('Página', 'Page')) : null, h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
       if (mode === 'delete') {
         info.append(h('div', { class: 'confirm' }, h('span', null, t('¿Eliminar este proyecto?', 'Delete this project?')),
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: async () => { await MC.deleteProject(p); MC.app.render(); } }, t('Eliminar', 'Delete')),
@@ -27904,8 +28294,8 @@ module.exports = ZStream;
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
-      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false },
+    const S = { project, si: 0, li: -1, cl: null, tx: null, hits: [], pn: null, pageMap: null, sim: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
     const el = {};
     const shot = () => S.project.shots[S.si];
@@ -27935,10 +28325,10 @@ module.exports = ZStream;
       MC.put(MC.clear(el.status), h('i'), !MC.db.persistent ? t('Sin guardado local', 'Not saved locally') : saved ? t('Guardado en este equipo · ', 'Saved on this device · ') + MC.fmtClock(S.savedAt) : t('Guardando…', 'Saving…'));
     }
     function touch() { S.dirty = true; scheduleSave(); }
-    function commit() { pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
+    function commit() { MC.finalizePages(S.project); pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
     function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
     function restore(i) {
-      S.hpos = i; S.project = JSON.parse(S.hist[i]);
+      S.hpos = i; S.project = JSON.parse(S.hist[i]); MC.finalizePages(S.project);
       S.si = clamp(S.si, 0, S.project.shots.length - 1); S.li = clamp(S.li, -1, shot().layers.length - 1);
       fit(); renderAll(); touch(); updateHistBtns();
     }
@@ -27948,7 +28338,7 @@ module.exports = ZStream;
 
     /* ---------- selección y tiempo ---------- */
     function selectShot(i, seek) {
-      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null;
+      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1; S.cl = null; S.tx = null; S.pn = null;
       if (seek) S.time = MC.shotStarts(S.project)[S.si];
       S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
     }
@@ -27971,11 +28361,14 @@ module.exports = ZStream;
       let list = [...files];
       const psds = list.filter((f) => /\.psd$/i.test(f.name)), auds = list.filter((f) => /^audio\//.test(f.type) || /\.(wav|mp3|m4a|ogg|aac)$/i.test(f.name));
       if (list.some((f) => /\.pdf$/i.test(f.name))) MC.toast(t('El PDF llega más adelante. Por ahora usa PSD, PNG, JPEG o WebP.', 'PDF arrives later. For now use PSD, PNG, JPEG or WebP.'));
-      for (const f of psds) await importPsd(f);
+      const pageMode = S.project.mode === 'page';
+      if (pageMode) { for (const f of psds) { try { list.push(await MC.psdComposite(f)); } catch (e) { MC.toast(t('No se pudo leer ese PSD.', 'Could not read that PSD.')); } } }
+      else for (const f of psds) await importPsd(f);
       if (auds.length) await importAudio(auds, 'auto');
       list = list.filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name));
       if (!list.length) return;
       list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      if (pageMode) { await importPages(list); return; }
       try {
         if (mode === 'shots') {
           const first = S.project.shots.length;
@@ -27998,6 +28391,22 @@ module.exports = ZStream;
       } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
     }
 
+    async function importPages(list) {
+      const p = S.project, style = MC.myStyle.get() || MC.myStyle.DEFAULT, empty = p.shots.length === 1 && !p.shots[0].layers.length && !p.shots[0].page;
+      MC.toast(t('Detectando viñetas…', 'Detecting panels…')); await new Promise((r) => setTimeout(r, 30));
+      let panels = 0, first = empty ? 0 : p.shots.length;
+      try {
+        for (let i = 0; i < list.length; i++) {
+          const a = await MC.assets.add(list[i], list[i].name), sh = MC.pageShot(p, a, p.dir || 'ltr', t('Página ', 'Page ') + (first + i + 1));
+          Object.assign(sh.page, { mode: style.mode, travel: style.travel, dim: style.dim });
+          if (first + i > 0) sh.transition = { type: style.transition.type, dur: style.transition.dur };
+          if (empty && i === 0) p.shots[0] = sh; else p.shots.push(sh);
+          panels += sh.page.panels.length;
+        }
+      } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
+      S.view = 'page'; S.pn = null; commit(); selectShot(first, true); fit();
+      MC.toast(t(list.length + ' página(s) · ' + panels + ' viñeta(s) detectadas. Revisa el orden en la vista «Página».', list.length + ' page(s) · ' + panels + ' panel(s) detected. Check the order in the “Page” view.'));
+    }
     async function importPsd(file) {
       MC.toast(t('Leyendo el PSD…', 'Reading the PSD…'));
       try {
@@ -28108,6 +28517,8 @@ module.exports = ZStream;
     function renderTop() {
       const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; if (v === 'audio') S.open.mezcla = true; renderTop(); renderInspector(); fit(); } }, l);
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
+      el.jobChip = h('button', { class: 'btn btn-s btn-sm hide-n', type: 'button', hidden: true, onClick: openExport });
+      updateJobChip(MC.exportJob);
       el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
       MC.put(MC.clear(el.top), 
@@ -28117,11 +28528,18 @@ module.exports = ZStream;
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') },
           wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onClick: openExport }, t('Exportación', 'Export'))),
         h('span', { class: 'sp' }),
-        el.status, el.undo, el.redo,
+        el.jobChip, el.status, el.undo, el.redo,
         MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
         h('button', { class: 'btn btn-p hide-n', type: 'button', onClick: openExport }, t('Exportar', 'Export')));
       setStatus(true); updateHistBtns();
     }
+    function updateJobChip(job) {
+      const c = el.jobChip; if (!c) return;
+      c.hidden = !job || job.state === 'cancelled';
+      if (c.hidden) return;
+      c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
+    }
+    const offJobChip = MC.onExportJob(updateJobChip);
     async function close() { S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
@@ -28183,7 +28601,8 @@ module.exports = ZStream;
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
           MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; commit(); })),
       ];
-      if (S.adv) {
+      if (sh.page) camNodes.length = 0;
+      if (S.adv && !sh.page) {
         const kf = cam[S.kf];
         camNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Fotogramas clave', 'Keyframes')),
           MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; renderInspector(); renderVbar(); S.dirty = true; })),
@@ -28193,8 +28612,9 @@ module.exports = ZStream;
           MC.ui.slider({ label: t('Giro', 'Rotation'), min: -20, max: 20, step: 0.5, value: kf.rot || 0, fmt: (v) => v.toFixed(1) + '°', onInput: (v) => setKf('rot', v), onChange: commit }),
           MC.ui.slider({ label: t('Temblor', 'Shake'), min: 0, max: 3, step: 0.05, value: cam.shake || 0, fmt: (v) => v.toFixed(2), onInput: (v) => { cam.shake = v; cam.preset = 'custom'; S.dirty = true; touch(); }, onChange: commit }));
       }
-      camNodes.push(h('p', { class: 'cap' }, t('Arrastra el marco en la vista «Cámara» para encuadrar a mano.', 'Drag the frame in the “Camera” view to frame by hand.')));
-      if (hi.any) camNodes.push(h('p', { class: 'cap ' + (p.overscan !== false || hi.ratio <= 1.002 ? 'good' : 'bad') },
+      if (sh.page) camNodes.push(h('p', { class: 'cap' }, t('En un plano de página la cámara sigue las viñetas. Se ajusta en la sección «Página».', 'In a page shot the camera follows the panels. Adjust it in the “Page” section.')));
+      else camNodes.push(h('p', { class: 'cap' }, t('Arrastra el marco en la vista «Cámara» para encuadrar a mano.', 'Drag the frame in the “Camera” view to frame by hand.')));
+      if (hi.any && !sh.page) camNodes.push(h('p', { class: 'cap ' + (p.overscan !== false || hi.ratio <= 1.002 ? 'good' : 'bad') },
         p.overscan !== false ? (hi.ratio > 1.002 ? t('Sin huecos: el fondo se sobreescala ×', 'No gaps: the background is scaled ×') + hi.ratio.toFixed(2) : t('Sin huecos: el fondo cubre todo el movimiento.', 'No gaps: the background covers all movement.'))
           : (hi.ratio > 1.002 ? t('Hay huecos. Faltaría estirar el fondo ×', 'There are gaps. The background needs stretching ×') + hi.ratio.toFixed(2) : t('Margen seguro: ', 'Safe margin: ') + Math.round(Math.min(hi.margin.x, hi.margin.y) * 100) + ' %')));
 
@@ -28238,6 +28658,7 @@ module.exports = ZStream;
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: p.overscan !== false, onChange: (e) => { p.overscan = e.target.checked; commit(); } }),
           h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
       ];
+      void 0;
 
 
       /* texto */
@@ -28306,6 +28727,54 @@ module.exports = ZStream;
           p.fonts.length ? h('ul', { class: 'cap', style: { margin: 0, paddingLeft: '18px' } }, p.fonts.map((f) => h('li', null, f.name))) : null,
           h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => fontIn.click() }, MC.icon('plus', 14), t('Añadir TTF u OTF', 'Add TTF or OTF')), fontIn)]);
 
+
+      /* página */
+      const pageSecs = [];
+      if (sh.page) {
+        const pg = sh.page, selP = pg.panels.find((q) => q.id === S.pn);
+        const edit = () => { pg.manual = true; };
+        const rowsP = pg.panels.map((q, i) => h('div', { class: 'layer' + (q.id === S.pn ? ' on' : ''), onClick: () => { S.pn = q.id; if (S.view !== 'page') { S.view = 'page'; renderVbar(); fit(); } S.dirty = true; renderInspector(); } },
+          h('span', { class: 'ln' }, t('Viñeta ', 'Panel ') + (i + 1)), h('span', { class: 'lz' }, MC.panelHold(q).toFixed(1) + ' s' + (q.hold == null ? '' : ' ✎')),
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Antes', 'Earlier'), 'aria-label': t('Subir en el orden', 'Move earlier'), disabled: i === 0, onClick: (e) => { e.stopPropagation(); pg.panels.splice(i - 1, 0, pg.panels.splice(i, 1)[0]); edit(); commit(); } }, MC.icon('up', 14)),
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Después', 'Later'), 'aria-label': t('Bajar en el orden', 'Move later'), disabled: i === pg.panels.length - 1, onClick: (e) => { e.stopPropagation(); pg.panels.splice(i + 1, 0, pg.panels.splice(i, 1)[0]); edit(); commit(); } }, MC.icon('down', 14))));
+        const nodes = [
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Orden de lectura', 'Reading order')), MC.ui.seg([{ v: 'ltr', l: t('Occidental →', 'Western →') }, { v: 'rtl', l: t('Manga ←', 'Manga ←') }], pg.dir, (v) => {
+            pg.dir = v; p.dir = v; const L = sh.layers.find((l) => l.page), img = MC.assets.get(L.assetId);
+            if (!pg.manual && img) pg.panels = MC.detectPanels(img.bitmap, v); else pg.panels = MC.sortPanels(pg.panels, v);
+            commit();
+          })),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Cámara entre viñetas', 'Camera between panels')), MC.ui.seg([{ v: 'pan', l: t('Paneo suave', 'Smooth pan') }, { v: 'cut', l: t('Salto', 'Cut') }], pg.mode, (v) => { pg.mode = v; commit(); })),
+          pg.mode === 'pan' ? MC.ui.slider({ label: t('Velocidad del paneo', 'Pan time'), min: 0.3, max: 2, step: 0.05, value: pg.travel, fmt: (v) => '×' + (v / 0.8).toFixed(2), onInput: (v) => { pg.travel = v; touch(); }, onChange: commit }) : null,
+          MC.ui.slider({ label: t('Atenuación del resto de la página', 'Dimming outside the panel'), min: 0, max: 0.9, step: 0.01, value: pg.dim, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { pg.dim = v; touch(); S.dirty = true; }, onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const L = sh.layers.find((l) => l.page), img = MC.assets.get(L.assetId); pg.panels = MC.detectPanels(img.bitmap, pg.dir); pg.manual = false; S.pn = null; commit(); MC.toast(t(pg.panels.length + ' viñetas detectadas', pg.panels.length + ' panels detected')); } }, t('Detectar viñetas', 'Detect panels')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const q = { id: MC.uid(), x0: 0.3, y0: 0.3, x1: 0.7, y1: 0.7, hold: null }; pg.panels.push(q); S.pn = q.id; edit(); S.view = 'page'; commit(); fit(); } }, MC.icon('plus', 14), t('Añadir viñeta', 'Add panel'))),
+          h('div', { style: { display: 'grid', gap: '2px' } }, rowsP),
+          h('p', { class: 'cap' }, t('En la vista «Página» arrastra una viñeta para moverla, sus esquinas para cambiarla, o dibuja en un hueco para crear otra. Las viñetas son rectángulos; el polígono libre llega más adelante.', 'In the “Page” view drag a panel to move it, its corners to resize it, or draw in an empty spot to create another. Panels are rectangles; free polygons come later.')),
+        ];
+        if (selP) nodes.push(
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: selP.hold == null, onChange: (e) => { selP.hold = e.target.checked ? null : Math.round(MC.panelHold(selP) * 10) / 10; edit(); commit(); } }), h('span', null, t('Permanencia automática', 'Automatic hold'), h('small', null, t('Según el tamaño de la viñeta.', 'Based on the panel size.')))),
+          selP.hold != null ? MC.ui.slider({ label: t('Permanencia de la viñeta', 'Panel hold'), min: 0.5, max: 10, step: 0.1, value: selP.hold, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { selP.hold = v; touch(); }, onChange: () => { edit(); commit(); } }) : null,
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const a = await MC.cropPanel(sh, selP), ns = MC.newShot(t('Viñeta ', 'Panel ') + (pg.panels.indexOf(selP) + 1)); ns.layers.push(MC.newLayer(a, { z: 0.1, role: 'fondo' })); MC.applyPreset(ns.camera, 'zoomin', 0.8); p.shots.splice(S.si + 1, 0, ns); commit(); MC.toast(t('Viñeta convertida en un plano libre después de esta página', 'Panel turned into a free shot after this page')); } }, t('Convertir en plano libre', 'Turn into free shot')),
+            h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { pg.panels = pg.panels.filter((q) => q !== selP); S.pn = null; edit(); commit(); } }, MC.icon('trash', 14), t('Quitar viñeta', 'Remove panel'))));
+        pageSecs.push(sec('pagina', t('Página', 'Page') + ' · ' + pg.panels.length + ' ' + t('viñetas', 'panels'), nodes));
+      }
+      const styleIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-style', onChange: async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { const st = JSON.parse(await f.text()); if (!st.transition || !st.sub) throw new Error('formato'); MC.myStyle.set(st); renderInspector(); MC.toast(t('Mi estilo importado', 'My style imported')); } catch (err) { MC.toast(t('Ese archivo no es un estilo de MotionComic Studio.', 'That file is not a MotionComic Studio style.')); }
+      } });
+      const saved = MC.myStyle.get();
+      const styleNodes = [
+        h('p', { class: 'cap' }, saved ? t('Guardado en este equipo: transición ', 'Saved on this device: transition ') + saved.transition.type + ', ' + t('parallax ', 'parallax ') + saved.parallax + ', ' + t('tipografía ', 'font ') + saved.textFont + '.' : t('Aún no has guardado tu estilo.', 'You have not saved your style yet.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.myStyle.set(MC.styleFromProject(p)); renderInspector(); MC.toast(t('Este proyecto es ahora tu estilo', 'This project is now your style')); } }, t('Guardar como Mi estilo', 'Save as My style')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !saved, onClick: () => { MC.applyStyle(p, saved); commit(); S.dirty = true; MC.toast(t('Mi estilo aplicado al proyecto', 'My style applied to the project')); } }, t('Aplicar al proyecto', 'Apply to project')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !saved, onClick: () => MC.download(new Blob([JSON.stringify(saved, null, 1)], { type: 'application/json' }), 'mi-estilo.motioncomic-style.json') }, MC.icon('download', 14), t('Exportar', 'Export')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => styleIn.click() }, MC.icon('upload', 14), t('Importar', 'Import')), styleIn),
+        h('p', { class: 'cap' }, t('Se aplica a los proyectos nuevos y al borrador en un clic. Incluye transiciones, curva de cámara, ritmo de las viñetas, parallax y tipografías.', 'It is applied to new projects and to the one-click draft. It includes transitions, camera curve, panel pacing, parallax and fonts.')),
+      ];
+
       const audioSecs = [], clip = S.cl ? clipById(S.cl) : null, mixv = p.mix;
       if (clip) {
         const a = MC.audio.get(clip.assetId), cs = (k, v) => { clip[k] = v; touch(); };
@@ -28332,7 +28801,8 @@ module.exports = ZStream;
         !hasVoice ? h('p', { class: 'cap' }, t('Añade una locución en la pista 3 para marcar pausas y ajustar los planos.', 'Add a voice-over on track 3 to mark pauses and fit shots.')) : null]));
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
-      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, ordered.slice(0, 3), [idiomasSec], ordered.slice(3)) : textSecs.concat(ordered.slice(0, 3), audioSecs, [idiomasSec], ordered.slice(3)));
+      const estiloSec = sec('estilo', t('Mi estilo', 'My style'), styleNodes);
+      MC.put(b, S.ws === 'audio' ? audioSecs.concat(textSecs, pageSecs, ordered.slice(0, 3), [idiomasSec], ordered.slice(3), [estiloSec]) : textSecs.concat(pageSecs, ordered.slice(0, 3), audioSecs, [idiomasSec], ordered.slice(3), [estiloSec]));
       b.scrollTop = top;
     }
 
@@ -28341,15 +28811,41 @@ module.exports = ZStream;
       const tog = (key, label, title) => h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S[key]), title, onClick: () => { S[key] = !S[key]; renderVbar(); S.dirty = true; } }, label);
       const portrait = opts().W / opts().H < 0.8;
       MC.put(MC.clear(el.vbar), 
-        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: 'cam', l: t('Cámara', 'Camera') }], S.view, (v) => { S.view = v; if (v === 'cam') togglePlay(false); renderVbar(); fit(); }, t('Vista', 'View')),
+        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }].concat(shot() && shot().page ? [{ v: 'page', l: t('Página', 'Page') }] : [{ v: 'cam', l: t('Cámara', 'Camera') }]), S.view, (v) => { S.view = v; if (v !== 'out') togglePlay(false); renderVbar(); buildSim(); fit(); }, t('Vista', 'View')),
         S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
-        tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')),
+        S.view === 'page' ? h('span', { class: 'status' }, t('Arrastra para mover, esquinas para cambiar, o dibuja una viñeta nueva', 'Drag to move, corners to resize, or draw a new panel')) : null,
+        S.view !== 'page' ? tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')) : null,
+        portrait && S.view === 'out' ? h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(!!S.sim), title: t('Vista previa con la interfaz de una red social encima', 'Preview with a social app interface on top'), onClick: () => { S.sim = S.sim ? null : 'tiktok'; renderVbar(); buildSim(); } }, t('Simulador', 'Simulator')) : null,
+        S.sim && S.view === 'out' ? MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network')) : null,
         portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
         S.view === 'out' ? h('span', { class: 'status', style: { marginLeft: '6px' } }, t('Texto', 'Text')) : null,
         S.view === 'out' ? [['bubble', t('Bocadillo', 'Bubble')], ['box', t('Caja', 'Box')], ['sfx', t('Onomatopeya', 'Sound word')], ['sub', t('Subtítulo', 'Subtitle')]].map((k) => h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Añadir ', 'Add ') + k[1].toLowerCase() + t(' en el cabezal', ' at the playhead'), onClick: () => addText(k[0]) }, MC.icon('plus', 12), k[1])) : null,
         S.project.langs.length > 1 ? MC.ui.seg(S.project.langs.map((l) => ({ v: l, l: l.toUpperCase() })), S.project.lang, (v) => { S.project.lang = v; commit(); }, t('Idioma del texto', 'Text language')) : null,
         h('span', { style: { flex: 1 } }),
         h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
+    }
+    /* Simulador: interfaz genérica de una app de vídeo vertical encima del visor, para ver qué tapa. No usa marcas ni logos. */
+    function buildSim() {
+      const sim = el.sim;
+      MC.clear(sim);
+      sim.hidden = !S.sim || S.view !== 'out';
+      if (sim.hidden) return;
+      sim.dataset.p = S.sim;
+      const act = (ic, label) => h('div', { class: 'sim-act' }, MC.icon(ic, 26), h('span', null, label));
+      const top = S.sim === 'tiktok' ? h('div', { class: 'sim-top' }, h('span', null, t('Siguiendo', 'Following')), h('b', null, t('Para ti', 'For you')))
+        : h('div', { class: 'sim-top l' }, h('b', null, S.sim === 'reels' ? 'Reels' : 'Shorts'));
+      el.simBar = h('i');
+      MC.put(sim, top,
+        h('div', { class: 'sim-side' }, h('div', { class: 'sim-av' }), act('heart', t('12,4 mil', '12.4K')), act('chat', '238'), act('send', t('Enviar', 'Send')), act('bookmark', S.sim === 'reels' ? '' : t('Guardar', 'Save')), act('dots', '')),
+        h('div', { class: 'sim-bot' }, h('b', null, '@tu_usuario'), h('span', null, t('Ya está aquí el capítulo 3. ¿Qué te ha parecido el final? #cómic #motioncomic', 'Chapter 3 is out. What did you think of the ending? #comic #motioncomic')), h('span', { class: 'sim-snd' }, MC.icon('note', 14), t('Sonido original · tu_usuario', 'Original sound · tu_usuario'))),
+        h('div', { class: 'sim-prog' }, el.simBar), h('p', { class: 'sim-note' }, t('Simulación aproximada: cada app cambia sus zonas', 'Approximate simulation: each app changes its zones')));
+      positionSim(); updateTime();
+    }
+    function positionSim() {
+      if (!el.sim || el.sim.hidden) return;
+      const c = el.canvas, st = el.stage.getBoundingClientRect(), r = c.getBoundingClientRect();
+      Object.assign(el.sim.style, { left: r.left - st.left + 'px', top: r.top - st.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+      el.sim.style.setProperty('--u', r.width / 100 + 'px');
     }
     function updateTransport() {
       MC.put(MC.clear(el.play), MC.icon(S.playing ? 'pause' : 'play', 14));
@@ -28362,6 +28858,7 @@ module.exports = ZStream;
       el.time.append(h('span', null, '/ ' + MC.fmtTime(total)));
       el.tlTime.textContent = MC.fmtTime(S.time) + ' / ' + MC.fmtTime(total);
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
+      if (el.simBar) el.simBar.style.width = (S.time / Math.max(0.1, total)) * 100 + '%';
     }
     function fit() {
       const c = el.canvas, st = el.stage, o = opts();
@@ -28371,7 +28868,7 @@ module.exports = ZStream;
       c.style.width = w + 'px'; c.style.height = w / A + 'px';
       const cw = Math.round(w * dpr), chh = Math.round(cw / A);
       if (c.width !== cw || c.height !== chh) { c.width = cw; c.height = chh; }
-      S.dpr = dpr; S.dirty = true; renderVbar();
+      S.dpr = dpr; S.dirty = true; renderVbar(); positionSim();
     }
     const frameRect = (kf, o) => ({ cx: o.W / 2 + kf.x * o.W, cy: o.H / 2 + kf.y * o.H, hw: o.W / (2 * kf.zoom), hh: o.H / (2 * kf.zoom) });
     const camMap = (c, o) => { const k = c.width / (o.W * VIEW_W); return { k, ox: (c.width - o.W * k) / 2, oy: (c.height - o.H * k) / 2 }; };
@@ -28381,6 +28878,8 @@ module.exports = ZStream;
       const hits = [], ctx = c.getContext('2d'), o = opts({ collect: hits }), sh = shot();
       S.hits = hits;
       el.empty.hidden = !!(sh && sh.layers.length);
+      if (S.view === 'page' && !(sh && sh.page)) { S.view = 'out'; renderVbar(); }
+      if (S.view === 'page') return drawPage(ctx, sh);
       if (S.view === 'cam' && sh) return drawCam(ctx, o, sh);
       const k = c.width / o.W;
       ctx.setTransform(k, 0, 0, k, 0, 0);
@@ -28394,6 +28893,31 @@ module.exports = ZStream;
         if (hit.tip) { ctx.setLineDash([]); ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(hit.tip.x * k, hit.tip.y * k, 6 * S.dpr, 0, 6.283); ctx.fill(); }
         ctx.restore();
       }
+    }
+    function drawPage(ctx, sh) {
+      const c = el.canvas, L = sh.layers.find((l) => l.page), img = L && MC.assets.get(L.assetId);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#16181B'; ctx.fillRect(0, 0, c.width, c.height);
+      if (!img) return;
+      const kp = Math.min(c.width / img.w, c.height / img.h) * 0.97, ox = (c.width - img.w * kp) / 2, oy = (c.height - img.h * kp) / 2, iw = img.w * kp, ih = img.h * kp;
+      S.pageMap = { kp, ox, oy, img };
+      ctx.drawImage(img.bitmap, ox, oy, iw, ih);
+      const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', pg = sh.page, d = S.dpr;
+      const R = (q) => [ox + q.x0 * iw, oy + q.y0 * ih, (q.x1 - q.x0) * iw, (q.y1 - q.y0) * ih];
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.rect(ox, oy, iw, ih); pg.panels.forEach((q) => { const r = R(q); ctx.rect(r[0], r[1], r[2], r[3]); }); ctx.fill('evenodd'); ctx.restore();
+      ctx.save(); ctx.strokeStyle = acc; ctx.lineWidth = 1.2 * d; ctx.setLineDash([5 * d, 5 * d]); ctx.beginPath();
+      pg.panels.forEach((q, i) => { const r = R(q), cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2; i ? ctx.lineTo(cx, cy) : ctx.moveTo(cx, cy); }); ctx.stroke(); ctx.restore();
+      const all = drag && drag.m === 'pnnew' ? pg.panels.concat([drag.q]) : pg.panels;
+      all.forEach((q, i) => {
+        const r = R(q), sel = q.id === S.pn;
+        ctx.save(); ctx.strokeStyle = sel ? acc : 'rgba(255,255,255,.75)'; ctx.lineWidth = (sel ? 3 : 2) * d; ctx.strokeRect(r[0], r[1], r[2], r[3]);
+        if (sel) { ctx.fillStyle = acc; [[r[0], r[1]], [r[0] + r[2], r[1]], [r[0], r[1] + r[3]], [r[0] + r[2], r[1] + r[3]]].forEach((pt) => ctx.fillRect(pt[0] - 5 * d, pt[1] - 5 * d, 10 * d, 10 * d)); }
+        if (pg.panels.includes(q)) {
+          const rad = 12 * d; ctx.fillStyle = sel ? acc : '#0F1012'; ctx.strokeStyle = sel ? '#0F1012' : acc; ctx.lineWidth = 2 * d;
+          ctx.beginPath(); ctx.arc(r[0] + rad + 4 * d, r[1] + rad + 4 * d, rad, 0, 6.283); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = sel ? '#0F1012' : '#ECEEF0'; ctx.font = '700 ' + 13 * d + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), r[0] + rad + 4 * d, r[1] + rad + 4.5 * d);
+        }
+        ctx.restore();
+      });
     }
     function drawSafe(ctx, c) {
       const W = c.width, H = c.height;
@@ -28429,6 +28953,22 @@ module.exports = ZStream;
       c.addEventListener('pointerdown', (e) => {
         const sh = shot(), o = opts(), p = px(e);
         if (!sh) return;
+        if (S.view === 'page') {
+          const pg = sh.page, M = S.pageMap; if (!pg || !M) return;
+          const iw = M.img.w * M.kp, ih = M.img.h * M.kp, nx = (p.x - M.ox) / iw, ny = (p.y - M.oy) / ih, sel = pg.panels.find((q) => q.id === S.pn);
+          if (sel) {
+            const cs = [['tl', sel.x0, sel.y0], ['tr', sel.x1, sel.y0], ['bl', sel.x0, sel.y1], ['br', sel.x1, sel.y1]];
+            const hit = cs.find((q) => Math.hypot(M.ox + q[1] * iw - p.x, M.oy + q[2] * ih - p.y) < 16 * S.dpr);
+            if (hit) drag = { m: 'pnsize', q: sel, corner: hit[0], M, iw, ih };
+          }
+          if (!drag) {
+            const hit = pg.panels.filter((q) => nx >= q.x0 && nx <= q.x1 && ny >= q.y0 && ny <= q.y1).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0];
+            if (hit) { S.pn = hit.id; drag = { m: 'pnmove', q: hit, p0: p, o0: Object.assign({}, hit), iw, ih }; renderInspector(); }
+            else { S.pn = null; drag = { m: 'pnnew', q: { id: MC.uid(), x0: clamp(nx, 0, 1), y0: clamp(ny, 0, 1), x1: clamp(nx, 0, 1), y1: clamp(ny, 0, 1), hold: null }, M, iw, ih, s0: { x: clamp(nx, 0, 1), y: clamp(ny, 0, 1) } }; }
+          }
+          if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; S.dirty = true; }
+          return;
+        }
         if (S.view === 'cam') {
           const { k, ox, oy } = camMap(c, o), kf = sh.camera[S.kf], fr = frameRect(kf, o);
           const hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
@@ -28458,7 +28998,17 @@ module.exports = ZStream;
       c.addEventListener('pointermove', (e) => {
         if (!drag) return;
         const p = px(e), sh = shot();
-        if (drag.m === 'move') {
+        if (drag.m === 'pnmove') {
+          const q = drag.q, o0 = drag.o0, dx = (p.x - drag.p0.x) / drag.iw, dy = (p.y - drag.p0.y) / drag.ih, w = o0.x1 - o0.x0, hh = o0.y1 - o0.y0;
+          q.x0 = clamp(o0.x0 + dx, 0, 1 - w); q.y0 = clamp(o0.y0 + dy, 0, 1 - hh); q.x1 = q.x0 + w; q.y1 = q.y0 + hh;
+        } else if (drag.m === 'pnsize') {
+          const q = drag.q, nx = clamp((p.x - drag.M.ox) / drag.iw, 0, 1), ny = clamp((p.y - drag.M.oy) / drag.ih, 0, 1), cn = drag.corner;
+          if (cn[1] === 'l') q.x0 = Math.min(nx, q.x1 - 0.03); else q.x1 = Math.max(nx, q.x0 + 0.03);
+          if (cn[0] === 't') q.y0 = Math.min(ny, q.y1 - 0.03); else q.y1 = Math.max(ny, q.y0 + 0.03);
+        } else if (drag.m === 'pnnew') {
+          const nx = clamp((p.x - drag.M.ox) / drag.iw, 0, 1), ny = clamp((p.y - drag.M.oy) / drag.ih, 0, 1);
+          drag.q.x0 = Math.min(drag.s0.x, nx); drag.q.x1 = Math.max(drag.s0.x, nx); drag.q.y0 = Math.min(drag.s0.y, ny); drag.q.y1 = Math.max(drag.s0.y, ny);
+        } else if (drag.m === 'move') {
           drag.kf.x = clamp(drag.x0 + (p.x - drag.p0.x) / drag.k / drag.o.W, -0.6, 0.6); drag.kf.y = clamp(drag.y0 + (p.y - drag.p0.y) / drag.k / drag.o.H, -0.6, 0.6);
           sh.camera.preset = 'custom';
         } else if (drag.m === 'zoom') {
@@ -28474,7 +29024,15 @@ module.exports = ZStream;
         }
         S.dirty = true; scheduleSave();
       });
-      const up = () => { if (!drag) return; drag = null; S.dragging = false; commit(); };
+      const up = () => {
+        if (!drag) return;
+        if (drag.m && drag.m.slice(0, 2) === 'pn') {
+          const pg = shot().page;
+          if (drag.m === 'pnnew') { const q = drag.q; if (q.x1 - q.x0 > 0.04 && q.y1 - q.y0 > 0.03) { pg.panels.push(q); S.pn = q.id; } }
+          pg.manual = true;
+        }
+        drag = null; S.dragging = false; commit();
+      };
       c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
       c.addEventListener('wheel', (e) => {
         const sh = shot(), f = Math.exp(-e.deltaY * 0.0012);
@@ -28553,7 +29111,8 @@ module.exports = ZStream;
           onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
           h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = clip.querySelector('.rz');
-        rz.addEventListener('pointerdown', (e) => {
+        if (sh.page) rz.remove();
+        else rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = sh.duration; clip._moved = true;
           const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
@@ -28645,7 +29204,8 @@ module.exports = ZStream;
     el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
       h('div', null, t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileLayers.click() }, MC.icon('upload', 15), t('Importar', 'Import'))));
-    el.stage = h('div', { class: 'stage' }, el.canvas, el.empty);
+    el.sim = h('div', { class: 'sim', hidden: true, 'aria-hidden': 'true' });
+    el.stage = h('div', { class: 'stage' }, el.canvas, el.empty, el.sim);
     el.play = h('button', { class: 'play', type: 'button', onClick: () => togglePlay() });
     el.loop = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Repetir', 'Loop'), 'aria-label': t('Repetir', 'Loop'), onClick: () => { S.loop = !S.loop; updateTransport(); } }, MC.icon('loop'));
     el.time = h('div', { class: 'num' });
@@ -28718,6 +29278,7 @@ module.exports = ZStream;
       else if (k === 'arrowright') setTime(S.time + (e.shiftKey ? 1 : 1 / 30));
       else if (k === 'home') setTime(0);
       else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
+      else if ((k === 'delete' || k === 'backspace') && S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
       else if (k === 's' && S.cl) splitClip();
       else if ((k === 'delete' || k === 'backspace') && S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); }
       else if ((k === 'delete' || k === 'backspace') && S.cl && !layer()) { S.project.clips = S.project.clips.filter((c) => c.id !== S.cl); S.cl = null; commit(); }
@@ -28727,7 +29288,7 @@ module.exports = ZStream;
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
-    function cleanup() { MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
+    function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
     MC.studioCleanup = () => { S.alive = false; cleanup(); };
   };
 })();
@@ -28755,12 +29316,15 @@ module.exports = ZStream;
     if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
-    if (!MC.store.get('seeded3', '')) {
+    if (!MC.store.get('seeded4', '')) {
       const existing = await MC.db.all('projects');
       if (!existing.some((q) => q.sampleV === 3)) {
         try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
       }
-      MC.store.set('seeded3', '1');
+      if (!existing.some((q) => q.samplePage)) {
+        try { const p = await MC.createPageSample(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
+      }
+      MC.store.set('seeded4', '1');
     }
     await MC.app.render();
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

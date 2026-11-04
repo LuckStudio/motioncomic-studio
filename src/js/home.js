@@ -56,25 +56,68 @@
     for (const id of MC.projectAssetIds(p)) if (!used.has(id)) { await MC.db.del('assets', id); MC.assets.cache.delete(id); }
   };
 
+  /* Selector de modo reutilizable: Libre, Página completa, Webtoon (segunda versión). */
+  const modePicker = (st, onChange) => {
+    const root = h('div', { class: 'field' });
+    const draw = () => {
+      MC.clear(root);
+      MC.put(root, h('span', { class: 'eyebrow' }, t('Modo de trabajo', 'Work mode')),
+        h('div', { class: 'modes' },
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'free'), onClick: () => { st.mode = 'free'; draw(); onChange && onChange(); } }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': String(st.mode === 'page'), onClick: () => { st.mode = 'page'; draw(); onChange && onChange(); } }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('La cámara recorre las viñetas de cada página', 'The camera walks through each page’s panels'))),
+          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version')))),
+        st.mode === 'page' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Orden de lectura', 'Reading order')),
+          MC.ui.seg([{ v: 'ltr', l: t('Occidental →', 'Western →') }, { v: 'rtl', l: t('Manga ←', 'Manga ←') }], st.dir, (v) => { st.dir = v; onChange && onChange(); })) : null);
+    };
+    draw();
+    return root;
+  };
+
   MC.newProjectDialog = () => {
-    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free' };
+    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free', dir: 'ltr' };
     const nameId = 'np-' + MC.uid();
     const body = h('div', { style: { display: 'grid', gap: '16px' } },
       MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Tráiler', 'Chapter 1 · Trailer'), onInput: (e) => { st.name = e.target.value; } }), nameId),
-      h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Modo de trabajo', 'Work mode')),
-        h('div', { class: 'modes' },
-          h('button', { class: 'mode', type: 'button', 'aria-pressed': 'true' }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
-          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('Próximo paso', 'Next step'))),
-          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version'))))),
-      MC.formatPicker(st));
+      modePicker(st), MC.formatPicker(st));
     MC.modal(t('Proyecto nuevo', 'New project'), body, (close) => [
       h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: async () => {
         const p = MC.newProject({ name: st.name.trim() || t('Proyecto sin título', 'Untitled project'), ratio: st.ratio, res: st.res, zoom: st.zoom });
+        p.mode = st.mode; p.dir = st.dir;
+        const style = MC.myStyle.get(); if (style) MC.applyStyle(p, style);
         await MC.db.put('projects', p);
         close();
         MC.app.openProject(p);
       } }, t('Crear', 'Create'))]);
+  };
+
+  /* Borrador en un clic: sube las páginas o imágenes y sale un primer montaje para retocar. Sin IA ni servidor. */
+  MC.draftDialog = () => {
+    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'page', dir: 'ltr' };
+    let files = [];
+    const fileId = 'df-' + MC.uid(), nameId = 'dn-' + MC.uid(), info = h('p', { class: 'cap' }, t('Aún no has elegido archivos.', 'No files chosen yet.'));
+    const go = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Crear borrador', 'Create draft'));
+    const body = h('div', { style: { display: 'grid', gap: '16px' } },
+      h('p', { class: 'cap' }, t('Sube tus páginas o ilustraciones. Se detectan las viñetas, se fija el orden de lectura y se montan la cámara, las duraciones y las transiciones. Es un punto de partida: todo se puede cambiar. Se calcula en este navegador y se aplica «Mi estilo» si lo tienes guardado.', 'Upload your pages or artwork. Panels are detected, reading order is set, and camera, timing and transitions are assembled. It is a starting point: everything can be changed. It is computed in this browser and applies “My style” if you saved one.')),
+      h('div', { class: 'field' }, h('label', { for: fileId }, t('Páginas o imágenes (PNG, JPEG, WebP)', 'Pages or images (PNG, JPEG, WebP)')),
+        h('input', { id: fileId, class: 'input', type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/webp', onChange: (e) => {
+          files = [...e.target.files]; go.disabled = !files.length; MC.clear(info).append(files.length + t(' archivo(s) · se ordenan por nombre', ' file(s) · sorted by name'));
+        } }), info),
+      MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Borrador', 'Chapter 1 · Draft'), onInput: (e) => { st.name = e.target.value; } }), nameId),
+      modePicker(st), MC.formatPicker(st));
+    MC.modal(t('Borrador en un clic', 'One-click draft'), body, (close) => {
+      go.addEventListener('click', async () => {
+        go.disabled = true; info.textContent = t('Detectando viñetas y montando el borrador…', 'Detecting panels and assembling the draft…');
+        await new Promise((r) => setTimeout(r, 30));
+        try {
+          const r = await MC.buildDraft({ files, name: st.name.trim() || t('Borrador', 'Draft'), ratio: st.ratio, res: st.res, zoom: st.zoom, mode: st.mode, dir: st.dir });
+          close();
+          MC.toast(st.mode === 'page' ? t('Borrador listo: ' + r.pages + ' página(s) y ' + r.panels + ' viñeta(s). Revísalo en la vista «Página».', 'Draft ready: ' + r.pages + ' page(s) and ' + r.panels + ' panel(s). Check it in the “Page” view.') : t('Borrador listo: ' + r.pages + ' plano(s).', 'Draft ready: ' + r.pages + ' shot(s).'));
+          MC.app.openProject(r.project);
+        } catch (e) { console.error(e); go.disabled = false; info.textContent = t('No se pudo montar el borrador. Comprueba que son imágenes PNG, JPEG o WebP.', 'Could not build the draft. Check that they are PNG, JPEG or WebP images.'); }
+      });
+      return [h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), go];
+    });
   };
 
   MC.renderHome = async (root) => {
@@ -94,6 +137,7 @@
           h('p', null, t('Un cuarto oscuro para que el arte brille. Todo se guarda en este equipo y funciona sin conexión.', 'A dark room where the art shines. Everything is saved on this device and works offline.'))),
         h('div', { class: 'top-actions' },
           h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileIn.click() }, MC.icon('upload'), t('Importar copia', 'Import backup')), fileIn,
+          h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('frame'), t('Borrador en un clic', 'One-click draft')),
           h('button', { class: 'btn btn-p', type: 'button', onClick: MC.newProjectDialog }, MC.icon('plus'), t('Proyecto nuevo', 'New project')))),
       h('div', { class: 'notice' },
         h('span', { class: 'cap', style: { color: 'var(--fg)' } }, MC.db.persistent
@@ -129,7 +173,7 @@
         info.append(inp); setTimeout(() => { inp.focus(); inp.select(); }, 0);
       } else info.append(nm);
       const [rw, rh] = MC.parseRatio(p.ratio), sz = MC.frameSize(p.ratio, p.res);
-      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
+      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), p.mode === 'page' ? h('span', { class: 'tag' }, t('Página', 'Page')) : null, h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
       if (mode === 'delete') {
         info.append(h('div', { class: 'confirm' }, h('span', null, t('¿Eliminar este proyecto?', 'Delete this project?')),
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: async () => { await MC.deleteProject(p); MC.app.render(); } }, t('Eliminar', 'Delete')),

@@ -247,3 +247,20 @@ svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-li
 .clip.fx.thin { top: auto; height: 6px; bottom: 1px; padding: 0; border-radius: 3px; border: 0; pointer-events: auto; }
 textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 select.input { appearance: auto; }
+
+/* simulador de plataformas (interfaz genérica, sin marcas) */
+.sim { position: absolute; pointer-events: none; overflow: hidden; border-radius: 3px; color: #fff; font-size: calc(var(--u, 4px) * 3.3); line-height: 1.25; text-shadow: 0 1px 4px rgba(0,0,0,.55); }
+.sim-top { position: absolute; top: 3.5%; left: 0; right: 0; display: flex; gap: 1.6em; justify-content: center; font-weight: 500; opacity: .95; }
+.sim-top.l { justify-content: flex-start; padding-left: 5%; font-size: 1.15em; }
+.sim-top b { font-weight: 700; }
+.sim-side { position: absolute; right: 3%; bottom: 17%; display: grid; gap: 1.1em; justify-items: center; }
+.sim-act { display: grid; justify-items: center; gap: .1em; font-size: .78em; font-weight: 600; }
+.sim-act svg { width: 2.2em; height: 2.2em; stroke-width: 1.8; fill: rgba(255,255,255,.1); }
+.sim-av { width: 2.6em; height: 2.6em; border-radius: 50%; border: .14em solid #fff; background: linear-gradient(135deg, #8C7CFF, #FFB070); }
+.sim-bot { position: absolute; left: 4%; right: 22%; bottom: 9%; display: grid; gap: .35em; }
+.sim-bot span { font-size: .85em; }
+.sim-snd { display: inline-flex; align-items: center; gap: .4em; }
+.sim-prog { position: absolute; left: 0; right: 0; bottom: 0; height: .3em; background: rgba(255,255,255,.3); }
+.sim-prog i { display: block; height: 100%; background: #fff; }
+.sim-note { position: absolute; left: 0; right: 0; bottom: 2.4%; margin: 0; text-align: center; font-size: .55em; opacity: .7; }
+.sim[data-p="shorts"] .sim-side { bottom: 14%; }

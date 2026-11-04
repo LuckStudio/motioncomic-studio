@@ -5,7 +5,7 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 3 · texto, bocadillos y subtítulos
+## Estado: paso 4 · modo Página y borrador en un clic
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -24,9 +24,19 @@ Paso 3 (hecho):
 - **Tipografías**: cuatro incluidas y subida de TTF/OTF propios, con aviso si falta alguna al abrir el proyecto en otro equipo.
 - Onomatopeyas con sonido: añade un efecto de la biblioteca en el momento en que aparecen.
 
-Siguiente (paso 4): modo Página completa con detección de viñetas y orden de lectura, borrador en un clic, «Mi estilo», simulador de plataformas y cola de exportación en segundo plano.
+Paso 4 (hecho):
+- **Modo Página completa**: importa páginas (PNG, JPEG, WebP; el PSD entra aplanado) y la cámara recorre las viñetas con paneo suave o salto, con permanencia según el tamaño de cada viñeta.
+- **Detección de viñetas sin IA**: corte por los canales entre viñetas, con plan B por manchas conectadas. Orden de lectura occidental o manga. Se corrige en la vista «Página»: mover, cambiar esquinas, dibujar una viñeta nueva, reordenar y quitar.
+- **Efecto de enfoque** (atenuación del resto de la página) y **recorrido de viñetas panorámicas** (paneo automático a lo largo de viñetas anchas o altas).
+- **Convertir una viñeta en plano libre**, para combinar modos.
+- **Borrador en un clic**: sube las páginas o imágenes y sale un primer montaje (viñetas, orden, cámara, duraciones y transiciones). Todo en el navegador.
+- **Mi estilo**: guarda transiciones, curva de cámara, ritmo de las viñetas, parallax y tipografías; se aplica a proyectos nuevos y al borrador; se exporta e importa como archivo.
+- **Simulador de plataformas** (interfaz genérica estilo TikTok, Reels y Shorts, sin marcas) para ver qué tapa la interfaz.
+- **Exportación en segundo plano**: se puede cerrar la ventana y seguir editando; avisa en la barra superior cuando termina.
 
-Pendiente conocido: la exportación bloquea la ventana mientras dura y el PDF no se importa todavía.
+Siguiente (paso 5): modo Webtoon (scroll vertical), PDF, polígonos libres para viñetas, trayectoria de cámara dibujada, exportación por lotes y revisión de rendimiento con archivos pesados.
+
+Pendiente conocido: el PDF no se importa todavía y las viñetas son solo rectángulos.
 
 ## Ejecutar
 

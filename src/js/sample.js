@@ -138,6 +138,36 @@
     return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
   }
 
+  /* Página de cómic de ejemplo (1600×2300, cinco viñetas) para probar el modo Página. */
+  MC.createPageSample = async (lang) => {
+    const en = lang === 'en', PW = 1600, PH = 2300, c = document.createElement('canvas'); c.width = PW; c.height = PH;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH);
+    const s1 = shot1().layers, s2 = shot2().layers, s3 = shot3('"Arial Black", Impact, sans-serif').layers;
+    const panel = (x, y, w, h, layers, crop) => {
+      g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+      let cr = crop;
+      if (!cr) { const k = Math.max(w / SW, h / SH); cr = { w: w / k, h: h / k }; cr.x = (SW - cr.w) / 2; cr.y = (SH - cr.h) / 2; }
+      layers.forEach((l) => g.drawImage(l.c, cr.x, cr.y, cr.w, cr.h, x, y, w, h));
+      g.restore(); g.strokeStyle = '#0A0A14'; g.lineWidth = 9; g.strokeRect(x, y, w, h);
+    };
+    panel(70, 70, 860, 580, s1);
+    panel(980, 70, 550, 580, s1, { x: 760, y: 120, w: 620, h: 657 });
+    panel(70, 700, 1460, 550, s2);
+    panel(70, 1300, 650, 930, s3);
+    panel(770, 1300, 760, 930, s2, { x: 560, y: 120, w: 780, h: 955 });
+    const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+    const asset = await MC.assets.add(blob, (en ? 'Example page' : 'Página de ejemplo') + '.png');
+    const p = MC.newProject({ name: en ? 'Example project · Page mode' : 'Proyecto de ejemplo · Modo Página', ratio: '9:16', res: '1080p', zoom: 1.5 });
+    p.mode = 'page'; p.dir = 'ltr';
+    p.shots = [MC.pageShot(p, asset, 'ltr', en ? 'Page 1' : 'Página 1')];
+    const a = await MC.audio.add(MC.audio.wav(await MC.audio.renderLibrary(MC.audio.LIBRARY.find((x) => x.id === 'aventura'))), (en ? 'Music · Adventure' : 'Música · Aventura') + '.wav');
+    MC.finalizePages(p);
+    const cl = MC.audio.newClip('musica', a, 0); cl.dur = Math.min(a.dur, p.shots[0].duration); cl.vol = 0.8; cl.fadeOut = 1.5; p.clips.push(cl);
+    p.thumb = MC.makeThumb(p); p.sample = true; p.samplePage = true;
+    return p;
+  };
+
   MC.createSampleProject = async (lang) => {
     let font = '"Arial Black", Impact, sans-serif';
     try { await document.fonts.load('800 100px "Bricolage Grotesque"'); if (document.fonts.check('800 100px "Bricolage Grotesque"')) font = '"Bricolage Grotesque", ' + font; } catch (e) { /* usa la tipografía de reserva */ }

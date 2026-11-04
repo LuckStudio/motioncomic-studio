@@ -3,6 +3,15 @@
   const MC = window.MC;
   const { t } = MC;
 
+  /* Para el modo Página: el PSD se usa como una sola imagen (la composición ya aplanada). */
+  MC.psdComposite = async (file) => {
+    if (!window.agPsd) throw new Error('sin lector de PSD');
+    const psd = window.agPsd.readPsd(await file.arrayBuffer(), { skipThumbnail: true, skipLayerImageData: true });
+    if (!psd.canvas) throw new Error('sin composición');
+    const blob = await new Promise((res) => psd.canvas.toBlob(res, 'image/png'));
+    return new File([blob], file.name.replace(/\.psd$/i, '') + '.png', { type: 'image/png' });
+  };
+
   /* Devuelve { shot, warnings, doc }. El archivo original no se modifica. */
   MC.importPsd = async (file) => {
     if (!window.agPsd) throw new Error('sin lector de PSD');

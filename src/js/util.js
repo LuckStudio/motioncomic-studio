@@ -52,6 +52,11 @@
   const h = MC.h;
   /* Añade hijos ignorando null/false y aplanando listas (append nativo escribiría «null»). */
   MC.put = (el, ...kids) => { kids.flat(Infinity).forEach((c) => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); }); return el; };
+  MC.download = (blob, name) => {
+    const a = MC.h('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+  };
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
@@ -82,6 +87,12 @@
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
     note: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
     cut: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>',
+    heart: '<path d="M12 20s-7-4.4-9-9.2C1.8 7 4.2 4 7.3 4c1.9 0 3.4 1 4.7 2.8C13.3 5 14.800 4 16.700 4 19.800 4 22.200 7 21 10.800 19 15.600 12 20 12 20z"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    send: '<path d="M21 3L3 10.500l7 2.500 2.500 7z"/><path d="M10 13l11-10"/>',
+    bookmark: '<path d="M6 3h12v18l-6-4.500L6 21z"/>',
+    dots: '<circle cx="5" cy="12" r="1.600" fill="currentColor"/><circle cx="12" cy="12" r="1.600" fill="currentColor"/><circle cx="19" cy="12" r="1.600" fill="currentColor"/>',
+    page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 10h16M11 3v7M11 10v11"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
   };
   MC.icon = (name, size) => {

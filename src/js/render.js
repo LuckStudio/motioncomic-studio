@@ -21,7 +21,29 @@
     return { i: 0, tl: 0 };
   };
 
+  /* Trayectoria con varios puntos (modo Página): mantiene cada viñeta y viaja a la siguiente. */
+  MC.pathDuration = (path) => path.pts.reduce((a, q, i) => a + q.hold + (i < path.pts.length - 1 ? q.travel || 0 : 0), 0);
+  function pathCam(path, tl) {
+    const pts = path.pts;
+    let t = tl;
+    const from = (q, drift) => ({ x: q.x, y: q.y, zoom: q.zoom * (1 + (path.drift || 0) * drift), rot: 0, sx: 0, sy: 0, rect: q.rect });
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (t < q.hold) return from(q, t / Math.max(0.01, q.hold));
+      t -= q.hold;
+      if (i < pts.length - 1) {
+        const tr = q.travel || 0;
+        if (t < tr) {
+          const e = MC.ease(path.curve || 'smooth', t / tr), n = pts[i + 1], a = from(q, 1), b = from(n, 0), r = a.rect && b.rect ? { x0: lerp(a.rect.x0, b.rect.x0, e), y0: lerp(a.rect.y0, b.rect.y0, e), x1: lerp(a.rect.x1, b.rect.x1, e), y1: lerp(a.rect.y1, b.rect.y1, e) } : b.rect;
+          return { x: lerp(a.x, b.x, e), y: lerp(a.y, b.y, e), zoom: a.zoom * Math.pow(b.zoom / a.zoom, e), rot: 0, sx: 0, sy: 0, rect: r };
+        }
+        t -= tr;
+      }
+    }
+    return from(pts[pts.length - 1], 1);
+  }
   MC.camAt = (shot, tl, withShake) => {
+    if (shot.camera.path && shot.camera.path.pts.length) return pathCam(shot.camera.path, tl);
     const c = shot.camera, d = Math.max(0.01, shot.duration), p = MC.ease(c.curve, tl / d);
     const z0 = c.from.zoom, z1 = c.to.zoom;
     const cam = { x: lerp(c.from.x, c.to.x, p), y: lerp(c.from.y, c.to.y, p), zoom: z0 * Math.pow(z1 / z0, p), rot: lerp(c.from.rot || 0, c.to.rot || 0, p), sx: 0, sy: 0 };
@@ -55,8 +77,9 @@
   MC.coverNeeds = (layer, img, shot, o) => {
     const { W, H } = o, out = [];
     const shake = shot.camera.shake || 0;
-    for (let k = 0; k <= 4; k++) {
-      const cam = MC.camAt(shot, (shot.duration * k) / 4, false);
+    const N = shot.camera.path ? 24 : 4;
+    for (let k = 0; k <= N; k++) {
+      const cam = MC.camAt(shot, (shot.duration * k) / N, false);
       const g = MC.layerGeom(layer, img, cam, o);
       const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
       const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
@@ -124,7 +147,16 @@
       if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
       ctx.scale(g.zl, g.zl);
       ctx.translate(-camx, -camy);
-      ctx.drawImage(img.bitmap, box.cx - (img.w * box.s) / 2, box.cy - (img.h * box.s) / 2, img.w * box.s, img.h * box.s);
+      const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
+      ctx.drawImage(img.bitmap, ix, iy, iw, ih);
+      /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
+      const pg = shot.page;
+      if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {
+        const r = cam.rect, big = 1e5;
+        ctx.fillStyle = 'rgba(0,0,0,' + pg.dim + ')';
+        ctx.beginPath(); ctx.rect(-big, -big, big * 2, big * 2); ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
+        ctx.fill('evenodd');
+      }
       ctx.restore();
     }
     ctx.restore();

@@ -45,6 +45,7 @@
     const lang = p.lang || 'es';
     const it = { id: MC.uid(), kind, t: {}, start, dur: 2.5, x: 0, y: -0.28, w: 0.4, size: 0.05, font: 'comic', color: '#14141c', fill: '#ffffff', stroke: '#14141c',
       align: 'center', shape: 'speech', tail: { x: -0.06, y: 0.17 }, rot: 0, reveal: 'all', speed: 30, fit: false, anim: 'pop', loop: 'none', link: null };
+    if (p.textFont && (kind === 'bubble' || kind === 'box')) it.font = p.textFont;
     if (kind === 'box') Object.assign(it, { x: -0.18, y: -0.4, w: 0.5, size: 0.04, fill: '#FFE08A', align: 'left', anim: 'slide', shape: 'box' });
     if (kind === 'sfx') Object.assign(it, { y: 0.08, w: 0.8, size: 0.17, font: 'bangers', color: '#E5333D', rot: -8, anim: 'shake', shape: 'sfx' });
     if (kind === 'sub') Object.assign(it, { anim: 'none', shape: 'sub' });
