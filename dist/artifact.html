@@ -1,0 +1,1658 @@
+<title>MotionComic Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap">
+<style>
+/* MotionComic Studio · estilos. Concepto: sala de edición oscura; el violeta solo aparece donde hay acción o marca (brandbook v0.1). */
+:root {
+  --bg: #0F1012;
+  --panel: #17191C;
+  --raised: #1F2226;
+  --line: #2A2E33;
+  --fg: #ECEEF0;
+  --muted: #9AA0A8;
+  --accent: #8C7CFF;
+  --accent-hover: #A094FF;
+  --on-accent: #0F1012;
+  --accent-tint: rgba(140, 124, 255, 0.16);
+  --stage: #0B0C0E;
+  --clip: #ECEEF0;
+  --clip-ink: #0F1012;
+  --aux: #5B6068;
+  --good: #5FD3A0;
+  --warn: #E5B454;
+  --bad: #FF7B7B;
+  --font: 'Bricolage Grotesque', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #F3F4F6; --panel: #FFFFFF; --raised: #EEF0F3; --line: #D8DBE1; --fg: #15171A; --muted: #5B6068;
+    --accent: #6A59E8; --accent-hover: #5646D6; --on-accent: #FFFFFF; --accent-tint: rgba(106, 89, 232, 0.14);
+    --clip: #15171A; --clip-ink: #F3F4F6; --aux: #9AA0A8; --good: #168A5C; --warn: #9A6A00; --bad: #C93A3A;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #F3F4F6; --panel: #FFFFFF; --raised: #EEF0F3; --line: #D8DBE1; --fg: #15171A; --muted: #5B6068;
+  --accent: #6A59E8; --accent-hover: #5646D6; --on-accent: #FFFFFF; --accent-tint: rgba(106, 89, 232, 0.14);
+  --clip: #15171A; --clip-ink: #F3F4F6; --aux: #9AA0A8; --good: #168A5C; --warn: #9A6A00; --bad: #C93A3A;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font); font-variant-numeric: tabular-nums; }
+#app {
+  height: 100%; overflow: auto;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.03em; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cap { font-size: 13px; color: var(--muted); }
+.num { font-weight: 500; font-variant-numeric: tabular-nums; }
+svg.i { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* botones y controles */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; border: 1px solid transparent; border-radius: 10px; padding: 8px 16px; cursor: pointer; background: none; white-space: nowrap; }
+.btn-p { background: var(--accent); color: var(--on-accent); }
+.btn-p:hover { background: var(--accent-hover); }
+.btn-s { background: var(--raised); border-color: var(--line); }
+.btn-s:hover { border-color: var(--accent); }
+.btn-g { color: var(--muted); padding-inline: 10px; }
+.btn-g:hover { color: var(--fg); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn-ic { padding: 7px; width: 34px; height: 34px; }
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+.btn-danger { color: var(--bad); }
+.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; max-width: 100%; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; padding: 5px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--fg); font-weight: 600; }
+.seg button[disabled] { opacity: .4; cursor: not-allowed; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-b { border: 1px solid var(--line); background: var(--raised); color: var(--fg); font-size: 13px; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.chip-b:hover { border-color: var(--accent); }
+.chip-b[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); font-weight: 600; }
+.chip-b[disabled] { opacity: .4; cursor: not-allowed; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; background: var(--raised); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > label, .slider > label { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+.slider > label span { color: var(--muted); font-weight: 500; }
+.slider input[type=range] { width: 100%; accent-color: var(--accent); margin: 6px 0 0; }
+.input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.input:focus { border-color: var(--accent); outline: none; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); margin-top: 3px; }
+.check small { display: block; color: var(--muted); font-size: 12px; }
+.warn { color: var(--warn); } .bad { color: var(--bad); } .good { color: var(--good); }
+
+/* barra superior común */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding-block: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand span { color: var(--muted); font-weight: 500; }
+.mark-a { stroke: var(--fg); fill: none; } .mark-b { fill: var(--accent); }
+.top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* inicio */
+.home { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; padding-bottom: 48px; }
+.home-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 16px; }
+.home-head h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.05; font-weight: 700; }
+.home-head p { color: var(--muted); max-width: 52ch; margin-top: 8px; }
+.notice { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; display: flex; gap: 12px 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.notice .meter { height: 6px; width: 160px; background: var(--raised); border-radius: 99px; overflow: hidden; }
+.notice .meter i { display: block; height: 100%; background: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; grid-template-rows: auto auto; min-width: 0; }
+.card:hover, .card:focus-within { border-color: var(--aux); }
+.card .thumb { position: relative; background: var(--stage); aspect-ratio: 16 / 10; display: grid; place-items: center; border: 0; padding: 0; cursor: pointer; width: 100%; }
+.card .thumb img { max-width: 100%; max-height: 100%; display: block; }
+.card .info { padding: 12px 14px 12px; display: grid; gap: 8px; min-width: 0; }
+.card .nm { font-weight: 600; font-size: 16px; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.card .acts { display: flex; gap: 2px; margin-left: -8px; }
+.card .confirm { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.empty { border: 1px dashed var(--line); border-radius: 14px; padding: 40px 20px; text-align: center; display: grid; gap: 14px; justify-items: center; color: var(--muted); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.steps > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 4px; align-content: start; }
+.steps b { font-size: 15px; letter-spacing: -0.01em; }
+.steps span { font-size: 13px; color: var(--muted); }
+
+/* modal y aviso */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); display: grid; place-items: center; padding: 16px; z-index: 50; overflow: auto; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(560px, 100%); max-height: 100%; overflow: auto; display: grid; gap: 18px; padding: 22px; }
+.modal h2 { font-size: 24px; line-height: 1.15; }
+.modal .row-end { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.mode { text-align: left; border: 1px solid var(--line); background: var(--raised); border-radius: 12px; padding: 10px 12px; display: grid; gap: 3px; cursor: pointer; }
+.mode b { font-size: 14px; } .mode span { font-size: 12px; color: var(--muted); }
+.mode[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); }
+.mode[disabled] { opacity: .5; cursor: not-allowed; }
+.calc { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; font-size: 14px; }
+.calc .big { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(20px, env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 60; max-width: calc(100% - 32px); }
+
+/* estudio */
+.studio { height: 100%; min-height: 520px; display: grid; grid-template-rows: auto minmax(0, 1fr) var(--tl-h, 274px); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.studio[data-ws="capas"] { --tl-h: 224px; }
+.s-top { display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+.s-top .ttl { background: transparent; border: 1px solid transparent; border-radius: 8px; font-weight: 600; font-size: 14px; padding: 5px 8px; width: min(220px, 26vw); min-width: 90px; }
+.s-top .ttl:hover, .s-top .ttl:focus { border-color: var(--line); outline: none; background: var(--bg); }
+.s-tabs { display: flex; gap: 2px; }
+.s-tabs button { border: 0; border-radius: 8px; padding: 6px 12px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; white-space: nowrap; }
+.s-tabs button[aria-selected="true"] { background: var(--line); color: var(--fg); font-weight: 600; }
+.s-tabs button[disabled] { opacity: .4; cursor: not-allowed; }
+.s-top .sp { flex: 1; }
+.s-main { display: grid; grid-template-columns: 236px minmax(0, 1fr) 312px; min-height: 0; border-bottom: 1px solid var(--line); }
+.studio[data-ws="capas"] .s-main { grid-template-columns: 280px minmax(0, 1fr) 360px; }
+.panel-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.p-layers { border-right: 1px solid var(--line); }
+.p-inspector { border-left: 1px solid var(--line); }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 6px; }
+.pbody { overflow: auto; padding: 4px 12px 14px; display: grid; gap: 4px; align-content: start; min-height: 0; flex: 1; }
+.layer { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid transparent; min-width: 0; }
+.layer:hover { background: var(--raised); }
+.layer.on { background: var(--raised); border-color: var(--line); font-weight: 600; }
+.layer .lt { width: 34px; height: 34px; border-radius: 5px; background: var(--stage); object-fit: cover; flex: none; border: 1px solid var(--line); }
+.layer .ln { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer .lz { color: var(--muted); font-weight: 500; font-size: 13px; }
+.layer.off .ln, .layer.off .lt { opacity: .45; }
+.layer .btn { padding: 3px; width: 26px; height: 26px; }
+.lrow { display: flex; gap: 2px; padding: 2px 0 6px 8px; }
+.sec { border-top: 1px solid var(--line); }
+.sec:first-child { border-top: 0; }
+.sec > button.sh { display: flex; width: 100%; justify-content: space-between; align-items: center; background: none; border: 0; padding: 12px 0 8px; cursor: pointer; color: var(--muted); }
+.sec > button.sh:hover { color: var(--fg); }
+.sec .sb { display: grid; gap: 12px; padding: 4px 0 14px; }
+.sec[data-open="false"] .sb { display: none; }
+.pbody.insp { padding-top: 0; }
+
+.viewer { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--stage); min-width: 0; min-height: 0; }
+.vbar, .tbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap; color: #ECEEF0; }
+.viewer .seg { background: #0F1012; border-color: #2A2E33; }
+.viewer .seg button { color: #9AA0A8; } .viewer .seg button[aria-pressed="true"] { background: #1F2226; color: #ECEEF0; }
+.viewer .btn-g { color: #9AA0A8; } .viewer .btn-g:hover { color: #ECEEF0; }
+.viewer .btn-g[aria-pressed="true"] { color: var(--accent); }
+.viewer .status { color: #9AA0A8; }
+.stage { position: relative; min-height: 0; min-width: 0; display: grid; place-items: center; padding: 6px 12px; overflow: hidden; }
+.stage canvas { display: block; border-radius: 3px; touch-action: none; background: #000; }
+.stage .drop { position: absolute; inset: 8px 12px; border: 2px dashed #2A2E33; border-radius: 10px; display: grid; place-items: center; text-align: center; color: #9AA0A8; padding: 16px; pointer-events: none; }
+.stage .drop .in { display: grid; gap: 12px; justify-items: center; pointer-events: auto; }
+.stage.over .drop { border-color: var(--accent); color: #ECEEF0; }
+.tbar { justify-content: center; gap: 12px; }
+.play { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; }
+.tbar .num { color: #ECEEF0; font-size: 14px; }
+.tbar .num span { color: #9AA0A8; }
+
+/* línea de tiempo */
+.p-timeline { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.tl-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap; }
+.tl-head .num { margin-left: auto; font-size: 14px; }
+.tl-body { display: grid; grid-template-columns: 136px minmax(0, 1fr); overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; padding-bottom: 8px; }
+.tl-labels { display: grid; grid-auto-rows: 34px; padding-left: 12px; }
+.tl-labels .rs { height: 24px; }
+.tl-labels div { font-size: 12px; color: var(--muted); display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-scroll { overflow-x: auto; overflow-y: hidden; padding-right: 12px; }
+.tl-content { position: relative; min-width: 100%; }
+.tl-ruler { height: 24px; position: relative; border-bottom: 1px solid var(--line); cursor: ew-resize; touch-action: none; }
+.tl-ruler b { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); padding: 2px 0 0 4px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.tl-track { height: 34px; position: relative; border-bottom: 1px solid var(--line); background: var(--bg); background-image: none; touch-action: none; }
+.tl-track.off::after { content: attr(data-hint); position: absolute; inset: 0; display: flex; align-items: center; padding-left: 10px; font-size: 12px; color: var(--aux); pointer-events: none; }
+.clip { position: absolute; top: 4px; bottom: 4px; border-radius: 6px; background: var(--clip); color: var(--clip-ink); font-size: 12px; font-weight: 600; padding: 0 12px 0 8px; display: flex; align-items: center; overflow: hidden; cursor: pointer; border: 2px solid transparent; user-select: none; }
+.clip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.clip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip .rz { position: absolute; right: 0; top: 0; bottom: 0; width: 10px; cursor: ew-resize; touch-action: none; }
+.clip .rz::after { content: ""; position: absolute; right: 3px; top: 25%; bottom: 25%; width: 2px; border-radius: 2px; background: currentColor; opacity: .4; }
+.clip.fx { background: var(--accent); color: var(--on-accent); }
+.tr-mark { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent); opacity: .85; pointer-events: none; }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; z-index: 3; }
+.playhead::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: var(--accent); border-bottom: 0; }
+
+/* narrow */
+.mtabs { display: none; }
+@media (max-width: 1100px) { .s-tabs { display: none; } }
+@media (max-width: 900px) {
+  .studio { grid-template-rows: auto minmax(230px, 42%) auto minmax(0, 1fr); min-height: 700px; }
+  .s-main { display: contents; }
+  .viewer { grid-row: 2; }
+  .mtabs { display: flex; grid-row: 3; gap: 4px; padding: 6px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .mtabs button { flex: 1; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 500; cursor: pointer; }
+  .mtabs button[aria-pressed="true"] { background: var(--line); color: var(--fg); font-weight: 600; }
+  .p-layers, .p-inspector, .p-timeline { grid-row: 4; display: none; border: 0; }
+  .studio[data-mtab="layers"] .p-layers, .studio[data-mtab="inspector"] .p-inspector, .studio[data-mtab="timeline"] .p-timeline { display: flex; min-height: 0; }
+  .s-top .ttl { width: 120px; }
+  .s-top .hide-n, .s-top .status { display: none; }
+  .tl-body { grid-template-columns: 96px minmax(0, 1fr); }
+}
+@media (pointer: coarse) { .btn-sm, .seg button, .chip-b { min-height: 36px; } .layer .btn { width: 34px; height: 34px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .seg button, .chip-b, .card { transition: background .15s, border-color .15s, color .15s; }
+}
+
+</style>
+<div id="app"></div>
+<script>window.MC_PREVIEW = true;</script>
+<script>
+/* Utilidades base: idioma, DOM, iconos, avisos y ventanas. Sin dependencias. */
+(function () {
+  const MC = (window.MC = window.MC || {});
+
+  MC.lang = 'es';
+  MC.t = (es, en) => (MC.lang === 'en' ? (en == null ? es : en) : es);
+  MC.uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3);
+  MC.clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  MC.lerp = (a, b, t) => a + (b - a) * t;
+  MC.store = {
+    get(k, d) { try { const v = localStorage.getItem('mc.' + k); return v == null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('mc.' + k, v); } catch (e) { /* sin almacenamiento */ } },
+  };
+
+  const pad = (n) => String(n).padStart(2, '0');
+  MC.fmtTime = (s, fps) => {
+    fps = fps || 30;
+    s = Math.max(0, s);
+    return pad(Math.floor(s / 60)) + ':' + pad(Math.floor(s % 60)) + ':' + pad(Math.floor((s % 1) * fps));
+  };
+  MC.fmtClock = (ts) => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  MC.fmtDate = (ts) => new Date(ts).toLocaleDateString(MC.lang === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  MC.fmtBytes = (b) => (b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
+
+  /* h('div', {class:'x', onClick: fn}, hijos...) */
+  const LAST = { value: 1, checked: 1 };
+  MC.h = function h(tag, props) {
+    const el = document.createElement(tag);
+    if (props) {
+      const keys = Object.keys(props).sort((a, b) => (LAST[a] ? 1 : 0) - (LAST[b] ? 1 : 0));
+      for (const k of keys) {
+        const v = props[k];
+        if (v == null || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else if (k.slice(0, 2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+        else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'hidden') el[k] = v;
+        else el.setAttribute(k, v === true ? '' : v);
+      }
+    }
+    for (let i = 2; i < arguments.length; i++) {
+      const stack = [arguments[i]];
+      while (stack.length) {
+        const c = stack.shift();
+        if (c == null || c === false) continue;
+        if (Array.isArray(c)) stack.unshift(...c);
+        else el.append(c.nodeType ? c : document.createTextNode(String(c)));
+      }
+    }
+    return el;
+  };
+  const h = MC.h;
+  /* Añade hijos ignorando null/false y aplanando listas (append nativo escribiría «null»). */
+  MC.put = (el, ...kids) => { kids.flat(Infinity).forEach((c) => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); }); return el; };
+  MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+
+  const ICONS = {
+    play: '<path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none"/>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
+    redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeoff: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/>',
+    up: '<path d="M6 15l6-6 6 6"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    edit: '<path d="M4 20l4-1 11-11-3-3L5 16z"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    upload: '<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+    moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
+    frame: '<path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/>',
+    check: '<path d="M5 12l5 5 9-10"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    loop: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 01-4 4H4"/>',
+    first: '<path d="M6 5v14"/><path d="M19 5L9 12l10 7z" fill="currentColor"/>',
+    chevron: '<path d="M9 6l6 6-6 6"/>',
+  };
+  MC.icon = (name, size) => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('width', size || 16);
+    s.setAttribute('height', size || 16);
+    s.setAttribute('class', 'i');
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = ICONS[name] || ''; // solo cadenas fijas de este archivo
+    return s;
+  };
+  MC.mark = (size) => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 64 64');
+    s.setAttribute('width', size);
+    s.setAttribute('height', size);
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = '<rect class="mark-a" x="24" y="6" width="34" height="34" rx="8" stroke-width="5"/><rect class="mark-b" x="6" y="24" width="34" height="34" rx="8"/>';
+    return s;
+  };
+
+  /* Controles reutilizables */
+  const ui = (MC.ui = {});
+  ui.seg = (opts, val, onChange, label) =>
+    h('div', { class: 'seg', role: 'group', 'aria-label': label || '' },
+      opts.map((o) => h('button', { type: 'button', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: (e) => {
+        if (o.v === val) return;
+        e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        e.currentTarget.setAttribute('aria-pressed', 'true');
+        onChange(o.v);
+      } }, o.l)));
+  ui.chips = (opts, val, onChange) =>
+    h('div', { class: 'chips' }, opts.map((o) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: () => onChange(o.v) }, o.l)));
+  ui.slider = (o) => {
+    const id = 'sl-' + MC.uid();
+    const val = h('span', null, (o.fmt || ((v) => v.toFixed(2)))(o.value));
+    const inp = h('input', { type: 'range', id, min: o.min, max: o.max, step: o.step == null ? 0.01 : o.step, value: o.value,
+      onInput: (e) => { const v = +e.target.value; val.textContent = (o.fmt || ((x) => x.toFixed(2)))(v); if (o.onInput) o.onInput(v); },
+      onChange: (e) => { if (o.onChange) o.onChange(+e.target.value); } });
+    return h('div', { class: 'slider' }, h('label', { for: id }, o.label, val), inp);
+  };
+  ui.field = (label, input, id) => h('div', { class: 'field' }, h('label', { for: id }, label), input);
+
+  let toastT = 0;
+  MC.toast = (msg) => {
+    document.querySelectorAll('.toast').forEach((n) => n.remove());
+    const n = h('div', { class: 'toast', role: 'status' }, msg);
+    document.body.append(n);
+    clearTimeout(toastT);
+    toastT = setTimeout(() => n.remove(), 2800);
+  };
+  MC.modal = (title, body, actions) => {
+    const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const scrim = h('div', { class: 'scrim', onMousedown: (e) => { if (e.target === scrim) close(); } },
+      h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+        h('h2', null, title), body, actions ? h('div', { class: 'row-end' }, actions(close)) : null));
+    document.addEventListener('keydown', onKey);
+    document.body.append(scrim);
+    return { close };
+  };
+})();
+
+/* Formatos, resolución y calculadora (PRD 5.5). */
+(function () {
+  const MC = window.MC;
+  const { h, t } = MC;
+
+  MC.RATIOS = ['16:9', '9:16', '3:4', '1:1', '2:1'];
+  MC.RES = { '1080p': 1080, '2K': 1440, '4K': 2160 }; // lado corto en px
+  MC.RATIO_HINT = {
+    '9:16': ['TikTok, Reels y Shorts', 'TikTok, Reels and Shorts'],
+    '16:9': ['YouTube y pantallas', 'YouTube and screens'],
+    '3:4': ['Instagram feed vertical', 'Vertical Instagram feed'],
+    '1:1': ['Instagram feed cuadrado', 'Square Instagram feed'],
+    '2:1': ['Panorámico', 'Panoramic'],
+  };
+
+  MC.parseRatio = (r) => {
+    const p = String(r).split(':').map(Number);
+    return p.length === 2 && p[0] > 0 && p[1] > 0 ? p : [16, 9];
+  };
+  const even = (n) => Math.max(2, Math.round(n / 2) * 2);
+  MC.frameSize = (ratio, res) => {
+    const [rw, rh] = MC.parseRatio(ratio);
+    const short = MC.RES[res] || 1080;
+    return rw >= rh ? { w: even((short * rw) / rh), h: short } : { w: short, h: even((short * rh) / rw) };
+  };
+
+  /* Selector de formato con calculadora. state = {ratio,res,zoom}; onChange se llama con cada cambio. */
+  MC.formatPicker = (state, onChange) => {
+    const root = h('div', { style: { display: 'grid', gap: '14px' } });
+    const isPreset = () => MC.RATIOS.includes(state.ratio);
+    const draw = () => {
+      MC.clear(root);
+      const size = MC.frameSize(state.ratio, state.res);
+      const set = (k, v) => { state[k] = v; draw(); onChange && onChange(state); };
+      const [cw, ch] = MC.parseRatio(state.ratio);
+      const idW = 'cw-' + MC.uid(), idH = 'ch-' + MC.uid();
+      MC.put(root,
+        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Proporción', 'Aspect ratio')),
+          MC.ui.chips(MC.RATIOS.map((r) => ({ v: r, l: r })).concat([{ v: 'custom', l: t('Personalizada', 'Custom') }]), isPreset() ? state.ratio : 'custom', (v) => set('ratio', v === 'custom' ? '5:4' : v))),
+        !isPreset() ? h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+          h('input', { class: 'input', id: idW, type: 'number', min: 1, max: 40, value: cw, 'aria-label': t('Ancho', 'Width'), style: { width: '80px' }, onChange: (e) => set('ratio', Math.max(1, Math.round(+e.target.value || 1)) + ':' + ch) }),
+          h('span', null, ':'),
+          h('input', { class: 'input', id: idH, type: 'number', min: 1, max: 40, value: ch, 'aria-label': t('Alto', 'Height'), style: { width: '80px' }, onChange: (e) => set('ratio', cw + ':' + Math.max(1, Math.round(+e.target.value || 1))) })) : null,
+        h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Resolución de salida', 'Output resolution')),
+          MC.ui.seg(Object.keys(MC.RES).map((r) => ({ v: r, l: r })), state.res, (v) => set('res', v), t('Resolución', 'Resolution'))),
+        MC.ui.slider({ label: t('Zoom previsto', 'Planned zoom'), min: 1, max: 3, step: 0.1, value: state.zoom, fmt: (v) => '×' + v.toFixed(1), onInput: (v) => { state.zoom = v; refreshCalc(); }, onChange: () => onChange && onChange(state) }),
+        calcBox(),
+      );
+    };
+    let calc;
+    const calcBox = () => { calc = h('div', { class: 'calc', 'aria-live': 'polite' }); refreshCalc(); return calc; };
+    const refreshCalc = () => {
+      if (!calc) return;
+      const s = MC.frameSize(state.ratio, state.res);
+      const need = (z) => Math.ceil(s.w * z) + ' × ' + Math.ceil(s.h * z);
+      MC.clear(calc);
+      MC.put(calc,
+        h('span', { class: 'cap' }, t('Tamaño del vídeo', 'Video size')),
+        h('span', { class: 'big' }, s.w + ' × ' + s.h + ' px'),
+        h('span', { class: 'cap', style: { marginTop: '6px' } }, t('Ilustración mínima para no pixelarse con el zoom previsto', 'Minimum artwork size to avoid pixelation at the planned zoom')),
+        h('div', { class: 'calc-grid' },
+          h('div', null, h('div', { class: 'cap' }, 'zoom ×1.0'), h('b', null, need(1))),
+          h('div', null, h('div', { class: 'cap' }, 'zoom ×' + state.zoom.toFixed(1)), h('b', { class: 'good' }, need(state.zoom)))),
+        MC.RATIO_HINT[state.ratio] ? h('span', { class: 'cap', style: { marginTop: '6px' } }, t(MC.RATIO_HINT[state.ratio][0], MC.RATIO_HINT[state.ratio][1])) : null,
+      );
+    };
+    draw();
+    return root;
+  };
+})();
+
+/* Guardado local: IndexedDB para proyectos e imágenes (PRD 13). Si el navegador no lo permite, trabaja en memoria y avisa. */
+(function () {
+  const MC = window.MC;
+  const mem = { projects: new Map(), assets: new Map() };
+  let dbp = null;
+  const db = (MC.db = { persistent: true });
+
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res) => {
+      try {
+        const r = indexedDB.open('motioncomic', 1);
+        r.onupgradeneeded = () => {
+          r.result.createObjectStore('projects', { keyPath: 'id' });
+          r.result.createObjectStore('assets', { keyPath: 'id' });
+        };
+        r.onsuccess = () => res(r.result);
+        r.onerror = r.onblocked = () => { db.persistent = false; res(null); };
+      } catch (e) { db.persistent = false; res(null); }
+    });
+    return dbp;
+  }
+  async function run(store, mode, op) {
+    const d = await open();
+    if (!d) return undefined;
+    return new Promise((res, rej) => {
+      const tx = d.transaction(store, mode);
+      const req = op(tx.objectStore(store));
+      tx.oncomplete = () => res(req && req.result);
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    });
+  }
+  db.put = async (store, val) => { if (!(await open())) { mem[store].set(val.id, val); return; } await run(store, 'readwrite', (s) => s.put(val)); };
+  db.get = async (store, id) => ((await open()) ? run(store, 'readonly', (s) => s.get(id)) : mem[store].get(id));
+  db.all = async (store) => ((await open()) ? run(store, 'readonly', (s) => s.getAll()) : [...mem[store].values()]);
+  db.del = async (store, id) => { if (!(await open())) { mem[store].delete(id); return; } await run(store, 'readwrite', (s) => s.delete(id)); };
+
+  db.ready = async () => {
+    const d = await open();
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* opcional */ }
+    return !!d;
+  };
+  db.usage = async () => {
+    try { const e = await navigator.storage.estimate(); return { used: e.usage || 0, quota: e.quota || 0 }; } catch (e) { return null; }
+  };
+
+  /* Imágenes: el archivo original se guarda tal cual, sin recomprimir. */
+  const cache = new Map();
+  MC.assets = {
+    cache,
+    get: (id) => cache.get(id) || null,
+    async load(id) {
+      if (cache.has(id)) return cache.get(id);
+      const rec = await db.get('assets', id);
+      if (!rec) return null;
+      const bitmap = await createImageBitmap(rec.blob);
+      const a = { id, name: rec.name, w: bitmap.width, h: bitmap.height, bitmap, thumb: rec.thumb };
+      cache.set(id, a);
+      return a;
+    },
+    async add(blob, name, existingId) {
+      const bitmap = await createImageBitmap(blob);
+      const id = existingId || MC.uid();
+      const c = document.createElement('canvas');
+      const k = 72 / Math.max(bitmap.width, bitmap.height);
+      c.width = Math.max(1, Math.round(bitmap.width * k));
+      c.height = Math.max(1, Math.round(bitmap.height * k));
+      c.getContext('2d').drawImage(bitmap, 0, 0, c.width, c.height);
+      const thumb = c.toDataURL('image/png');
+      await db.put('assets', { id, name, blob, type: blob.type, w: bitmap.width, h: bitmap.height, thumb });
+      const a = { id, name, w: bitmap.width, h: bitmap.height, bitmap, thumb };
+      cache.set(id, a);
+      return a;
+    },
+  };
+
+  MC.projectAssetIds = (p) => {
+    const ids = new Set();
+    p.shots.forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    return ids;
+  };
+  MC.loadProjectAssets = (p) => Promise.all([...MC.projectAssetIds(p)].map((id) => MC.assets.load(id)));
+
+  /* Modelo de proyecto */
+  MC.newCamera = () => ({ preset: 'zoomin', intensity: 1, curve: 'smooth', from: { x: 0, y: 0, zoom: 1, rot: 0 }, to: { x: 0, y: 0, zoom: 1.25, rot: 0 }, shake: 0 });
+  MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
+  MC.newProject = (o) => ({
+    id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
+    parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
+  });
+
+  /* Presets de cámara (PRD 8) */
+  MC.CAM_PRESETS = [
+    { v: 'none', es: 'Quieta', en: 'Still' }, { v: 'zoomin', es: 'Zoom in', en: 'Zoom in' }, { v: 'zoomout', es: 'Zoom out', en: 'Zoom out' },
+    { v: 'panl', es: 'Paneo ←', en: 'Pan ←' }, { v: 'panr', es: 'Paneo →', en: 'Pan →' }, { v: 'panu', es: 'Paneo ↑', en: 'Pan ↑' }, { v: 'pand', es: 'Paneo ↓', en: 'Pan ↓' },
+    { v: 'kenburns', es: 'Ken Burns', en: 'Ken Burns' }, { v: 'shake', es: 'Temblor', en: 'Shake' }, { v: 'dutch', es: 'Ángulo holandés', en: 'Dutch angle' },
+  ];
+  MC.applyPreset = (cam, preset, intensity) => {
+    const i = MC.clamp(intensity == null ? cam.intensity || 1 : intensity, 0.2, 2);
+    const K = (x, y, zoom, rot) => ({ x, y, zoom, rot: rot || 0 });
+    cam.preset = preset; cam.intensity = i; cam.shake = 0;
+    const P = {
+      none: () => [K(0, 0, 1), K(0, 0, 1)],
+      zoomin: () => [K(0, 0, 1), K(0, 0, 1 + 0.3 * i)],
+      zoomout: () => [K(0, 0, 1 + 0.3 * i), K(0, 0, 1)],
+      panl: () => [K(0.07 * i, 0, 1.2), K(-0.07 * i, 0, 1.2)],
+      panr: () => [K(-0.07 * i, 0, 1.2), K(0.07 * i, 0, 1.2)],
+      panu: () => [K(0, 0.07 * i, 1.2), K(0, -0.07 * i, 1.2)],
+      pand: () => [K(0, -0.07 * i, 1.2), K(0, 0.07 * i, 1.2)],
+      kenburns: () => [K(-0.015 * i, 0.01 * i, 1), K(0.02 * i, -0.015 * i, 1 + 0.15 * i)],
+      shake: () => { cam.shake = i; return [K(0, 0, 1.06), K(0, 0, 1.06)]; },
+      dutch: () => [K(0, 0, 1.12, 0), K(0, 0, 1.15, 6 * i)],
+    };
+    if (P[preset]) { const r = P[preset](); cam.from = r[0]; cam.to = r[1]; }
+    return cam;
+  };
+
+  MC.detectLayer = (name) => {
+    const n = String(name).toLowerCase();
+    if (/cielo|sky/.test(n)) return { z: 0, role: 'fondo' };
+    if (/fondo|bg|background/.test(n)) return { z: 0.1, role: 'fondo' };
+    if (/lejan|far/.test(n)) return { z: 0.25, role: '' };
+    if (/edif|ciudad|building/.test(n)) return { z: 0.4, role: '' };
+    if (/personaje|char|figura/.test(n)) return { z: 0.6, role: '' };
+    if (/primer|fore|front/.test(n)) return { z: 0.92, role: '' };
+    if (/texto|bocadillo|sfx|text|bubble/.test(n)) return { z: 0.9, role: '' };
+    return null;
+  };
+  MC.newLayer = (asset, hint) => {
+    const d = MC.detectLayer(asset.name) || hint || { z: 0.5, role: '' };
+    return { id: MC.uid(), name: asset.name.replace(/\.[a-z0-9]+$/i, ''), assetId: asset.id, z: d.z, role: d.role, scale: 1, x: 0, y: 0, blur: 0, opacity: 1, visible: true };
+  };
+})();
+
+/* Motor de dibujo 2.5D: cámara, parallax, sobreescalado, huecos y transiciones.
+   El visor y la exportación usan este mismo código (principio 4: lo que se ve es lo que se exporta). */
+(function () {
+  const MC = window.MC;
+  const { clamp, lerp } = MC;
+
+  const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t) };
+  MC.ease = (k, t) => (EASE[k] || EASE.smooth)(clamp(t, 0, 1));
+  const noise = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
+
+  MC.shotStarts = (p) => { let t = 0; return p.shots.map((s) => { const a = t; t += s.duration; return a; }); };
+  MC.totalTime = (p) => p.shots.reduce((a, s) => a + s.duration, 0);
+  MC.locate = (p, time) => {
+    let t = 0;
+    for (let i = 0; i < p.shots.length; i++) {
+      const d = p.shots[i].duration;
+      if (time < t + d || i === p.shots.length - 1) return { i, tl: clamp(time - t, 0, d) };
+      t += d;
+    }
+    return { i: 0, tl: 0 };
+  };
+
+  MC.camAt = (shot, tl, withShake) => {
+    const c = shot.camera, d = Math.max(0.01, shot.duration), p = MC.ease(c.curve, tl / d);
+    const z0 = c.from.zoom, z1 = c.to.zoom;
+    const cam = { x: lerp(c.from.x, c.to.x, p), y: lerp(c.from.y, c.to.y, p), zoom: z0 * Math.pow(z1 / z0, p), rot: lerp(c.from.rot || 0, c.to.rot || 0, p), sx: 0, sy: 0 };
+    if (withShake !== false && c.shake > 0) {
+      const k = Math.floor(tl * 30), a = 0.012 * c.shake;
+      cam.sx = (noise(k) - 0.5) * 2 * a;
+      cam.sy = (noise(k + 99) - 0.5) * 2 * a;
+      cam.rot += (noise(k + 7) - 0.5) * 2 * c.shake * 0.8;
+    }
+    return cam;
+  };
+
+  MC.layerGeom = (layer, img, cam, o) => {
+    const I = o.parallaxI;
+    return {
+      f: 1 + (layer.z - 0.5) * I * 0.8, // cuánto se desplaza con la cámara
+      zl: 1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6), // cuánto se acerca con el zoom
+      base: Math.max(o.W / img.w, o.H / img.h) * (layer.scale || 1),
+    };
+  };
+
+  /* Escala que necesita una capa de fondo para no dejar huecos durante todo el plano. */
+  MC.coverNeeds = (layer, img, shot, o) => {
+    const { W, H } = o, out = [];
+    const shake = shot.camera.shake || 0;
+    for (let k = 0; k <= 4; k++) {
+      const cam = MC.camAt(shot, (shot.duration * k) / 4, false);
+      const g = MC.layerGeom(layer, img, cam, o);
+      const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
+      const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
+      const camx = W / 2 + cam.x * W * g.f, camy = H / 2 + cam.y * H * g.f;
+      const nx = Math.abs(W / 2 + (layer.x || 0) * W - camx) + (W / (2 * g.zl)) * rk + shake * 0.014 * W;
+      const ny = Math.abs(H / 2 + (layer.y || 0) * H - camy) + (H / (2 * g.zl)) * rk + shake * 0.014 * H;
+      out.push({ nx, ny, zl: g.zl });
+    }
+    return out;
+  };
+  MC.coverScale = (layer, img, shot, o) => {
+    let s = 0;
+    MC.coverNeeds(layer, img, shot, o).forEach((n) => { s = Math.max(s, n.nx / (img.w / 2), n.ny / (img.h / 2)); });
+    return s * 1.003;
+  };
+  /* Escala con la que se dibuja la capa de verdad (incluye sobreescalado automático). */
+  MC.effScale = (layer, img, shot, o) => {
+    const base = Math.max(o.W / img.w, o.H / img.h) * (layer.scale || 1);
+    return o.overscan && layer.role === 'fondo' ? Math.max(base, MC.coverScale(layer, img, shot, o)) : base;
+  };
+  /* Margen seguro del plano: cuánto se puede mover la cámara sin enseñar huecos (fracción del encuadre). Negativo = hay huecos. */
+  MC.safeMargin = (shot, o) => {
+    let mx = Infinity, my = Infinity, any = false;
+    shot.layers.forEach((l) => {
+      const img = o.getImg(l.assetId);
+      if (!img || l.role !== 'fondo' || l.visible === false) return;
+      any = true;
+      const s = MC.effScale(l, img, shot, o);
+      MC.coverNeeds(l, img, shot, o).forEach((n) => {
+        mx = Math.min(mx, (img.w * s / 2 - n.nx) / o.W);
+        my = Math.min(my, (img.h * s / 2 - n.ny) / o.H);
+      });
+    });
+    return any ? { x: mx, y: my } : null;
+  };
+
+  MC.renderShot = (ctx, shot, tl, o) => {
+    const { W, H } = o;
+    const cam = o.cam || MC.camAt(shot, tl);
+    ctx.save();
+    if (!o.noClip) {
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
+      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
+      ctx.fillRect(0, 0, W, H);
+    }
+    for (const layer of shot.layers) {
+      if (layer.visible === false) continue;
+      const img = o.getImg(layer.assetId);
+      if (!img) continue;
+      const g = MC.layerGeom(layer, img, cam, o);
+      const s = MC.effScale(layer, img, shot, o);
+      const camx = W / 2 + (cam.x + cam.sx) * W * g.f, camy = H / 2 + (cam.y + cam.sy) * H * g.f;
+      const lx = W / 2 + (layer.x || 0) * W, ly = H / 2 + (layer.y || 0) * H;
+      ctx.save();
+      ctx.globalAlpha = layer.opacity == null ? 1 : layer.opacity;
+      if (layer.blur > 0 && o.fx !== false) ctx.filter = 'blur(' + (layer.blur * W / 1920).toFixed(2) + 'px)';
+      ctx.translate(W / 2, H / 2);
+      if (cam.rot) ctx.rotate((cam.rot * Math.PI) / 180);
+      ctx.scale(g.zl, g.zl);
+      ctx.translate(-camx, -camy);
+      ctx.drawImage(img.bitmap, lx - (img.w * s) / 2, ly - (img.h * s) / 2, img.w * s, img.h * s);
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+
+  MC.TRANSITIONS = [
+    { v: 'cut', es: 'Corte', en: 'Cut' }, { v: 'fade', es: 'Fundido', en: 'Fade' },
+    { v: 'flash', es: 'Destello', en: 'Flash' }, { v: 'wipe', es: 'Barrido', en: 'Wipe' },
+  ];
+
+  MC.renderFrame = (ctx, project, time, o) => {
+    const { W, H } = o;
+    const { i, tl } = MC.locate(project, time);
+    const cur = project.shots[i];
+    if (!cur) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); return; }
+    const tr = cur.transition || { type: 'cut' };
+    const dur = Math.min(tr.dur || 0.6, cur.duration * 0.9);
+    if (i > 0 && tr.type !== 'cut' && tl < dur) {
+      const prev = project.shots[i - 1], p = tl / dur;
+      const drawPrev = () => MC.renderShot(ctx, prev, prev.duration, o);
+      const drawCur = () => MC.renderShot(ctx, cur, tl, o);
+      const veil = (rgb, a) => { ctx.fillStyle = 'rgba(' + rgb + ',' + clamp(a, 0, 1) + ')'; ctx.fillRect(0, 0, W, H); };
+      if (tr.type === 'fade') { if (p < 0.5) { drawPrev(); veil('0,0,0', p * 2); } else { drawCur(); veil('0,0,0', (1 - p) * 2); } return; }
+      if (tr.type === 'flash') { const a = p < 0.3 ? p / 0.3 : (1 - p) / 0.7; if (p < 0.3) drawPrev(); else drawCur(); veil('255,255,255', a); return; }
+      if (tr.type === 'wipe') {
+        const e = MC.ease('smooth', p);
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+        ctx.save(); ctx.translate(-W * e * 0.3, 0); drawPrev(); ctx.restore();
+        ctx.save(); ctx.translate(W * (1 - e), 0); drawCur(); ctx.restore();
+        return;
+      }
+    }
+    MC.renderShot(ctx, cur, tl, o);
+  };
+
+  MC.renderOpts = (project, extra) => {
+    const s = MC.frameSize(project.ratio, project.res);
+    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false }, extra || {});
+  };
+
+  MC.makeThumb = (project) => {
+    try {
+      const o = MC.renderOpts(project);
+      const c = document.createElement('canvas');
+      const k = 360 / Math.max(o.W, o.H);
+      c.width = Math.round(o.W * k); c.height = Math.round(o.H * k);
+      const ctx = c.getContext('2d');
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      const sh = project.shots[0];
+      MC.renderFrame(ctx, project, sh ? Math.min(0.4, sh.duration * 0.1) : 0, o);
+      return c.toDataURL('image/jpeg', 0.7);
+    } catch (e) { return ''; }
+  };
+})();
+
+/* Proyecto de ejemplo: ilustraciones dibujadas por código, para explorar la herramienta sin subir nada (PRD 12, primera vez). */
+(function () {
+  const MC = window.MC;
+  const SW = 2048, SH = 1152;
+  const INK = '#0A0A14';
+
+  function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function mk() { const c = document.createElement('canvas'); c.width = SW; c.height = SH; return { c, g: c.getContext('2d') }; }
+  function grad(g, stops, y0, y1) { const gr = g.createLinearGradient(0, y0 == null ? 0 : y0, 0, y1 == null ? SH : y1); stops.forEach((s) => gr.addColorStop(s[0], s[1])); return gr; }
+  function halftone(g, x, y, w, h, step, color, fn) {
+    g.fillStyle = color;
+    for (let j = y; j < y + h; j += step) for (let i = x; i < x + w; i += step) {
+      const k = fn(i, j); if (k <= 0.04) continue;
+      g.beginPath(); g.arc(i + ((((j - y) / step) | 0) % 2) * step / 2, j, step * 0.5 * Math.min(1, k), 0, 6.283); g.fill();
+    }
+  }
+  function city(g, r, o) {
+    let x = -40;
+    while (x < SW + 40) {
+      const w = o.minW + r() * (o.maxW - o.minW), hh = o.minH + r() * (o.maxH - o.minH), top = o.base - hh;
+      g.fillStyle = o.color; g.fillRect(x, top, w, hh + 4);
+      if (o.ink) { g.strokeStyle = INK; g.lineWidth = o.ink; g.strokeRect(x, top, w, hh + 4); }
+      if (r() > 0.6) { g.fillStyle = o.color; g.fillRect(x + w * 0.4, top - 40 - r() * 50, 6, 60); }
+      for (let wy = top + 24; wy < o.base - 20; wy += o.win.gap) for (let wx = x + 14; wx < x + w - 20; wx += o.win.gap) {
+        if (r() < o.win.p) { g.fillStyle = o.win.color; g.fillRect(wx, wy, o.win.s, o.win.s * 1.3); }
+      }
+      x += w + (o.gap || 0);
+    }
+  }
+  function figure(g, x, y, sc, flip, scarf) {
+    g.save(); g.translate(x, y); g.scale(flip * sc, sc); g.lineJoin = 'round'; g.lineCap = 'round';
+    g.lineWidth = 9; g.strokeStyle = INK;
+    // piernas
+    g.fillStyle = '#1B1B38';
+    g.beginPath(); g.moveTo(-34, -190); g.lineTo(-48, 0); g.lineTo(-6, 0); g.lineTo(0, -190); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(6, -190); g.lineTo(8, 0); g.lineTo(52, 0); g.lineTo(38, -190); g.closePath(); g.fill(); g.stroke();
+    // abrigo
+    g.fillStyle = '#2C2858';
+    g.beginPath(); g.moveTo(-58, -340); g.quadraticCurveTo(-96, -230, -104, -120); g.lineTo(100, -120); g.quadraticCurveTo(84, -230, 58, -340); g.quadraticCurveTo(0, -362, -58, -340); g.fill(); g.stroke();
+    g.strokeStyle = '#8C7CFF'; g.lineWidth = 6; g.beginPath(); g.moveTo(58, -336); g.quadraticCurveTo(86, -230, 98, -126); g.stroke();
+    g.strokeStyle = INK; g.lineWidth = 9;
+    // brazo
+    g.fillStyle = '#2C2858'; g.beginPath(); g.moveTo(-56, -330); g.quadraticCurveTo(-96, -250, -74, -170); g.lineTo(-42, -176); g.quadraticCurveTo(-60, -250, -34, -318); g.closePath(); g.fill(); g.stroke();
+    // cabeza
+    g.fillStyle = '#F0D2BC'; g.beginPath(); g.arc(0, -392, 44, 0, 6.283); g.fill(); g.stroke();
+    g.fillStyle = INK; g.beginPath(); g.moveTo(-48, -396); g.quadraticCurveTo(-40, -452, 6, -444); g.quadraticCurveTo(52, -446, 50, -392); g.quadraticCurveTo(24, -418, -8, -412); g.quadraticCurveTo(-30, -410, -48, -396); g.fill();
+    g.beginPath(); g.arc(18, -386, 5, 0, 6.283); g.fill();
+    // bufanda
+    g.fillStyle = '#8C7CFF'; g.strokeStyle = INK; g.lineWidth = 8;
+    g.beginPath(); g.moveTo(-40, -352); g.quadraticCurveTo(0, -330, 42, -352); g.lineTo(46, -330); g.quadraticCurveTo(0, -306, -44, -330); g.closePath(); g.fill(); g.stroke();
+    const sx = scarf * 190;
+    g.beginPath(); g.moveTo(34, -342); g.quadraticCurveTo(34 + sx * 0.5, -360 + scarf * 12, 34 + sx, -330 + scarf * 30); g.lineTo(34 + sx - scarf * 8, -296 + scarf * 24); g.quadraticCurveTo(34 + sx * 0.5, -318, 38, -318); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+
+  /* --- Plano 1: la azotea (noche) --- */
+  function shot1() {
+    const r = rng(11), L = [];
+    let { c, g } = mk();
+    g.fillStyle = grad(g, [[0, '#0B0B26'], [0.55, '#241F5E'], [1, '#5B3F92']]); g.fillRect(0, 0, SW, SH);
+    halftone(g, 0, 560, SW, 600, 22, 'rgba(140,124,255,.28)', (x, y) => (y - 560) / 600);
+    g.fillStyle = '#ECEEF0'; for (let i = 0; i < 160; i++) { g.globalAlpha = 0.3 + r() * 0.7; g.beginPath(); g.arc(r() * SW, r() * 620, 1 + r() * 2.2, 0, 6.283); g.fill(); }
+    g.globalAlpha = 1;
+    const mg = g.createRadialGradient(1500, 250, 20, 1500, 250, 320); mg.addColorStop(0, 'rgba(236,238,240,.5)'); mg.addColorStop(1, 'rgba(236,238,240,0)'); g.fillStyle = mg; g.fillRect(1100, 0, 800, 650);
+    g.fillStyle = '#F2EFE6'; g.beginPath(); g.arc(1500, 250, 92, 0, 6.283); g.fill(); g.strokeStyle = INK; g.lineWidth = 7; g.stroke();
+    g.fillStyle = 'rgba(160,150,190,.45)'; [[1470, 230, 22], [1530, 285, 14], [1520, 214, 9]].forEach((k) => { g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
+    L.push({ name: 'Cielo', c, z: 0, role: 'fondo' });
+
+    ({ c, g } = mk());
+    city(g, r, { base: 820, minW: 90, maxW: 190, minH: 160, maxH: 380, color: '#2B2670', win: { color: 'rgba(255,214,120,.55)', p: 0.25, gap: 34, s: 9 } });
+    L.push({ name: 'Ciudad lejana', c, z: 0.25, role: '' });
+
+    ({ c, g } = mk());
+    city(g, r, { base: 960, minW: 150, maxW: 280, minH: 260, maxH: 560, color: '#15143A', ink: 6, win: { color: '#FFD678', p: 0.32, gap: 46, s: 14 }, gap: 12 });
+    L.push({ name: 'Ciudad cercana', c, z: 0.45, role: '' });
+
+    ({ c, g } = mk());
+    figure(g, 1130, 900, 1.5, 1, 1);
+    L.push({ name: 'Personaje', c, z: 0.65, role: '' });
+
+    ({ c, g } = mk());
+    g.fillStyle = '#0A0A18'; g.fillRect(0, 900, SW, 260);
+    g.fillStyle = '#12122A'; g.fillRect(0, 900, SW, 22);
+    for (let x = 60; x < SW; x += 240) { g.fillStyle = '#0A0A18'; g.fillRect(x, 700, 14, 210); }
+    g.fillRect(0, 760, SW, 10);
+    g.fillRect(1720, 360, 12, 560); g.fillRect(1640, 430, 170, 8); g.fillRect(1660, 500, 130, 8);
+    L.push({ name: 'Primer plano', c, z: 0.92, role: '' });
+    return { name: 'La azotea', duration: 5, layers: L, preset: ['zoomin', 0.8], curve: 'smooth', transition: { type: 'cut', dur: 0.6 } };
+  }
+
+  /* --- Plano 2: amanecer --- */
+  function shot2() {
+    const r = rng(23), L = [];
+    let { c, g } = mk();
+    g.fillStyle = grad(g, [[0, '#5A3F92'], [0.45, '#E0708C'], [0.8, '#FFB070'], [1, '#FFE0A8']]); g.fillRect(0, 0, SW, SH);
+    halftone(g, 0, 0, SW, 700, 24, 'rgba(255,255,255,.18)', (x, y) => 1 - y / 700);
+    g.fillStyle = '#FFF3D0'; g.beginPath(); g.arc(1240, 700, 180, 0, 6.283); g.fill(); g.strokeStyle = INK; g.lineWidth = 8; g.stroke();
+    L.push({ name: 'Cielo amanecer', c, z: 0, role: 'fondo' });
+
+    ({ c, g } = mk());
+    city(g, r, { base: 900, minW: 100, maxW: 220, minH: 180, maxH: 420, color: '#7D4A8A', win: { color: 'rgba(255,230,170,.5)', p: 0.2, gap: 36, s: 9 } });
+    L.push({ name: 'Ciudad lejana', c, z: 0.2, role: '' });
+
+    ({ c, g } = mk());
+    city(g, r, { base: 1000, minW: 160, maxW: 300, minH: 300, maxH: 620, color: '#3A2468', ink: 6, win: { color: '#FFD678', p: 0.2, gap: 50, s: 14 }, gap: 10 });
+    L.push({ name: 'Edificios', c, z: 0.4, role: '' });
+
+    ({ c, g } = mk());
+    figure(g, 1020, 1010, 1.75, -1, -1);
+    L.push({ name: 'Personaje', c, z: 0.62, role: '' });
+
+    ({ c, g } = mk());
+    g.strokeStyle = 'rgba(255,255,255,.55)';
+    for (let i = 0; i < 46; i++) { const y = r() * SH, x = r() * SW, l = 280 + r() * 700; g.lineWidth = 2 + r() * 7; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
+    g.fillStyle = '#0A0A18'; g.beginPath(); g.moveTo(0, SH); g.lineTo(0, 1030); g.lineTo(SW, 1070); g.lineTo(SW, SH); g.fill();
+    L.push({ name: 'Primer plano líneas', c, z: 0.95, role: '' });
+    return { name: 'Amanecer', duration: 4, layers: L, preset: ['panl', 1], curve: 'smooth', transition: { type: 'wipe', dur: 0.8 } };
+  }
+
+  /* --- Plano 3: impacto --- */
+  function shot3(font) {
+    const r = rng(37), L = [];
+    let { c, g } = mk();
+    g.fillStyle = '#F7C948'; g.fillRect(0, 0, SW, SH);
+    g.translate(SW / 2, SH / 2);
+    for (let i = 0; i < 44; i++) { const a = (i / 44) * 6.283, a2 = a + 0.07; g.fillStyle = i % 2 ? '#F28A30' : '#F7C948'; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * 2400, Math.sin(a) * 2400); g.lineTo(Math.cos(a2) * 2400, Math.sin(a2) * 2400); g.fill(); }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    halftone(g, 0, 0, SW, SH, 26, 'rgba(200,40,50,.5)', (x, y) => { const d = Math.hypot(x - SW / 2, y - SH / 2) / 1150; return d > 0.35 ? (d - 0.35) * 1.4 : 0; });
+    L.push({ name: 'Fondo explosión', c, z: 0.05, role: 'fondo' });
+
+    ({ c, g } = mk());
+    [[760, 760, 150], [920, 840, 190], [1100, 880, 220], [1290, 850, 200], [1440, 780, 160], [1000, 720, 150], [1220, 730, 170]].forEach((k) => {
+      g.fillStyle = '#3A3550'; g.strokeStyle = INK; g.lineWidth = 8; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); g.stroke();
+    });
+    [[1000, 800, 90], [1200, 800, 100]].forEach((k) => { g.fillStyle = '#5A5470'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
+    L.push({ name: 'Humo', c, z: 0.5, role: '' });
+
+    ({ c, g } = mk());
+    g.translate(SW / 2, 540); g.rotate(-0.1);
+    g.font = '800 420px ' + font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.lineWidth = 52; g.strokeStyle = INK; g.strokeText('¡BOOM!', 14, 18);
+    g.lineWidth = 34; g.strokeStyle = '#ECEEF0'; g.strokeText('¡BOOM!', 0, 0);
+    g.fillStyle = '#E5333D'; g.fillText('¡BOOM!', 0, 0);
+    L.push({ name: 'Onomatopeya', c, z: 0.85, role: '' });
+    return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
+  }
+
+  MC.createSampleProject = async (lang) => {
+    let font = '"Arial Black", Impact, sans-serif';
+    try { await document.fonts.load('800 100px "Bricolage Grotesque"'); if (document.fonts.check('800 100px "Bricolage Grotesque"')) font = '"Bricolage Grotesque", ' + font; } catch (e) { /* usa la tipografía de reserva */ }
+    const en = lang === 'en';
+    const p = MC.newProject({ name: en ? 'Example project' : 'Proyecto de ejemplo', ratio: '16:9', res: '1080p', zoom: 1.3 });
+    p.shots = [];
+    for (const spec of [shot1(), shot2(), shot3(font)]) {
+      const sh = MC.newShot(spec.name);
+      sh.duration = spec.duration; sh.transition = spec.transition; sh.camera.curve = spec.curve;
+      for (const l of spec.layers) {
+        const blob = await new Promise((res) => l.c.toBlob(res, 'image/png'));
+        const a = await MC.assets.add(blob, l.name + '.png');
+        const layer = MC.newLayer(a, { z: l.z, role: l.role });
+        layer.z = l.z; layer.role = l.role; layer.name = l.name;
+        sh.layers.push(layer);
+      }
+      MC.applyPreset(sh.camera, spec.preset[0], spec.preset[1]);
+      p.shots.push(sh);
+    }
+    p.thumb = MC.makeThumb(p);
+    p.sample = true;
+    return p;
+  };
+})();
+
+/* Pantalla de inicio: proyectos guardados, proyecto nuevo, copia de seguridad (PRD 12 y 13). */
+(function () {
+  const MC = window.MC;
+  const { h, t } = MC;
+
+  MC.topBar = (extra) => h('div', { class: 'top' },
+    h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
+    h('div', { class: 'top-actions' }, extra,
+      MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
+      h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Cambiar tema', 'Toggle theme'), 'aria-label': t('Cambiar tema', 'Toggle theme'), onClick: () => MC.toggleTheme() }, MC.icon(MC.isLight() ? 'moon' : 'sun'))));
+
+  MC.isLight = () => {
+    const a = document.documentElement.getAttribute('data-theme');
+    return a ? a === 'light' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
+  };
+  MC.toggleTheme = () => {
+    const v = MC.isLight() ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', v);
+    MC.store.set('theme', v);
+    MC.app.render();
+  };
+
+  /* Copia de seguridad: un solo archivo con proyecto e imágenes. */
+  const blobToDataUrl = (b) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
+  MC.exportProject = async (p) => {
+    const assets = [];
+    for (const id of MC.projectAssetIds(p)) {
+      const rec = await MC.db.get('assets', id);
+      if (rec) assets.push({ id, name: rec.name, type: rec.type, data: await blobToDataUrl(rec.blob) });
+    }
+    const file = new Blob([JSON.stringify({ app: 'motioncomic-studio', v: 1, project: p, assets })], { type: 'application/json' });
+    const a = h('a', { href: URL.createObjectURL(file), download: p.name.replace(/[^\w\- ]+/g, '') + '.motioncomic.json' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+  MC.importProject = async (file) => {
+    const data = JSON.parse(await file.text());
+    if (data.app !== 'motioncomic-studio') throw new Error('formato');
+    for (const a of data.assets) { const blob = await (await fetch(a.data)).blob(); await MC.assets.add(blob, a.name, a.id); }
+    const p = data.project;
+    if ((await MC.db.get('projects', p.id))) { p.id = MC.uid(); p.name += ' (importado)'; }
+    p.updated = Date.now();
+    await MC.db.put('projects', p);
+    return p;
+  };
+  MC.duplicateProject = async (p) => {
+    const c = JSON.parse(JSON.stringify(p));
+    c.id = MC.uid(); c.name = p.name + ' (copia)'; c.created = c.updated = Date.now(); delete c.sample;
+    await MC.db.put('projects', c);
+    return c;
+  };
+  MC.deleteProject = async (p) => {
+    await MC.db.del('projects', p.id);
+    const used = new Set();
+    (await MC.db.all('projects')).forEach((q) => MC.projectAssetIds(q).forEach((id) => used.add(id)));
+    for (const id of MC.projectAssetIds(p)) if (!used.has(id)) { await MC.db.del('assets', id); MC.assets.cache.delete(id); }
+  };
+
+  MC.newProjectDialog = () => {
+    const st = { name: '', ratio: '9:16', res: '1080p', zoom: 1.5, mode: 'free' };
+    const nameId = 'np-' + MC.uid();
+    const body = h('div', { style: { display: 'grid', gap: '16px' } },
+      MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Tráiler', 'Chapter 1 · Trailer'), onInput: (e) => { st.name = e.target.value; } }), nameId),
+      h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Modo de trabajo', 'Work mode')),
+        h('div', { class: 'modes' },
+          h('button', { class: 'mode', type: 'button', 'aria-pressed': 'true' }, h('b', null, t('Libre', 'Free')), h('span', null, t('Plano a plano, con capas y cámara propia', 'Shot by shot, with layers and their own camera'))),
+          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, t('Página completa', 'Full page')), h('span', null, t('Próximo paso', 'Next step'))),
+          h('button', { class: 'mode', type: 'button', disabled: true }, h('b', null, 'Webtoon'), h('span', null, t('Segunda versión', 'Second version'))))),
+      MC.formatPicker(st));
+    MC.modal(t('Proyecto nuevo', 'New project'), body, (close) => [
+      h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
+      h('button', { class: 'btn btn-p', type: 'button', onClick: async () => {
+        const p = MC.newProject({ name: st.name.trim() || t('Proyecto sin título', 'Untitled project'), ratio: st.ratio, res: st.res, zoom: st.zoom });
+        await MC.db.put('projects', p);
+        close();
+        MC.app.openProject(p);
+      } }, t('Crear', 'Create'))]);
+  };
+
+  MC.renderHome = async (root) => {
+    const projects = (await MC.db.all('projects')).sort((a, b) => b.updated - a.updated);
+    const usage = await MC.db.usage();
+    const fileIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'imp-file', onChange: async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { await MC.importProject(f); MC.toast(t('Proyecto importado', 'Project imported')); MC.app.render(); }
+      catch (err) { MC.toast(t('Ese archivo no es una copia de MotionComic Studio.', 'That file is not a MotionComic Studio backup.')); }
+    } });
+    const grid = h('div', { class: 'grid' });
+    projects.forEach((p) => grid.append(card(p)));
+    MC.put(MC.clear(root), h('div', { class: 'home' },
+      MC.topBar(),
+      h('div', { class: 'home-head' },
+        h('div', null, h('h1', null, t('Tus proyectos', 'Your projects')),
+          h('p', null, t('Un cuarto oscuro para que el arte brille. Todo se guarda en este equipo y funciona sin conexión.', 'A dark room where the art shines. Everything is saved on this device and works offline.'))),
+        h('div', { class: 'top-actions' },
+          h('button', { class: 'btn btn-s', type: 'button', onClick: () => fileIn.click() }, MC.icon('upload'), t('Importar copia', 'Import backup')), fileIn,
+          h('button', { class: 'btn btn-p', type: 'button', onClick: MC.newProjectDialog }, MC.icon('plus'), t('Proyecto nuevo', 'New project')))),
+      h('div', { class: 'notice' },
+        h('span', { class: 'cap', style: { color: 'var(--fg)' } }, MC.db.persistent
+          ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.')
+          : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar. Exporta una copia.', 'This browser does not allow saving here: changes will be lost on close. Export a backup.')),
+        usage ? h('span', { class: 'status' }, h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)) : null),
+      projects.length ? grid : h('div', { class: 'empty' }, h('p', null, t('Aún no hay proyectos. Crea uno con «Proyecto nuevo».', 'No projects yet. Create one with “New project”.')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: async () => { MC.toast(t('Preparando el ejemplo…', 'Preparing the example…')); const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); MC.app.render(); } }, t('Crear el proyecto de ejemplo', 'Create the example project'))),
+      h('section', { 'aria-label': t('Primeros pasos', 'First steps') },
+        h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, t('Primeros pasos', 'First steps')),
+        h('div', { class: 'steps' },
+          step(t('Importar', 'Import'), t('Arrastra tus ilustraciones al visor. Cada archivo es una capa.', 'Drag your artwork onto the viewer. Each file becomes a layer.')),
+          step(t('Profundidad', 'Depth'), t('Dale a cada capa su Z y mira el parallax al instante.', 'Give each layer its Z and watch the parallax instantly.')),
+          step(t('Cámara', 'Camera'), t('Elige un preset por plano o arrastra el marco de cámara.', 'Pick a preset per shot or drag the camera frame.')),
+          step(t('Duración', 'Timing'), t('Estira los planos en la línea de tiempo y añade transiciones.', 'Stretch shots on the timeline and add transitions.'))))));
+  };
+  const step = (a, b) => h('div', null, h('b', null, a), h('span', null, b));
+
+  function card(p) {
+    const el = h('div', { class: 'card' });
+    const draw = (mode) => {
+      MC.clear(el);
+      const info = h('div', { class: 'info' });
+      const nm = h('div', { class: 'nm', title: p.name }, p.name);
+      el.append(
+        h('button', { class: 'thumb', type: 'button', 'aria-label': t('Abrir ', 'Open ') + p.name, onClick: () => MC.app.openProject(p) },
+          p.thumb ? h('img', { src: p.thumb, alt: '' }) : MC.icon('image', 28)),
+        info);
+      if (mode === 'rename') {
+        const inp = h('input', { class: 'input', 'aria-label': t('Nombre', 'Name'), value: p.name, onKeydown: (e) => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = p.name; inp.blur(); } }, onBlur: async () => {
+          p.name = inp.value.trim() || p.name; p.updated = Date.now(); await MC.db.put('projects', p); draw();
+        } });
+        info.append(inp); setTimeout(() => { inp.focus(); inp.select(); }, 0);
+      } else info.append(nm);
+      const [rw, rh] = MC.parseRatio(p.ratio), sz = MC.frameSize(p.ratio, p.res);
+      info.append(h('div', { class: 'meta' }, h('span', { class: 'tag' }, p.ratio), h('span', null, sz.w + '×' + sz.h), h('span', null, '· ' + MC.fmtDate(p.updated))));
+      if (mode === 'delete') {
+        info.append(h('div', { class: 'confirm' }, h('span', null, t('¿Eliminar este proyecto?', 'Delete this project?')),
+          h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: async () => { await MC.deleteProject(p); MC.app.render(); } }, t('Eliminar', 'Delete')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => draw() }, t('Cancelar', 'Cancel'))));
+      } else {
+        const b = (ic, title, fn) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, onClick: fn }, MC.icon(ic));
+        info.append(h('div', { class: 'acts' },
+          b('edit', t('Renombrar', 'Rename'), () => draw('rename')),
+          b('copy', t('Duplicar', 'Duplicate'), async () => { await MC.duplicateProject(p); MC.app.render(); }),
+          b('download', t('Exportar copia', 'Export backup'), async () => { await MC.exportProject(p); MC.toast(t('Copia exportada', 'Backup exported')); }),
+          b('trash', t('Eliminar', 'Delete'), () => draw('delete'))));
+      }
+    };
+    draw();
+    return el;
+  }
+})();
+
+/* Estudio: visor, capas, inspector y línea de tiempo (PRD 7, 8, 11, 12). */
+(function () {
+  const MC = window.MC;
+  const { h, t, clamp } = MC;
+
+  const DEPTHS = [
+    { z: 0.9, es: 'Primer plano', en: 'Foreground' }, { z: 0.6, es: 'Personaje', en: 'Character' },
+    { z: 0.4, es: 'Plano medio', en: 'Midground' }, { z: 0.15, es: 'Fondo', en: 'Background' }, { z: 0, es: 'Cielo', en: 'Sky' },
+  ];
+  const VIEW_W = 1.5; // la vista de cámara muestra 1,5 veces el encuadre
+
+  MC.mountStudio = async function mountStudio(root, project) {
+    MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…')));
+    await MC.loadProjectAssets(project);
+
+    const S = { project, si: 0, li: -1, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: MC.store.get('adv', '0') === '1',
+      ws: 'montaje', mtab: 'inspector', holes: false, safe: false, pps: 70, open: { plano: true, camara: true, capa: true, proyecto: false },
+      hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false };
+    const el = {};
+    const shot = () => S.project.shots[S.si];
+    const layer = () => (shot() ? shot().layers[S.li] : null);
+    const opts = (extra) => MC.renderOpts(S.project, Object.assign({ holes: S.holes && S.view === 'out' }, extra));
+
+    /* ---------- historial y guardado ---------- */
+    const snap = () => JSON.stringify(S.project);
+    function pushHist() {
+      const s = snap();
+      if (S.hist[S.hpos] === s) return;
+      S.hist = S.hist.slice(0, S.hpos + 1); S.hist.push(s);
+      if (S.hist.length > 300) S.hist.shift();
+      S.hpos = S.hist.length - 1;
+    }
+    let saveT = 0;
+    function scheduleSave() { clearTimeout(saveT); setStatus(false); saveT = setTimeout(save, 700); }
+    async function save() {
+      clearTimeout(saveT);
+      const p = S.project;
+      p.updated = Date.now(); p.thumb = MC.makeThumb(p);
+      try { await MC.db.put('projects', p); S.savedAt = p.updated; } catch (e) { MC.toast(t('No se pudo guardar. Exporta una copia por si acaso.', 'Could not save. Export a backup just in case.')); }
+      setStatus(true);
+    }
+    function setStatus(saved) {
+      if (!el.status) return;
+      MC.put(MC.clear(el.status), h('i'), !MC.db.persistent ? t('Sin guardado local', 'Not saved locally') : saved ? t('Guardado en este equipo · ', 'Saved on this device · ') + MC.fmtClock(S.savedAt) : t('Guardando…', 'Saving…'));
+    }
+    function touch() { S.dirty = true; scheduleSave(); }
+    function commit() { pushHist(); touch(); renderLayers(); renderInspector(); renderTimeline(); updateHistBtns(); }
+    function updateHistBtns() { if (el.undo) { el.undo.disabled = S.hpos <= 0; el.redo.disabled = S.hpos >= S.hist.length - 1; } }
+    function restore(i) {
+      S.hpos = i; S.project = JSON.parse(S.hist[i]);
+      S.si = clamp(S.si, 0, S.project.shots.length - 1); S.li = clamp(S.li, -1, shot().layers.length - 1);
+      fit(); renderAll(); touch(); updateHistBtns();
+    }
+    const undo = () => { if (S.hpos > 0) restore(S.hpos - 1); };
+    const redo = () => { if (S.hpos < S.hist.length - 1) restore(S.hpos + 1); };
+    pushHist();
+
+    /* ---------- selección y tiempo ---------- */
+    function selectShot(i, seek) {
+      S.si = clamp(i, 0, S.project.shots.length - 1); S.li = -1;
+      if (seek) S.time = MC.shotStarts(S.project)[S.si];
+      S.dirty = true; renderLayers(); renderInspector(); renderTimeline(); updateTime();
+    }
+    function setTime(tm) {
+      S.time = clamp(tm, 0, Math.max(0, MC.totalTime(S.project) - 0.001));
+      const i = MC.locate(S.project, S.time).i;
+      if (i !== S.si) { S.si = i; S.li = -1; renderLayers(); renderInspector(); renderTimeline(); }
+      S.dirty = true; updateTime();
+    }
+    function togglePlay(on) {
+      S.playing = on == null ? !S.playing : on;
+      if (S.playing && S.time >= MC.totalTime(S.project) - 0.05) setTime(0);
+      if (S.playing && S.view === 'cam') { S.view = 'out'; renderVbar(); fit(); }
+      updateTransport();
+    }
+
+    /* ---------- importar ---------- */
+    async function importFiles(files, mode) {
+      let list = [...files];
+      if (list.some((f) => /\.(psd|pdf)$/i.test(f.name))) MC.toast(t('PSD y PDF llegan en el siguiente paso. Por ahora usa PNG, JPEG o WebP.', 'PSD and PDF arrive in the next step. For now use PNG, JPEG or WebP.'));
+      list = list.filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name));
+      if (!list.length) return;
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      try {
+        if (mode === 'shots') {
+          const first = S.project.shots.length;
+          for (const f of list) {
+            const a = await MC.assets.add(f, f.name);
+            const sh = MC.newShot(f.name.replace(/\.[a-z0-9]+$/i, ''));
+            sh.layers.push(MC.newLayer(a, { z: 0.1, role: 'fondo' }));
+            MC.applyPreset(sh.camera, 'zoomin', 0.8);
+            S.project.shots.push(sh);
+          }
+          commit(); selectShot(first, true);
+        } else {
+          const sh = shot(), empty = sh.layers.length === 0;
+          for (let i = 0; i < list.length; i++) {
+            const a = await MC.assets.add(list[i], list[i].name);
+            sh.layers.push(MC.newLayer(a, empty && i === 0 ? { z: 0.1, role: 'fondo' } : { z: 0.5, role: '' }));
+          }
+          S.li = sh.layers.length - 1; commit();
+        }
+      } catch (e) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
+    }
+
+    /* ---------- calidad y huecos ---------- */
+    function quality(l) {
+      const img = MC.assets.get(l.assetId); if (!img) return null;
+      const o = opts({ overscan: S.project.overscan !== false });
+      const s = MC.effScale(l, img, shot(), o);
+      const zl = Math.max.apply(null, MC.coverNeeds(l, img, shot(), o).map((n) => n.zl));
+      const eff = s * zl;
+      return { img, eff, need: Math.ceil(img.w * eff), level: eff <= 1.02 ? 0 : eff <= 1.3 ? 1 : 2, o };
+    }
+    function holeInfo() {
+      const sh = shot(), o = opts({ overscan: false });
+      let ratio = 1, any = false;
+      sh.layers.forEach((l) => {
+        const img = MC.assets.get(l.assetId);
+        if (!img || l.role !== 'fondo' || l.visible === false) return;
+        any = true;
+        ratio = Math.max(ratio, MC.coverScale(l, img, sh, o) / (Math.max(o.W / img.w, o.H / img.h) * (l.scale || 1)));
+      });
+      return { any, ratio, margin: MC.safeMargin(sh, o) };
+    }
+
+    /* ---------- barra superior ---------- */
+    function renderTop() {
+      const wsBtn = (v, l, off) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), disabled: !!off, title: off ? t('Llega en un paso posterior', 'Arrives in a later step') : '', onClick: () => { S.ws = v; studio.dataset.ws = v; S.open.capa = true; S.open.camara = v === 'montaje'; renderTop(); renderInspector(); fit(); } }, l);
+      el.status = h('span', { class: 'status', 'aria-live': 'polite' });
+      el.undo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)'), 'aria-label': t('Deshacer', 'Undo'), onClick: undo }, MC.icon('undo'));
+      el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
+      MC.put(MC.clear(el.top), 
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Volver a tus proyectos', 'Back to your projects'), 'aria-label': t('Volver a tus proyectos', 'Back to your projects'), onClick: close }, MC.icon('back')),
+        MC.mark(24),
+        h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
+        h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') },
+          wsBtn('montaje', t('Montaje', 'Edit')), wsBtn('capas', t('Capas y profundidad', 'Layers and depth')), wsBtn('audio', 'Audio', true), wsBtn('export', t('Exportación', 'Export'), true)),
+        h('span', { class: 'sp' }),
+        el.status, el.undo, el.redo,
+        MC.ui.seg([{ v: '0', l: t('Simple', 'Simple') }, { v: '1', l: t('Avanzado', 'Advanced') }], S.adv ? '1' : '0', (v) => { S.adv = v === '1'; MC.store.set('adv', v); renderInspector(); }, t('Nivel de uso', 'Skill level')),
+        h('button', { class: 'btn btn-p hide-n', type: 'button', disabled: true, title: t('La exportación de vídeo es el siguiente paso del desarrollo', 'Video export is the next development step') }, t('Exportar', 'Export')));
+      setStatus(true); updateHistBtns();
+    }
+    async function close() { S.alive = false; togglePlay(false); await save(); cleanup(); MC.app.render(); }
+
+    /* ---------- capas ---------- */
+    function renderLayers() {
+      const b = el.layersBody, sh = shot();
+      MC.clear(b);
+      if (!sh) return;
+      if (!sh.layers.length) b.append(h('p', { class: 'cap', style: { padding: '8px' } }, t('Este plano aún no tiene capas. Importa una ilustración.', 'This shot has no layers yet. Import an illustration.')));
+      for (let i = sh.layers.length - 1; i >= 0; i--) {
+        const l = sh.layers[i], a = MC.assets.get(l.assetId), idx = i;
+        b.append(h('div', { class: 'layer' + (i === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), onClick: () => { S.li = idx; S.dirty = true; renderLayers(); renderInspector(); } },
+          h('button', { class: 'btn btn-g', type: 'button', title: t('Mostrar u ocultar', 'Show or hide'), 'aria-label': t('Mostrar u ocultar', 'Show or hide'), onClick: (e) => { e.stopPropagation(); l.visible = l.visible === false; commit(); } }, MC.icon(l.visible === false ? 'eyeoff' : 'eye')),
+          a ? h('img', { class: 'lt', src: a.thumb, alt: '' }) : h('span', { class: 'lt' }),
+          h('span', { class: 'ln' }, l.name), h('span', { class: 'lz' }, 'z ' + l.z.toFixed(2))));
+        if (i === S.li) {
+          const mv = (d) => { const j = idx + d; if (j < 0 || j >= sh.layers.length) return; sh.layers.splice(j, 0, sh.layers.splice(idx, 1)[0]); S.li = j; commit(); };
+          const b2 = (ic, title, fn) => h('button', { class: 'btn btn-g btn-ic', type: 'button', title, 'aria-label': title, onClick: fn }, MC.icon(ic));
+          b.append(h('div', { class: 'lrow' }, b2('up', t('Traer adelante', 'Bring forward'), () => mv(1)), b2('down', t('Enviar atrás', 'Send back'), () => mv(-1)),
+            b2('copy', t('Duplicar capa', 'Duplicate layer'), () => { const c = JSON.parse(JSON.stringify(l)); c.id = MC.uid(); c.name += ' 2'; sh.layers.splice(idx + 1, 0, c); S.li = idx + 1; commit(); }),
+            b2('trash', t('Eliminar capa', 'Delete layer'), () => { sh.layers.splice(idx, 1); S.li = -1; commit(); })));
+        }
+      }
+    }
+
+    /* ---------- inspector ---------- */
+    const sec = (id, title, nodes) => h('div', { class: 'sec', 'data-open': String(!!S.open[id]) },
+      h('button', { class: 'sh', type: 'button', 'aria-expanded': String(!!S.open[id]), onClick: () => { S.open[id] = !S.open[id]; renderInspector(); } }, h('span', { class: 'eyebrow' }, title), MC.icon(S.open[id] ? 'up' : 'down', 14)),
+      h('div', { class: 'sb' }, nodes));
+    const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
+
+    function renderInspector() {
+      const b = el.inspBody, sh = shot(), l = layer(), p = S.project;
+      if (!sh) return;
+      const top = b.scrollTop;
+      MC.clear(b);
+
+      /* plano */
+      const planoNodes = [
+        nameIn(t('Nombre del plano', 'Shot name'), sh.name, (v) => { if (v) { sh.name = v; commit(); } }),
+        MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { sh.duration = v; layoutClips(); touch(); }, onChange: commit }),
+      ];
+      if (S.si > 0) {
+        planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')),
+          MC.ui.chips(MC.TRANSITIONS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), sh.transition.type, (v) => { sh.transition.type = v; commit(); })));
+        if (sh.transition.type !== 'cut') planoNodes.push(MC.ui.slider({ label: t('Duración de la transición', 'Transition length'), min: 0.2, max: 2, step: 0.1, value: sh.transition.dur, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { sh.transition.dur = v; layoutClips(); touch(); }, onChange: commit }));
+      }
+      planoNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
+        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: p.shots.length < 2, onClick: () => { p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot'))));
+
+      /* cámara */
+      const cam = sh.camera;
+      const setKf = (k, v) => { cam[S.kf][k] = v; cam.preset = 'custom'; S.dirty = true; touch(); };
+      const hi = holeInfo();
+      const camNodes = [
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Movimiento', 'Movement')),
+          MC.ui.chips(MC.CAM_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), cam.preset, (v) => { MC.applyPreset(cam, v, cam.intensity); commit(); })),
+        MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 2, step: 0.05, value: cam.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { if (cam.preset !== 'custom') { MC.applyPreset(cam, cam.preset, v); } else cam.intensity = v; S.dirty = true; touch(); }, onChange: commit }),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de velocidad', 'Speed curve')),
+          MC.ui.seg([{ v: 'linear', l: t('Constante', 'Linear') }, { v: 'smooth', l: t('Suave', 'Smooth') }, { v: 'in', l: t('Acelerada', 'Ease in') }, { v: 'out', l: t('Frenada', 'Ease out') }], cam.curve, (v) => { cam.curve = v; commit(); })),
+      ];
+      if (S.adv) {
+        const kf = cam[S.kf];
+        camNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Fotogramas clave', 'Keyframes')),
+          MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; renderInspector(); renderVbar(); S.dirty = true; })),
+          MC.ui.slider({ label: t('Posición X', 'Position X'), min: -0.5, max: 0.5, step: 0.005, value: kf.x, fmt: (v) => v.toFixed(3), onInput: (v) => setKf('x', v), onChange: commit }),
+          MC.ui.slider({ label: t('Posición Y', 'Position Y'), min: -0.5, max: 0.5, step: 0.005, value: kf.y, fmt: (v) => v.toFixed(3), onInput: (v) => setKf('y', v), onChange: commit }),
+          MC.ui.slider({ label: 'Zoom', min: 1, max: 4, step: 0.01, value: kf.zoom, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => setKf('zoom', v), onChange: commit }),
+          MC.ui.slider({ label: t('Giro', 'Rotation'), min: -20, max: 20, step: 0.5, value: kf.rot || 0, fmt: (v) => v.toFixed(1) + '°', onInput: (v) => setKf('rot', v), onChange: commit }),
+          MC.ui.slider({ label: t('Temblor', 'Shake'), min: 0, max: 3, step: 0.05, value: cam.shake || 0, fmt: (v) => v.toFixed(2), onInput: (v) => { cam.shake = v; cam.preset = 'custom'; S.dirty = true; touch(); }, onChange: commit }));
+      }
+      camNodes.push(h('p', { class: 'cap' }, t('Arrastra el marco en la vista «Cámara» para encuadrar a mano.', 'Drag the frame in the “Camera” view to frame by hand.')));
+      if (hi.any) camNodes.push(h('p', { class: 'cap ' + (p.overscan !== false || hi.ratio <= 1.002 ? 'good' : 'bad') },
+        p.overscan !== false ? (hi.ratio > 1.002 ? t('Sin huecos: el fondo se sobreescala ×', 'No gaps: the background is scaled ×') + hi.ratio.toFixed(2) : t('Sin huecos: el fondo cubre todo el movimiento.', 'No gaps: the background covers all movement.'))
+          : (hi.ratio > 1.002 ? t('Hay huecos. Faltaría estirar el fondo ×', 'There are gaps. The background needs stretching ×') + hi.ratio.toFixed(2) : t('Margen seguro: ', 'Safe margin: ') + Math.round(Math.min(hi.margin.x, hi.margin.y) * 100) + ' %')));
+
+      /* capa */
+      let capaNodes;
+      if (!l) capaNodes = [h('p', { class: 'cap' }, t('Selecciona una capa para ajustar su profundidad, desenfoque y encuadre.', 'Select a layer to adjust its depth, blur and framing.'))];
+      else {
+        const q = quality(l), set = (k, v) => { l[k] = v; touch(); };
+        capaNodes = [
+          nameIn(t('Nombre de la capa', 'Layer name'), l.name, (v) => { if (v) { l.name = v; commit(); } }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Profundidad', 'Depth')),
+            MC.ui.chips(DEPTHS.map((d) => ({ v: d.z, l: t(d.es, d.en), title: 'z ' + d.z })), DEPTHS.find((d) => Math.abs(d.z - l.z) < 0.001) ? l.z : null, (v) => { l.z = v; commit(); }),
+            h('span', { class: 'cap' }, t('Las capas cercanas se mueven más que las lejanas.', 'Near layers move more than far ones.'))),
+          MC.ui.slider({ label: t('Profundidad (z)', 'Depth (z)'), min: 0, max: 1, step: 0.01, value: l.z, fmt: (v) => v.toFixed(2), onInput: (v) => set('z', v), onChange: commit }),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: l.role === 'fondo', onChange: (e) => { l.role = e.target.checked ? 'fondo' : ''; commit(); } }),
+            h('span', null, t('Es el fondo', 'This is the background'), h('small', null, t('Se sobreescala para no dejar huecos al mover la cámara.', 'Scaled up so no gaps show when the camera moves.')))),
+          MC.ui.slider({ label: t('Desenfoque de profundidad', 'Depth blur'), min: 0, max: 30, step: 0.5, value: l.blur || 0, fmt: (v) => v.toFixed(1) + ' px', onInput: (v) => set('blur', v), onChange: commit }),
+        ];
+        if (S.adv) capaNodes.push(
+          MC.ui.slider({ label: t('Escala', 'Scale'), min: 0.5, max: 3, step: 0.01, value: l.scale || 1, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => set('scale', v), onChange: commit }),
+          MC.ui.slider({ label: t('Posición X', 'Position X'), min: -0.5, max: 0.5, step: 0.005, value: l.x || 0, fmt: (v) => v.toFixed(3), onInput: (v) => set('x', v), onChange: commit }),
+          MC.ui.slider({ label: t('Posición Y', 'Position Y'), min: -0.5, max: 0.5, step: 0.005, value: l.y || 0, fmt: (v) => v.toFixed(3), onInput: (v) => set('y', v), onChange: commit }),
+          MC.ui.slider({ label: t('Opacidad', 'Opacity'), min: 0, max: 1, step: 0.01, value: l.opacity == null ? 1 : l.opacity, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => set('opacity', v), onChange: commit }));
+        if (q) capaNodes.push(h('div', { class: 'calc' },
+          h('span', { class: 'cap' }, t('Calidad de la imagen', 'Image quality')),
+          h('span', null, q.img.w + ' × ' + q.img.h + ' px'),
+          h('span', { class: q.level === 0 ? 'good' : q.level === 1 ? 'warn' : 'bad' }, q.level === 0 ? t('Nítida a ' + p.res, 'Sharp at ' + p.res)
+            : t('Se amplía ×' + q.eff.toFixed(2) + ' en el vídeo. Para ' + p.res + ' necesita ' + q.need + ' px de ancho.', 'Enlarged ×' + q.eff.toFixed(2) + ' in the video. For ' + p.res + ' it needs ' + q.need + ' px wide.'))));
+        if (l.role === 'fondo' && p.overscan === false) {
+          const need = hi.ratio;
+          if (need > 1.002) capaNodes.push(h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { l.scale = (l.scale || 1) * need * 1.003; commit(); } }, t('Tapar huecos estirando el fondo', 'Fill gaps by stretching the background')));
+        }
+      }
+
+      /* proyecto */
+      const st = { ratio: p.ratio, res: p.res, zoom: p.zoomPlan || 1.5 };
+      const projNodes = [
+        MC.formatPicker(st, () => { p.ratio = st.ratio; p.res = st.res; p.zoomPlan = st.zoom; fit(); commit(); }),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Intensidad del parallax', 'Parallax intensity')),
+          MC.ui.seg([{ v: 'subtle', l: t('Sutil', 'Subtle') }, { v: 'normal', l: 'Normal' }, { v: 'wild', l: t('Exagerado', 'Exaggerated') }], p.parallax, (v) => { p.parallax = v; commit(); })),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: p.overscan !== false, onChange: (e) => { p.overscan = e.target.checked; commit(); } }),
+          h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
+      ];
+
+      b.append(sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
+        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes));
+      b.scrollTop = top;
+    }
+
+    /* ---------- visor ---------- */
+    function renderVbar() {
+      const tog = (key, label, title) => h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-pressed': String(S[key]), title, onClick: () => { S[key] = !S[key]; renderVbar(); S.dirty = true; } }, label);
+      const portrait = opts().W / opts().H < 0.8;
+      MC.put(MC.clear(el.vbar), 
+        MC.ui.seg([{ v: 'out', l: t('Salida', 'Output') }, { v: 'cam', l: t('Cámara', 'Camera') }], S.view, (v) => { S.view = v; if (v === 'cam') togglePlay(false); renderVbar(); fit(); }, t('Vista', 'View')),
+        S.view === 'cam' ? MC.ui.seg([{ v: 'from', l: t('Inicio', 'Start') }, { v: 'to', l: t('Fin', 'End') }], S.kf, (v) => { S.kf = v; S.dirty = true; renderInspector(); }, t('Fotograma clave', 'Keyframe')) : null,
+        tog('holes', t('Huecos', 'Gaps'), t('Marca en rojo los huecos del fondo', 'Marks background gaps in red')),
+        portrait ? tog('safe', t('Zonas seguras', 'Safe zones'), t('Muestra lo que tapa la interfaz de TikTok, Reels y Shorts', 'Shows what the TikTok, Reels and Shorts interface covers')) : null,
+        h('span', { style: { flex: 1 } }),
+        h('span', { class: 'status' }, S.project.ratio + ' · ' + S.project.res + ' · ' + opts().W + '×' + opts().H));
+    }
+    function updateTransport() {
+      MC.put(MC.clear(el.play), MC.icon(S.playing ? 'pause' : 'play', 14));
+      el.play.setAttribute('aria-label', S.playing ? t('Pausar', 'Pause') : t('Reproducir', 'Play'));
+      el.loop.setAttribute('aria-pressed', String(S.loop));
+    }
+    function updateTime() {
+      const total = MC.totalTime(S.project);
+      el.time.textContent = MC.fmtTime(S.time) + ' ';
+      el.time.append(h('span', null, '/ ' + MC.fmtTime(total)));
+      el.tlTime.textContent = MC.fmtTime(S.time) + ' / ' + MC.fmtTime(total);
+      if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
+    }
+    function fit() {
+      const c = el.canvas, st = el.stage, o = opts();
+      const A = o.W / o.H, pw = st.clientWidth - 24, ph = st.clientHeight - 12;
+      if (pw <= 0 || ph <= 0) return;
+      const w = Math.min(pw, ph * A), dpr = Math.min(window.devicePixelRatio || 1, 2);
+      c.style.width = w + 'px'; c.style.height = w / A + 'px';
+      const cw = Math.round(w * dpr), chh = Math.round(cw / A);
+      if (c.width !== cw || c.height !== chh) { c.width = cw; c.height = chh; }
+      S.dpr = dpr; S.dirty = true; renderVbar();
+    }
+    const frameRect = (kf, o) => ({ cx: o.W / 2 + kf.x * o.W, cy: o.H / 2 + kf.y * o.H, hw: o.W / (2 * kf.zoom), hh: o.H / (2 * kf.zoom) });
+    const camMap = (c, o) => { const k = c.width / (o.W * VIEW_W); return { k, ox: (c.width - o.W * k) / 2, oy: (c.height - o.H * k) / 2 }; };
+
+    function draw() {
+      const c = el.canvas; if (!c.width) return;
+      const ctx = c.getContext('2d'), o = opts(), sh = shot();
+      el.empty.hidden = !!(sh && sh.layers.length);
+      if (S.view === 'cam' && sh) return drawCam(ctx, o, sh);
+      const k = c.width / o.W;
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      MC.renderFrame(ctx, S.project, S.time, o);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (S.safe) drawSafe(ctx, c);
+    }
+    function drawSafe(ctx, c) {
+      const W = c.width, H = c.height;
+      ctx.save(); ctx.fillStyle = 'rgba(229,51,61,.22)'; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5;
+      [[0, 0, W, H * 0.13], [0, H * 0.78, W, H * 0.22], [W * 0.84, H * 0.42, W * 0.16, H * 0.36]].forEach((r) => { ctx.fillRect(r[0], r[1], r[2], r[3]); ctx.strokeRect(r[0], r[1], r[2], r[3]); });
+      ctx.restore();
+    }
+    function drawCam(ctx, o, sh) {
+      const c = el.canvas, { k, ox, oy } = camMap(c, o), lw = (2 * S.dpr) / k;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#16181B'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.setTransform(k, 0, 0, k, ox, oy);
+      MC.renderShot(ctx, sh, 0, Object.assign({}, o, { cam: { x: 0, y: 0, zoom: 1, rot: 0, sx: 0, sy: 0 }, noClip: true, holes: false }));
+      const path = (fr, rot) => { ctx.save(); ctx.translate(fr.cx, fr.cy); ctx.rotate(((rot || 0) * Math.PI) / 180); ctx.rect(-fr.hw, -fr.hh, fr.hw * 2, fr.hh * 2); ctx.restore(); };
+      const act = sh.camera[S.kf], oth = sh.camera[S.kf === 'from' ? 'to' : 'from'], fa = frameRect(act, o), fo = frameRect(oth, o);
+      const css = getComputedStyle(document.documentElement), acc = css.getPropertyValue('--accent').trim() || '#8C7CFF';
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.rect(-ox / k, -oy / k, c.width / k, c.height / k); path(fa, act.rot); ctx.fill('evenodd'); ctx.restore();
+      ctx.lineWidth = lw * 0.6; ctx.strokeStyle = 'rgba(236,238,240,.35)'; ctx.setLineDash([lw * 3, lw * 3]); ctx.strokeRect(0, 0, o.W, o.H);
+      ctx.beginPath(); path(fo, oth.rot); ctx.strokeStyle = 'rgba(236,238,240,.6)'; ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(fo.cx, fo.cy); ctx.lineTo(fa.cx, fa.cy); ctx.strokeStyle = acc; ctx.lineWidth = lw; ctx.stroke();
+      const cur = MC.camAt(sh, clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration), false), fc = frameRect(cur, o);
+      ctx.beginPath(); path(fc, cur.rot); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 0.6; ctx.stroke();
+      ctx.beginPath(); path(fa, act.rot); ctx.strokeStyle = acc; ctx.lineWidth = lw * 1.4; ctx.stroke();
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(fa.cx, fa.cy, lw * 3, 0, 6.283); ctx.fill();
+      const hx = fa.cx + fa.hw, hy = fa.cy + fa.hh; ctx.fillStyle = acc; ctx.fillRect(hx - lw * 5, hy - lw * 5, lw * 10, lw * 10);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    /* interacción con el visor */
+    let drag = null;
+    function wire(c) {
+      const px = (e) => { const r = c.getBoundingClientRect(), s = c.width / r.width; return { x: (e.clientX - r.left) * s, y: (e.clientY - r.top) * s }; };
+      c.addEventListener('pointerdown', (e) => {
+        const sh = shot(), o = opts(), p = px(e);
+        if (!sh) return;
+        if (S.view === 'cam') {
+          const { k, ox, oy } = camMap(c, o), kf = sh.camera[S.kf], fr = frameRect(kf, o);
+          const hx = (fr.cx + fr.hw) * k + ox, hy = (fr.cy + fr.hh) * k + oy;
+          const wx = (p.x - ox) / k, wy = (p.y - oy) / k;
+          if (Math.hypot(p.x - hx, p.y - hy) < 26 * S.dpr) drag = { m: 'zoom', k, ox, oy, fr, o, kf };
+          else if (Math.abs(wx - fr.cx) <= fr.hw && Math.abs(wy - fr.cy) <= fr.hh) drag = { m: 'move', p0: p, x0: kf.x, y0: kf.y, k, o, kf };
+        } else if (layer() && !S.playing) {
+          const l = layer(), img = MC.assets.get(l.assetId);
+          if (!img) return;
+          const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration);
+          drag = { m: 'layer', p0: p, x0: l.x || 0, y0: l.y || 0, zl: MC.layerGeom(l, img, MC.camAt(sh, tl, false), o).zl, l };
+        }
+        if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
+      });
+      c.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const p = px(e), sh = shot();
+        if (drag.m === 'move') {
+          drag.kf.x = clamp(drag.x0 + (p.x - drag.p0.x) / drag.k / drag.o.W, -0.6, 0.6); drag.kf.y = clamp(drag.y0 + (p.y - drag.p0.y) / drag.k / drag.o.H, -0.6, 0.6);
+          sh.camera.preset = 'custom';
+        } else if (drag.m === 'zoom') {
+          const wx = (p.x - drag.ox) / drag.k; drag.kf.zoom = clamp(drag.o.W / (2 * Math.max(1, wx - drag.fr.cx)), 1, 4); sh.camera.preset = 'custom';
+        } else if (drag.m === 'layer') {
+          drag.l.x = drag.x0 + (p.x - drag.p0.x) / c.width / drag.zl; drag.l.y = drag.y0 + (p.y - drag.p0.y) / c.height / drag.zl;
+        }
+        S.dirty = true; scheduleSave();
+      });
+      const up = () => { if (!drag) return; drag = null; S.dragging = false; commit(); };
+      c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+      c.addEventListener('wheel', (e) => {
+        const sh = shot(), f = Math.exp(-e.deltaY * 0.0012);
+        if (S.view === 'cam' && sh) { const kf = sh.camera[S.kf]; kf.zoom = clamp(kf.zoom * f, 1, 4); sh.camera.preset = 'custom'; }
+        else if (layer()) { const l = layer(); l.scale = clamp((l.scale || 1) * f, 0.5, 3); } else return;
+        e.preventDefault(); S.dirty = true; touch();
+        clearTimeout(wire.wt); wire.wt = setTimeout(commit, 350);
+      }, { passive: false });
+    }
+
+    /* ---------- línea de tiempo ---------- */
+    const TRACKS = [
+      { es: '1 · Planos', en: '1 · Shots' }, { es: '2 · Texto y efectos', en: '2 · Text and effects' }, { es: '3 · Locución', en: '3 · Voice' },
+      { es: '4 · SFX', en: '4 · SFX' }, { es: '5 · Música', en: '5 · Music' },
+    ];
+    function layoutClips() {
+      const p = S.project, starts = MC.shotStarts(p), total = MC.totalTime(p), pps = S.pps;
+      el.tlContent.style.width = Math.max(total * pps + 120, 320) + 'px';
+      el.tlContent.querySelectorAll('.clip[data-i]').forEach((c) => {
+        const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
+        c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
+      });
+      el.tlContent.querySelectorAll('.clip[data-tr]').forEach((c) => {
+        const i = +c.dataset.tr, sh = p.shots[i]; if (!sh) return;
+        c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, Math.min(sh.transition.dur, sh.duration * 0.9) * pps - 2) + 'px';
+      });
+      updateTime();
+    }
+    function renderTimeline() {
+      const p = S.project, total = MC.totalTime(p), pps = S.pps;
+      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }), TRACKS.map((tr) => h('div', null, t(tr.es, tr.en))));
+      MC.clear(el.tlContent);
+      const ruler = h('div', { class: 'tl-ruler', 'aria-label': t('Regla de tiempo', 'Time ruler') });
+      const step = pps >= 55 ? 1 : pps >= 28 ? 2 : 5;
+      for (let s = 0; s <= total + 40; s += step) ruler.append(h('b', { style: { left: s * pps + 'px' } }, Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')));
+      el.tlContent.append(ruler);
+      const rows = TRACKS.map((tr, i) => h('div', { class: 'tl-track' + (i > 1 ? ' off' : ''), 'data-hint': i > 1 ? t('Llega con el audio', 'Arrives with audio') : '' }));
+      rows.forEach((r) => el.tlContent.append(r));
+      p.shots.forEach((sh, i) => {
+        const clip = h('div', { class: 'clip' + (i === S.si ? ' on' : ''), 'data-i': i, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
+          onClick: () => { if (!clip._moved) selectShot(i, true); },
+          onKeydown: (e) => { if (e.key === 'Enter') selectShot(i, true); } },
+          h('span', null, sh.name + ' · ' + sh.duration.toFixed(1) + ' s'), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const rz = clip.querySelector('.rz');
+        rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId);
+          const x0 = e.clientX, d0 = sh.duration; clip._moved = true;
+          const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
+          const end = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', end); rz.removeEventListener('pointercancel', end); setTimeout(() => { clip._moved = false; }, 0); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', end); rz.addEventListener('pointercancel', end);
+        });
+        rows[0].append(clip);
+        if (i > 0 && sh.transition.type !== 'cut') {
+          const tr = MC.TRANSITIONS.find((x) => x.v === sh.transition.type);
+          rows[1].append(h('div', { class: 'clip fx', 'data-tr': i, title: t('Transición de entrada', 'Entry transition') }, h('span', null, t(tr.es, tr.en))));
+        }
+      });
+      el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
+      layoutClips();
+    }
+    function wireTimeline() {
+      let down = false;
+      const at = (e) => (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps;
+      el.tlContent.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.clip')) return;
+        down = true; el.tlContent.setPointerCapture(e.pointerId); togglePlay(false); setTime(at(e));
+      });
+      el.tlContent.addEventListener('pointermove', (e) => { if (down) setTime(at(e)); });
+      const end = () => { down = false; };
+      el.tlContent.addEventListener('pointerup', end); el.tlContent.addEventListener('pointercancel', end);
+    }
+
+    /* ---------- montaje de la interfaz ---------- */
+    const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
+    const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
+    el.top = h('div', { class: 's-top' });
+    el.layersBody = h('div', { class: 'pbody' });
+    el.inspBody = h('div', { class: 'pbody insp' });
+    el.vbar = h('div', { class: 'vbar' });
+    el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer') });
+    el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
+      h('div', null, t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
+      h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileLayers.click() }, MC.icon('upload', 15), t('Importar', 'Import'))));
+    el.stage = h('div', { class: 'stage' }, el.canvas, el.empty);
+    el.play = h('button', { class: 'play', type: 'button', onClick: () => togglePlay() });
+    el.loop = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Repetir', 'Loop'), 'aria-label': t('Repetir', 'Loop'), onClick: () => { S.loop = !S.loop; updateTransport(); } }, MC.icon('loop'));
+    el.time = h('div', { class: 'num' });
+    el.tlTime = h('span', { class: 'num' });
+    el.tlLabels = h('div', { class: 'tl-labels' });
+    el.tlContent = h('div', { class: 'tl-content' });
+
+    const layersPanel = h('div', { class: 'panel-col p-layers' },
+      h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, t('Capas', 'Layers')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileLayers.click() }, MC.icon('plus', 14), t('Importar', 'Import'))), el.layersBody);
+    const viewer = h('div', { class: 'viewer' }, el.vbar, el.stage,
+      h('div', { class: 'tbar' },
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
+        el.play, el.loop, el.time));
+    const inspector = h('div', { class: 'panel-col p-inspector' }, h('div', { class: 'ph' }, h('span', { class: 'eyebrow' }, 'Inspector')), el.inspBody);
+    const timeline = h('div', { class: 'p-timeline' },
+      h('div', { class: 'tl-head' }, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
+        h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime),
+      h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
+    const mtabs = h('div', { class: 'mtabs' }, [['layers', t('Capas', 'Layers')], ['inspector', 'Inspector'], ['timeline', t('Línea', 'Timeline')]].map((x) =>
+      h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
+    const studio = h('div', { class: 'studio', 'data-ws': S.ws, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, layersPanel, viewer, inspector), mtabs, timeline, fileLayers, fileShots);
+
+    function renderAll() { renderTop(); renderLayers(); renderInspector(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
+    MC.put(MC.clear(root), studio);
+    renderAll(); wire(el.canvas); wireTimeline();
+
+    el.stage.addEventListener('dragover', (e) => { e.preventDefault(); el.stage.classList.add('over'); });
+    el.stage.addEventListener('dragleave', () => el.stage.classList.remove('over'));
+    el.stage.addEventListener('drop', (e) => { e.preventDefault(); el.stage.classList.remove('over'); if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, 'layers'); });
+
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el.stage);
+    requestAnimationFrame(fit);
+
+    /* bucle de reproducción */
+    let last = performance.now(), raf = 0;
+    function loop(now) {
+      if (!S.alive) return;
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      if (S.playing) {
+        const total = MC.totalTime(S.project);
+        let tm = S.time + dt;
+        if (tm >= total) { if (S.loop) tm = 0; else { tm = Math.max(0, total - 0.001); S.playing = false; updateTransport(); } }
+        setTime(tm);
+      }
+      if (S.dirty) { S.dirty = false; try { draw(); } catch (e) { console.error(e); } }
+    }
+    raf = requestAnimationFrame(loop);
+
+    /* atajos de teclado */
+    function onKey(e) {
+      if (!S.alive || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+      if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+      else if (mod && k === 'y') { e.preventDefault(); redo(); }
+      else if (mod) return;
+      else if (k === ' ' || k === 'k') { e.preventDefault(); togglePlay(k === 'k' ? false : null); }
+      else if (k === 'l') togglePlay(true);
+      else if (k === 'j') setTime(S.time - 1);
+      else if (k === 'arrowleft') setTime(S.time - (e.shiftKey ? 1 : 1 / 30));
+      else if (k === 'arrowright') setTime(S.time + (e.shiftKey ? 1 : 1 / 30));
+      else if (k === 'home') setTime(0);
+      else if (k === 'c') { S.view = S.view === 'cam' ? 'out' : 'cam'; togglePlay(false); renderVbar(); fit(); }
+      else if ((k === 'delete' || k === 'backspace') && layer()) { shot().layers.splice(S.li, 1); S.li = -1; commit(); }
+    }
+    document.addEventListener('keydown', onKey);
+    const onHide = () => { if (document.visibilityState === 'hidden') save(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', save);
+    function cleanup() { cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
+    MC.studioCleanup = () => { S.alive = false; cleanup(); };
+  };
+})();
+
+/* Arranque de la aplicación. */
+(function () {
+  const MC = window.MC;
+  const root = document.getElementById('app');
+
+  MC.app = {
+    async render() {
+      if (MC.studioCleanup) { MC.studioCleanup(); MC.studioCleanup = null; }
+      document.documentElement.lang = MC.lang;
+      await MC.renderHome(root);
+    },
+    async openProject(p) {
+      const full = (await MC.db.get('projects', p.id)) || p;
+      await MC.mountStudio(root, full);
+    },
+  };
+
+  async function boot() {
+    MC.lang = MC.store.get('lang', (navigator.language || 'es').slice(0, 2) === 'en' ? 'en' : 'es');
+    const th = MC.store.get('theme', '');
+    if (th) document.documentElement.setAttribute('data-theme', th);
+    await MC.db.ready();
+    // primera vez: proyecto de ejemplo ya cargado
+    if (!MC.store.get('seeded', '')) {
+      const existing = await MC.db.all('projects');
+      if (!existing.length) {
+        try { const p = await MC.createSampleProject(MC.lang); await MC.db.put('projects', p); } catch (e) { console.error(e); }
+      }
+      MC.store.set('seeded', '1');
+    }
+    await MC.app.render();
+    if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('./sw.js').catch(() => { /* sin modo sin conexión */ });
+    }
+  }
+  boot();
+})();
+
+</script>

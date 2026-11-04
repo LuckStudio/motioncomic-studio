@@ -1,0 +1,10 @@
+{
+  "name": "MotionComic Studio",
+  "short_name": "MotionComic",
+  "description": "Convierte tus páginas de cómic en vídeo animado, sin salir del navegador.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0F1012",
+  "theme_color": "#0F1012",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
