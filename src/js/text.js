@@ -195,7 +195,8 @@
   const ts = (s) => { const ms = Math.round(s * 1000), pad = (n, l) => String(n).padStart(l || 2, '0'); return pad(Math.floor(ms / 3600000)) + ':' + pad(Math.floor(ms / 60000) % 60) + ':' + pad(Math.floor(ms / 1000) % 60) + ',' + pad(ms % 1000, 3); };
   MC.srt = (p, lang) => {
     const list = (p.texts || []).filter((x) => x.kind === 'sub').map((x) => ({ x, sp: MC.textSpan(x, p), s: MC.textOf(x, p, lang) })).filter((e) => e.s).sort((a, b) => a.sp.start - b.sp.start);
-    return list.map((e, i) => (i + 1) + '\n' + ts(e.sp.start) + ' --> ' + ts(e.sp.start + e.sp.dur) + '\n' + e.s).join('\n\n') + (list.length ? '\n' : '');
+    const legacy = list.map((e, i) => (i + 1) + '\n' + ts(e.sp.start) + ' --> ' + ts(e.sp.start + e.sp.dur) + '\n' + e.s).join('\n\n'), layers = MC.subsSrt ? MC.subsSrt(p, lang, list.length) : '';
+    const all = [legacy, layers].filter(Boolean).join('\n\n'); return all ? all + '\n' : '';
   };
 
   /* Subtítulos desde la locución: un subtítulo por frase (entre pausas), sin texto para que lo escribas. No hay reconocimiento de voz. */

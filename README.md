@@ -210,6 +210,18 @@ Además de las capas de cada plano, puedes poner elementos **fijos por encima de
   <img src="docs/img/creativo.png" alt="Espacio Texto, FX y audio con las herramientas para añadir bocadillos, cajas, onomatopeyas y subtítulos" width="900">
 </p>
 
+### Subtítulos palabra a palabra
+
+Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
+
+- **Una capa por locución**: guarda todo el texto y el momento exacto de cada palabra. En la línea de tiempo es una sola capa que se subdivide en **líneas** que ves dentro de ella (y tantas capas como quieras).
+- **Marcar palabra a palabra**: reproduce la voz o mueve el cursor y, cuando se dice la palabra marcada, pulsa **Fijar** (Intro). Pasa sola a la siguiente. Si hay un silencio, pulsa **Silencio** (o el punto) en ese momento. Retroceso deshace. También puedes fijar cada tiempo a mano, ajustarlo con ± y forzar una línea nueva desde una palabra.
+- **Repartir por igual** o **ajustar a las pausas de la voz** para tener un punto de partida.
+- **Importar un archivo de tiempos**: JSON de Whisper, Deepgram o ElevenLabs, listas de `{palabra, inicio, fin}`, SRT, VTT o CSV. Los huecos entre palabras se convierten en silencios.
+- **Seguimiento de palabra**: la palabra que suena se resalta (color, tamaño, fondo), con otros modos: una palabra cada vez o que el texto vaya apareciendo.
+- **13 estilos listos** (Clásico, Cine, TikTok, Karaoke, Cómic, Neón, Caja moderna, Mínimo, Una palabra, Palabra resaltada, Papel, Manga, Revelado) y control de tipografía, tamaño, colores, trazo, sombra, fondo (color, opacidad, margen y **radio**), animación, posición, ancho y letras por línea.
+- Exportación a **SRT** y subtítulos quemados en el vídeo.
+
 ### Efectos y aspecto
 
 - **Animación dentro de la viñeta**: temblor, golpe de impacto con destello (y sonido si quieres), pulso y vibración. Se aplican al plano entero, a una capa o a una viñeta concreta.
@@ -330,6 +342,7 @@ Base «MotionComic Studio» (se pueden cambiar todos en **Preferencias → Atajo
 | Duplicar lo seleccionado | Ctrl + D |
 | Seleccionar todos los clips | Ctrl + A |
 | Marcador con nota / marcar un pulso | M / B |
+| Subtítulos: fijar palabra / silencio / atrás | Intro / . / Retroceso |
 | Exportar | Ctrl + E |
 | Ayuda | ? |
 
@@ -407,6 +420,7 @@ Abre `http://localhost:8000`.
 | `src/js/zip.js`, `src/js/file.js` | ZIP, archivo `.motioncomic`, versiones, biblioteca y importación de SVG, ZIP y carpetas. |
 | `src/js/page.js` | Detección de viñetas, modo Página y modo Webtoon. |
 | `src/js/text.js` | Bocadillos, cajas, onomatopeyas y subtítulos. |
+| `src/js/subs.js` | Subtítulos: capas con palabras y silencios, estilos, seguimiento de palabra, importación de tiempos y SRT. |
 | `src/js/fx.js` | Efectos, rack focus y aspecto general. |
 | `src/js/audio.js` | Pistas, mezcla, grabación y sonidos generados. |
 | `src/js/export.js` | Exportación MP4 con WebCodecs, lotes y cola en segundo plano. |

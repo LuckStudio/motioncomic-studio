@@ -470,3 +470,27 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .vers { display: grid; gap: 6px; max-height: 52vh; overflow: auto; }
 .verrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); }
 .verrow b, .verrow .cap { display: block; }
+
+/* ---------- subtítulos ---------- */
+.subprs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.subpr { display: grid; gap: 4px; padding: 4px; border: 1px solid var(--line); background: var(--bg); color: inherit; font: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+.subpr canvas { width: 100%; height: auto; display: block; }
+.subpr:hover, .subpr[aria-pressed="true"] { border-color: var(--accent); }
+.subpr[aria-pressed="true"] span { color: var(--accent); font-weight: 700; }
+.syncbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.swords { display: flex; flex-wrap: wrap; gap: 4px; max-height: 240px; overflow: auto; padding: 2px; }
+.sw { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 8px; border: 1px solid var(--line); background: var(--raised); color: var(--fg); font-size: 14px; cursor: pointer; }
+.sw small { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sw.none { border-style: dashed; color: var(--muted); }
+.sw.sil { color: var(--warn); border-color: var(--warn); font-size: 12px; }
+.sw.br { border-left: 3px solid var(--accent); }
+.sw.cur { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--bg); }
+.swedit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.swedit .input { width: 110px; }
+.clip.sb { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--fg); border-color: var(--accent); padding: 0; overflow: hidden; }
+.clip.sb .sbn { position: absolute; left: 4px; top: 1px; font-size: 9px; opacity: .65; pointer-events: none; z-index: 2; }
+.clip.sb .sbq { position: absolute; top: 13px; bottom: 3px; line-height: 1.5; background: var(--accent); color: var(--on-accent); font-size: 11px; padding: 1px 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.clip.sb .sbq.est { background: repeating-linear-gradient(135deg, var(--accent) 0 6px, color-mix(in srgb, var(--accent) 60%, #000) 6px 12px); }
+.clip.sb .sbw { position: absolute; top: 13px; bottom: 3px; width: 1px; background: rgba(255,255,255,.75); pointer-events: none; z-index: 1; }
+.clip.sb .sbw.est { opacity: .35; }
+.clip.sb .rz { z-index: 3; }

@@ -120,7 +120,7 @@
     let offJob = () => {}, goBtn = null;
     const goLabel = () => ({ mp4: t('Exportar vídeo', 'Export video'), webm: t('Exportar WebM', 'Export WebM'), gif: t('Exportar GIF', 'Export GIF'), png: t('Exportar PNG', 'Export PNGs'), audio: t('Exportar audio', 'Export audio') })[st.format];
     const hasAudio = () => (p.clips || []).length > 0;
-    const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub');
+    const hasSubs = () => (p.texts || []).some((x) => x.kind === 'sub') || (p.subs || []).length > 0;
     const plat = () => MC.PLATFORMS.find((x) => x.id === st.plat);
     const cur = () => {
       const pl = plat(), ratio = pl.ratio || p.ratio, res = pl.res || p.res;

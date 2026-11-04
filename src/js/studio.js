@@ -14,8 +14,8 @@
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
-    const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay' };
-    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
+    const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay', sb: 'subs' };
+    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, sb: null, swi: 0, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
       ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
@@ -257,6 +257,7 @@
       if (sel === 'layer' && layer()) { const sh = shot(); return { it: layer(), start: MC.shotStarts(S.project)[S.si], dur: sh.duration, kind: 'layer' }; }
       return null;
     };
+    const subById = (id) => (S.project.subs || []).find((x) => x.id === id);
     const ovById = (id) => (S.project.overlays || []).find((o) => o.id === id);
     function splitClip() {
       const c = clipById(S.cl); if (!c) return;
@@ -307,6 +308,7 @@
         (c) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { stopPrev(); c(); } }, t('Cerrar', 'Close'))]);
     }
     function addText(kind) {
+      if (kind === 'sub') { newSubLayer(false); return; }
       const p = S.project, it = MC.newText(kind, Math.round(S.time * 100) / 100, p);
       const vc = p.clips.find((c) => c.track === 'voz' && S.time >= c.start && S.time < c.start + c.dur - 0.05);
       if (vc && kind !== 'sfx') { it.link = vc.id; MC.toast(t('Vinculado a la locución: aparece y se va con la voz.', 'Linked to the voice-over: it appears and leaves with the voice.')); }
@@ -346,10 +348,10 @@
       montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'transiciones', 'recursos', 'biblioteca', 'proyecto', 'aspecto', 'estilo'] },
       camara: { icon: 'camera', es: 'Cámara', en: 'Camera', tl: 'strip', tabs: ['planos', 'camara'] },
       capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'biblioteca', 'rack', 'aspecto'] },
-      creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
+      creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'subtitulos', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
-    const TABS = { planos: ['film'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+    const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
       texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sonidos: ['note', 'Sonidos', 'Sounds'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
@@ -1155,6 +1157,11 @@
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { mItems.forEach((q) => { if (q.k[0] === 'c') p.clips = p.clips.filter((c) => c.id !== q.it.id); else if (q.k[0] === 'x') p.texts = p.texts.filter((x) => x.id !== q.it.id); else removeOverlay(q.it); }); S.multi = []; S.selKind = 'shot'; commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete'))),
           MC.ui.slider({ label: t('Desplazar todos', 'Nudge all'), min: -2, max: 2, step: 0.05, value: 0, fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(2) + ' s', onInput: () => {}, onChange: (v) => { mSet((it, k) => { if (k[0] === 'x' && it.link) return; it.start = Math.max(0, Math.round((it.start + v) * 100) / 100); if (k[0] === 'o') syncOvAudio(it); }); } }));
       }
+      /* subtítulo seleccionado */
+      const sbx = subById(S.sb), sbNodes = [];
+      if (sbx) sbNodes.push(h('p', { class: 'cap' }, sbx.name + ' · ' + MC.fmtTime(sbx.start) + ' · ' + sbx.dur.toFixed(1) + ' s · ' + MC.subWordsOf(sbx, p.lang).filter((e) => !e.sil).length + t(' palabras', ' words')),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { if (S.ws !== 'creativo') setWs('creativo'); S.tab.creativo = 'subtitulos'; renderRail(); renderPanels(); } }, MC.icon('mic', 14), t('Abrir el editor de subtítulos', 'Open the subtitle editor')),
+        h('p', { class: 'cap' }, t('Arrastra la capa para moverla con todas sus palabras. Haz clic en una línea para ir a ella.', 'Drag the layer to move it with all its words. Click a line to jump to it.')));
       /* marcador */
       const mkx = mkById(S.mk), mkNodes = [];
       if (mkx) {
@@ -1168,7 +1175,7 @@
 
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
-        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovNodes), sec('multi', t('Selección múltiple', 'Multiple selection'), mNodes), sec('marker', t('Marcador', 'Marker'), mkNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
+        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovNodes), sec('multi', t('Selección múltiple', 'Multiple selection'), mNodes), sec('subs', t('Subtítulos', 'Subtitles') + (sbx ? ' · ' + sbx.name : ''), sbNodes), sec('marker', t('Marcador', 'Marker'), mkNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
       const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
         try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
@@ -1329,6 +1336,130 @@
         !standalone && MC.installEvt ? h('button', { type: 'button', onClick: async () => { S.fileOpen = false; renderFileMenu(); MC.installEvt.prompt(); } }, MC.icon('download', 15), t('Instalar la aplicación', 'Install the app')) : null);
       el.fileBtn.parentNode.append(el.fileMenu);
     }
+    /* ---------- subtítulos: capas con palabras y silencios ---------- */
+    const SUB_FONTS = () => MC.FONTS.map((f) => ({ id: f.id, n: t(f.es, f.en) })).concat(S.project.fonts.map((f) => ({ id: f.id, n: f.name })));
+    function newSubLayer(fromVoice) {
+      const p = S.project; let start = S.time, dur = 6, link = null;
+      if (fromVoice) { const vc = p.clips.find((c) => c.track === 'voz' && S.time >= c.start && S.time < c.start + c.dur) || p.clips.find((c) => c.track === 'voz'); if (!vc) { MC.toast(t('Añade antes una locución en la pista de voz.', 'Add a voice-over on the voice track first.')); return; } start = vc.start; dur = vc.dur; link = vc.id; }
+      else { const vc = p.clips.find((c) => c.track === 'voz' && S.time >= c.start && S.time < c.start + c.dur - 0.05); if (vc) { start = vc.start; dur = vc.dur; link = vc.id; } }
+      const it = MC.newSub(p, start, dur, link); p.subs.push(it); S.sb = it.id; S.swi = 0; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = [];
+      if (S.ws !== 'creativo') setWs('creativo'); S.tab.creativo = 'subtitulos'; renderRail(); commit();
+      MC.toast(link ? t('Subtítulo creado sobre la locución. Escribe el texto y márcalo palabra a palabra.', 'Subtitle created over the voice-over. Type the text and mark it word by word.') : t('Subtítulo creado. Escribe el texto y márcalo palabra a palabra.', 'Subtitle created. Type the text and mark it word by word.'));
+    }
+    const subWords = (it) => it.words && it.words[S.project.lang] ? it.words[S.project.lang] : (it.words = it.words || {}, it.words[S.project.lang] = []);
+    function markWord() {
+      const it = subById(S.sb); if (!it) return; const list = subWords(it); let i = S.swi; while (i < list.length && list[i].sil) i++;
+      if (i >= list.length) { MC.toast(t('Todas las palabras tienen ya su momento.', 'Every word already has its moment.')); return; }
+      list[i].s = Math.round(S.time * 1000) / 1000; delete list[i].est; S.swi = i + 1; while (S.swi < list.length && list[S.swi].sil) S.swi++;
+      touch(); renderPanels(); renderTimeline(); S.dirty = true; MC.announce(list[i].w);
+    }
+    function silenceHere() {
+      const it = subById(S.sb); if (!it) return; const list = subWords(it), at = Math.min(list.length, S.swi);
+      list.splice(at, 0, { sil: true, s: Math.round(S.time * 1000) / 1000 }); S.swi = at + 1; touch(); renderPanels(); renderTimeline(); S.dirty = true;
+    }
+    function unmarkWord() {
+      const it = subById(S.sb); if (!it) return; const list = subWords(it); let i = Math.min(S.swi, list.length) - 1; if (i < 0) return;
+      if (list[i].sil) { list.splice(i, 1); S.swi = i; } else { list[i].s = null; delete list[i].est; S.swi = i; }
+      touch(); renderPanels(); renderTimeline(); S.dirty = true;
+    }
+    function subCountText(it) { const l = subWords(it).filter((e) => !e.sil); return l.length + t(' palabras · ', ' words · ') + l.filter((e) => e.s != null).length + t(' con su momento', ' timed'); }
+    const subPresetGrid = (apply, current) => h('div', { class: 'subprs', role: 'group', 'aria-label': t('Estilos de subtítulos', 'Subtitle styles') }, MC.SUB_PRESETS.map((pr) => {
+      const cv = h('canvas', { width: 220, height: 92, 'aria-hidden': 'true' }); try { MC.subPreview(cv, S.project, MC.subStyle(pr.s)); } catch (e) { /* sin muestra */ }
+      return h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
+    }));
+    function subsPanel() {
+      const p = S.project, lang = p.lang, it = subById(S.sb), out = [];
+      const imp = h('input', { type: 'file', accept: '.json,.srt,.vtt,.csv,.tsv,.txt,application/json,text/*', hidden: true, onChange: async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try {
+          const ws = MC.parseTimings(await f.text(), f.name); if (!ws.length) { MC.toast(t('No encontré palabras con tiempo en ese archivo.', 'I found no timed words in that file.')); return; }
+          let tgt = subById(S.sb); const fresh = !tgt || subWords(tgt).length; let off = 0;
+          if (!tgt || (subWords(tgt).length && !confirm(t('Ya hay palabras en este subtítulo. ¿Reemplazarlas con las del archivo?', 'This subtitle already has words. Replace them with the ones in the file?')))) { if (!tgt) { const vc = p.clips.find((c) => c.track === 'voz'); tgt = MC.newSub(p, vc ? vc.start : S.time, 5, vc ? vc.id : null); p.subs.push(tgt); } else return; }
+          off = tgt.start; const n = MC.subApplyTimings(tgt, lang, ws, off, 0.35); S.sb = tgt.id; S.swi = 0; commit(); MC.toast(t(ws.length + ' palabras importadas con su momento (' + n + ' entradas).', ws.length + ' timed words imported (' + n + ' entries).'));
+        } catch (err) { console.error(err); MC.toast(t('No pude leer ese archivo de tiempos.', 'I could not read that timing file.')); }
+      } });
+      const hasVoice = p.clips.some((c) => c.track === 'voz'), legacy = p.texts.filter((x) => x.kind === 'sub');
+      out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Capas de subtítulos · ', 'Subtitle layers · ') + p.subs.length),
+        h('p', { class: 'cap' }, t('Una capa guarda todo el texto de una locución y el momento de cada palabra. Se divide sola en líneas, que ves dentro de la capa en la línea de tiempo.', 'A layer holds all the text of a voice-over and the moment of every word. It splits into lines by itself, which you see inside the layer on the timeline.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => newSubLayer(false) }, MC.icon('plus', 14), t('Nuevo subtítulo', 'New subtitle')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice, title: t('Crea la capa con la duración de la locución', 'Creates the layer with the voice-over length'), onClick: () => newSubLayer(true) }, MC.icon('mic', 14), t('Sobre la locución', 'Over the voice-over')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('JSON (Whisper, Deepgram, ElevenLabs…), SRT, VTT o CSV con el momento de cada palabra', 'JSON (Whisper, Deepgram, ElevenLabs…), SRT, VTT or CSV with the moment of each word'), onClick: () => imp.click() }, MC.icon('upload', 14), t('Importar tiempos', 'Import timings')), imp,
+          legacy.length ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: convertLegacySubs }, t('Convertir los ' + legacy.length + ' subtítulos antiguos', 'Convert the ' + legacy.length + ' old subtitles')) : null),
+        p.subs.length ? h('div', { style: { display: 'grid', gap: '2px' } }, p.subs.map((q) => h('div', { class: 'layer' + (q.id === S.sb ? ' on' : ''), role: 'button', tabindex: '0', onClick: () => { S.sb = q.id; S.swi = 0; S.cl = null; S.tx = null; S.ov = null; S.li = -1; setTime(q.start + 0.01); commit(); }, onKeydown: (e) => { if (e.key === 'Enter') e.currentTarget.click(); } },
+          h('span', { class: 'lt' }, MC.icon('mic', 16)), h('span', { class: 'ln' }, q.name), h('span', { class: 'lz' }, MC.fmtTime(q.start))))) : h('p', { class: 'cap' }, t('Aún no hay subtítulos.', 'There are no subtitles yet.'))));
+      if (it) {
+        const list = subWords(it), cues = MC.subCues(it, lang, it.style), sel = list[S.swi];
+        /* texto */
+        const ta = h('textarea', { class: 'input', rows: 5, id: 'sb-text', 'aria-label': t('Texto del subtítulo', 'Subtitle text'), placeholder: t('Escribe o pega aquí todo lo que se dice…', 'Type or paste everything that is said here…'), value: (it.text && it.text[lang]) || '',
+          onInput: (e) => { MC.subSetText(it, lang, e.target.value); cnt.textContent = subCountText(it); S.dirty = true; touch(); }, onChange: () => { commit(); } });
+        const cnt = h('span', { class: 'cap' }, subCountText(it));
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Texto', 'Text') + ' · ' + lang.toUpperCase()), ta, cnt,
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !list.length, title: t('Reparte las palabras por igual en toda la capa', 'Spreads the words evenly across the whole layer'), onClick: () => { MC.subDistribute(it, lang, it.start, it.start + it.dur, false, p); commit(); } }, t('Repartir por igual', 'Spread evenly')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !list.length || !hasVoice, title: t('Reparte las palabras saltándose las pausas de la voz', 'Spreads the words skipping the voice pauses'), onClick: () => { MC.subDistribute(it, lang, it.start, it.start + it.dur, true, p); commit(); } }, t('Ajustar a las pausas de la voz', 'Fit to voice pauses')))));
+        /* sincronizar */
+        const wordChips = list.length ? h('div', { class: 'swords', role: 'listbox', 'aria-label': t('Palabras', 'Words') }, list.map((e, i) => e.sil
+          ? h('button', { type: 'button', class: 'sw sil' + (i === S.swi ? ' cur' : ''), role: 'option', title: t('Silencio desde ', 'Silence from ') + e.s.toFixed(2) + ' s', onClick: () => { S.swi = i; setTime(e.s); renderPanels(); } }, '⏸ ' + e.s.toFixed(2))
+          : h('button', { type: 'button', class: 'sw' + (e.s == null ? ' none' : '') + (i === S.swi ? ' cur' : '') + (e.br ? ' br' : ''), role: 'option', 'aria-selected': String(i === S.swi), onClick: () => { S.swi = i; if (e.s != null) setTime(e.s); renderPanels(); } }, e.w, e.s != null ? h('small', null, e.s.toFixed(2)) : null))) : h('p', { class: 'cap' }, t('Escribe el texto de arriba para ver aquí sus palabras.', 'Type the text above to see its words here.'));
+        const next = (() => { let i = S.swi; while (i < list.length && list[i].sil) i++; return list[i]; })();
+        out.push(h('div', { class: 'box sync' }, h('div', { class: 'eyebrow' }, t('Marcar palabra a palabra', 'Mark word by word')),
+          h('p', { class: 'cap' }, t('Reproduce la voz (o mueve el cursor de la línea de tiempo) y, en el momento en que se dice la palabra marcada, pulsa «Fijar» o Intro. Pasa sola a la siguiente. Si hay un silencio, pulsa «Silencio» (o el punto) en ese momento.', 'Play the voice (or move the timeline cursor) and, at the moment the highlighted word is said, press “Set” or Enter. It moves to the next one by itself. If there is a silence, press “Silence” (or the full stop) at that moment.')),
+          h('div', { class: 'syncbar' },
+            h('button', { class: 'btn btn-s', type: 'button', onClick: () => togglePlay() }, MC.icon(S.playing ? 'pause' : 'play', 14), S.playing ? t('Pausar', 'Pause') : t('Reproducir', 'Play')),
+            h('button', { class: 'btn btn-p', type: 'button', disabled: !next, onClick: markWord }, MC.icon('plus', 14), next ? t('Fijar «', 'Set “') + next.w + t('» aquí', '” here') + ' ↵' : t('Todo marcado', 'All set')),
+            h('button', { class: 'btn btn-s', type: 'button', onClick: silenceHere, title: t('Hay un silencio a partir del cursor', 'There is a silence from the cursor on') }, '⏸ ' + t('Silencio', 'Silence') + ' ·'),
+            h('button', { class: 'btn btn-g', type: 'button', onClick: unmarkWord, title: t('Deshacer la última palabra marcada', 'Undo the last marked word') }, MC.icon('undo', 14), t('Atrás', 'Back'))),
+          wordChips,
+          sel ? h('div', { class: 'swedit' }, sel.sil
+            ? [h('span', { class: 'cap' }, t('Silencio desde', 'Silence from')), h('input', { class: 'input', type: 'number', step: '0.01', value: sel.s, 'aria-label': t('Inicio del silencio en segundos', 'Silence start in seconds'), onChange: (e) => { sel.s = Math.max(0, +e.target.value || 0); commit(); } }), h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { list.splice(S.swi, 1); commit(); } }, MC.icon('trash', 13), t('Quitar', 'Remove'))]
+            : [h('b', null, sel.w), h('input', { class: 'input', type: 'number', step: '0.01', value: sel.s == null ? '' : sel.s.toFixed(2), placeholder: t('sin marcar', 'not set'), 'aria-label': t('Momento de la palabra en segundos', 'Word moment in seconds'), onChange: (e) => { sel.s = e.target.value === '' ? null : Math.max(0, +e.target.value); delete sel.est; commit(); } }),
+              h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Quitar 0,05 s', 'Remove 0.05 s'), 'aria-label': '−0.05', onClick: () => { if (sel.s != null) { sel.s = Math.max(0, Math.round((sel.s - 0.05) * 1000) / 1000); commit(); } } }, '−'),
+              h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Añadir 0,05 s', 'Add 0.05 s'), 'aria-label': '+0.05', onClick: () => { if (sel.s != null) { sel.s = Math.round((sel.s + 0.05) * 1000) / 1000; commit(); } } }, '+'),
+              h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Fija esta palabra en el cursor', 'Sets this word at the cursor'), onClick: () => { sel.s = Math.round(S.time * 1000) / 1000; delete sel.est; commit(); } }, t('Aquí', 'Here')),
+              h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!sel.br, onChange: (e) => { if (e.target.checked) sel.br = true; else delete sel.br; commit(); } }), h('span', null, t('Empieza línea nueva', 'Starts a new line')))]) : null,
+          h('p', { class: 'cap' }, cues.length + t(' líneas de subtítulo. ', ' subtitle lines. ') + t('Intro = fijar · . = silencio · Retroceso = atrás', 'Enter = set · . = silence · Backspace = back'))));
+        /* estilo */
+        const st = MC.subStyle(it.style), setS = (k, v) => { it.style = Object.assign(MC.subStyle(it.style), { [k]: v }); S.dirty = true; touch(); }, setC = (k, v) => { setS(k, v); commit(); };
+        const sl = (k, label, min, max, step, fmt) => MC.ui.slider({ label, min, max, step, value: st[k] == null ? 0 : st[k], fmt: fmt || ((v) => v.toFixed(2)), onInput: (v) => setS(k, v), onChange: commit });
+        const col = (k, label, allowNone) => h('div', { class: 'field' }, h('label', null, label), h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '70px' }, value: st[k] || '#ffffff', onInput: (e) => setS(k, e.target.value), onChange: commit }), allowNone && st[k] ? h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => setC(k, null) }, t('Quitar', 'None')) : null));
+        const pc = (v) => Math.round(v * 100) + ' %';
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Estilo', 'Style')), subPresetGrid((pr) => { MC.applySubPreset(it, pr.v); commit(); }, st.preset),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Cómo se muestra', 'How it shows')), MC.ui.chips([{ v: 'line', l: t('Línea entera', 'Whole line') }, { v: 'karaoke', l: t('Palabra que suena', 'Spoken word') }, { v: 'word', l: t('Una palabra', 'One word') }, { v: 'reveal', l: t('Va apareciendo', 'Builds up') }], st.mode, (v) => setC('mode', v))),
+          h('div', { class: 'field' }, h('label', { for: 'sb-font' }, t('Tipografía', 'Font')), h('select', { id: 'sb-font', class: 'input', onChange: (e) => setC('font', e.target.value) }, SUB_FONTS().map((f) => h('option', { value: f.id, selected: f.id === st.font }, f.n)))),
+          sl('size', t('Tamaño', 'Size'), 0.02, 0.14, 0.0025, (v) => (v * 100).toFixed(1) + ' %'),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.upper, onChange: (e) => setC('upper', e.target.checked) }), h('span', null, t('Todo en mayúsculas', 'All caps'))),
+          col('color', t('Color del texto', 'Text colour')),
+          st.mode === 'karaoke' ? [col('hi', t('Color de la palabra que suena', 'Spoken word colour')), col('hiBg', t('Fondo de la palabra que suena', 'Spoken word background'), true), sl('hiScale', t('Tamaño de la palabra que suena', 'Spoken word size'), 1, 1.6, 0.01, (v) => '×' + v.toFixed(2)), sl('upAlpha', t('Visibilidad de lo que aún no suena', 'Visibility of what is not spoken yet'), 0.1, 1, 0.01, pc), col('doneColor', t('Color de lo ya dicho', 'Colour of what was said'), true)] : null,
+          sl('strokeW', t('Grosor del trazo', 'Stroke width'), 0, 0.4, 0.01, pc), st.strokeW > 0 ? col('strokeColor', t('Color del trazo', 'Stroke colour')) : null,
+          sl('shadow', t('Sombra y brillo', 'Shadow and glow'), 0, 1, 0.01, pc), st.shadow > 0 ? col('shadowColor', t('Color de la sombra', 'Shadow colour')) : null,
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.bg, onChange: (e) => setC('bg', e.target.checked) }), h('span', null, t('Fondo detrás del texto', 'Background behind the text'))),
+          st.bg ? [col('bgColor', t('Color del fondo', 'Background colour')), sl('bgAlpha', t('Opacidad del fondo', 'Background opacity'), 0, 1, 0.01, pc), h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma del fondo', 'Background shape')), MC.ui.seg([{ v: 'block', l: t('Un bloque', 'One block') }, { v: 'line', l: t('Por línea', 'Per line') }], st.bgMode === 'line' ? 'line' : 'block', (v) => setC('bgMode', v))), sl('pad', t('Margen interior', 'Padding'), 0, 1.2, 0.01, (v) => v.toFixed(2) + ' em'), sl('radius', t('Radio de las esquinas', 'Corner radius'), 0, 0.8, 0.01, (v) => (v === 0 ? t('rectas', 'square') : v.toFixed(2) + ' em'))] : null,
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación de cada línea', 'Animation of each line')), MC.ui.chips([['none', t('Ninguna', 'None')], ['fade', t('Aparecer', 'Fade')], ['pop', 'Pop'], ['slide', t('Deslizar', 'Slide')], ['zoom', 'Zoom']].map((q) => ({ v: q[0], l: q[1] })), st.anim, (v) => setC('anim', v))),
+          MC.ui.slider({ label: t('Altura', 'Position'), min: -0.3, max: 0.48, step: 0.01, value: it.style && it.style.y != null ? it.style.y : MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => setS('y', v), onChange: commit }),
+          sl('maxW', t('Ancho máximo', 'Maximum width'), 0.4, 0.95, 0.01, pc), sl('maxChars', t('Letras por línea', 'Letters per line'), 8, 60, 1, (v) => String(v)), sl('lines', t('Líneas a la vez', 'Lines at once'), 1, 4, 1, (v) => String(v)),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { p.subDefault = JSON.parse(JSON.stringify(it.style)); MC.toast(t('Este estilo se usará en los nuevos subtítulos.', 'This style will be used for new subtitles.')); touch(); } }, t('Usar para los nuevos', 'Use for new ones')))));
+        /* capa */
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Capa', 'Layer')), nameIn(t('Nombre', 'Name'), it.name, (v) => { if (v) { it.name = v; commit(); } }),
+          MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(MC.totalTime(p), it.start + 1), step: 0.05, value: it.start, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { const d = v - it.start; Object.keys(it.words || {}).forEach((l2) => it.words[l2].forEach((e) => { if (e.s != null) e.s = Math.max(0, Math.round((e.s + d) * 1000) / 1000); })); it.start = v; layoutClips(); S.dirty = true; touch(); }, onChange: commit }),
+          MC.ui.slider({ label: t('Dura', 'Length'), min: 0.5, max: Math.max(60, it.dur), step: 0.05, value: it.dur, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { it.dur = v; layoutClips(); S.dirty = true; touch(); }, onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const txt = MC.subsSrt({ subs: [it] }, lang, 0); if (!txt) { MC.toast(t('Aún no hay texto con tiempos.', 'There is no timed text yet.')); return; } MC.download(new Blob([txt + '\n'], { type: 'text/plain' }), it.name.replace(/[^\w\- ]+/g, '') + '-' + lang + '.srt'); } }, MC.icon('download', 14), t('Exportar SRT', 'Export SRT')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(it)); c.id = MC.uid(); c.name += ' 2'; p.subs.push(c); S.sb = c.id; commit(); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
+            h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { p.subs = p.subs.filter((q) => q.id !== it.id); S.sb = null; S.selKind = 'shot'; commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete')))));
+      } else {
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Estilo para los subtítulos nuevos', 'Style for new subtitles')), subPresetGrid((pr) => { p.subDefault = Object.assign(MC.subStyle(pr.s), { preset: pr.v }); touch(); renderPanels(); MC.toast(t('Estilo «' + pr.es + '» para los nuevos subtítulos', 'Style “' + pr.en + '” for new subtitles')); }, (p.subDefault && p.subDefault.preset) || 'classic'),
+          h('p', { class: 'cap' }, t('Crea o selecciona una capa para editar su texto, sus tiempos y su estilo.', 'Create or select a layer to edit its text, timings and style.'))));
+      }
+      return out;
+    }
+    function convertLegacySubs() {
+      const p = S.project, lang = p.lang, leg = p.texts.filter((x) => x.kind === 'sub').sort((a, b) => MC.textSpan(a, p).start - MC.textSpan(b, p).start); if (!leg.length) return;
+      const sps = leg.map((x) => MC.textSpan(x, p)), start = sps[0].start, end = Math.max(...sps.map((q) => q.start + q.dur)), it = MC.newSub(p, start, end - start, null), list = [];
+      leg.forEach((x, i) => { const txt = MC.textOf(x, p, lang) || ''; const ws = txt.split(/\s+/).filter(Boolean), tot = ws.reduce((a, b) => a + Math.max(1, b.length), 0); let acc = 0; ws.forEach((w, j) => { list.push({ w, s: Math.round((sps[i].start + (sps[i].dur * acc) / tot) * 1000) / 1000, br: j === 0 ? true : undefined }); acc += Math.max(1, w.length); }); const nx = leg[i + 1] ? sps[i + 1].start : null; if (nx == null || nx - (sps[i].start + sps[i].dur) > 0.35) list.push({ sil: true, s: Math.round((sps[i].start + sps[i].dur) * 1000) / 1000 }); });
+      it.words[lang] = list; it.text[lang] = list.filter((e) => !e.sil).map((e) => e.w).join(' '); if (p.sub) { it.style = Object.assign(MC.subStyle(), { font: p.sub.font || 'bric', size: p.sub.size || 0.045, color: p.sub.color || '#ffffff', bg: p.sub.bg !== false, y: p.sub.y }); }
+      p.subs.push(it); p.texts = p.texts.filter((x) => x.kind !== 'sub'); S.sb = it.id; S.swi = 0; commit(); MC.toast(t('Subtítulos convertidos en una capa.', 'Subtitles converted into one layer.'));
+    }
     function textPanel() {
       const p = S.project, KINDS = [['bubble', t('Bocadillo', 'Bubble'), 'chat'], ['box', t('Caja de texto', 'Text box'), 'text'], ['sfx', t('Onomatopeya', 'Sound word'), 'sparkle'], ['sub', t('Subtítulo', 'Subtitle'), 'film']];
       const label = (x) => (MC.textOf(x, p) || t('(sin texto)', '(no text)')).replace(/\n/g, ' ');
@@ -1363,28 +1494,29 @@
       if (k === 'text' && S.tx && txById(S.tx)) return 'text';
       if (k === 'clip' && S.cl && clipById(S.cl)) return 'clip';
       if (k === 'overlay' && S.ov && ovById(S.ov)) return 'overlay';
+      if (k === 'subs' && S.sb && subById(S.sb)) return 'subs';
       if (k === 'multi' && S.multi.length > 1) return 'multi';
       if (k === 'marker' && S.mk && mkById(S.mk)) return 'marker';
       if (k === 'fx' && S.fxsel && sh.fx.find((f) => f.id === S.fxsel)) return 'fx';
       if (k === 'panel' && S.pn && sh.page && sh.page.panels.find((q) => q.id === S.pn)) return 'panel';
       if (k === 'stop' && S.sp && sh.webtoon && sh.webtoon.stops.find((q) => q.id === S.sp)) return 'stop';
-      return k === 'shot' || k === 'layer' || k === 'text' || k === 'clip' || k === 'fx' || k === 'panel' || k === 'stop' || k === 'overlay' || k === 'multi' || k === 'marker' ? 'shot' : 'project';
+      return k === 'shot' || k === 'layer' || k === 'text' || k === 'clip' || k === 'fx' || k === 'panel' || k === 'stop' || k === 'overlay' || k === 'multi' || k === 'marker' || k === 'subs' ? 'shot' : 'project';
     };
     function crumbs(kind) {
       const p = S.project, sh = shot(), parts = [[t('Proyecto', 'Project'), () => { clearSel(); }]];
       if (kind !== 'project') parts.push([sh.name, () => { S.selKind = 'shot'; S.li = -1; S.tx = null; S.cl = null; S.fxsel = null; renderPanels(); renderLayers(); }]);
-      const leaf = { layer: layer() && layer().name, text: S.tx && txById(S.tx) && (MC.textOf(txById(S.tx), p) || t('Texto', 'Text')).slice(0, 18), clip: S.cl && clipById(S.cl) && clipById(S.cl).name, overlay: S.ov && ovById(S.ov) && ovById(S.ov).name, multi: S.multi.length + t(' elementos', ' items'), marker: S.mk && mkById(S.mk) && (mkById(S.mk).text || (mkById(S.mk).kind === 'beat' ? t('Pulso', 'Beat') : t('Marcador', 'Marker'))), fx: S.fxsel && sh.fx.find((f) => f.id === S.fxsel) && MC.fxName(sh.fx.find((f) => f.id === S.fxsel).type), panel: t('Viñeta', 'Panel'), stop: t('Pausa', 'Pause') }[kind];
+      const leaf = { layer: layer() && layer().name, text: S.tx && txById(S.tx) && (MC.textOf(txById(S.tx), p) || t('Texto', 'Text')).slice(0, 18), clip: S.cl && clipById(S.cl) && clipById(S.cl).name, overlay: S.ov && ovById(S.ov) && ovById(S.ov).name, subs: S.sb && subById(S.sb) && subById(S.sb).name, multi: S.multi.length + t(' elementos', ' items'), marker: S.mk && mkById(S.mk) && (mkById(S.mk).text || (mkById(S.mk).kind === 'beat' ? t('Pulso', 'Beat') : t('Marcador', 'Marker'))), fx: S.fxsel && sh.fx.find((f) => f.id === S.fxsel) && MC.fxName(sh.fx.find((f) => f.id === S.fxsel).type), panel: t('Viñeta', 'Panel'), stop: t('Pausa', 'Pause') }[kind];
       if (leaf) parts.push([leaf, null]);
       const box = h('div', { class: 'crumbs', 'aria-label': t('Ruta de la selección', 'Selection path') });
       parts.forEach((q, i) => { if (i) box.append(h('span', { 'aria-hidden': 'true' }, '›')); box.append(h('button', { type: 'button', disabled: !q[1], onClick: q[1] || undefined }, q[0])); });
       return box;
     }
-    function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.ov = null; S.multi = []; S.mk = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
+    function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.ov = null; S.sb = null; S.multi = []; S.mk = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
     function renderPanels() {
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
-        planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
+        subtitulos: subsPanel, planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
         rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sonidos: soundsPanel, mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
@@ -1392,8 +1524,8 @@
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
-      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }
     function renderInspector() { renderPanels(); }
@@ -1880,7 +2012,7 @@
     }
     function layoutClips() {
       const p = S.project, starts = MC.shotStarts(p), total = MC.totalTime(p), pps = S.pps;
-      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...(p.overlays || []).map((o) => o.start + o.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
+      const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...(p.overlays || []).map((o) => o.start + o.dur), ...(p.subs || []).map((o) => o.start + o.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
       el.tlContent.style.width = Math.max(end * pps + 120, 320) + 'px';
       el.tlContent.querySelectorAll('.clip[data-i]').forEach((c) => {
         const i = +c.dataset.i, sh = p.shots[i]; if (!sh) return;
@@ -1899,6 +2031,15 @@
         el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
         drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
       });
+      el.tlContent.querySelectorAll('.clip[data-s]').forEach((el2) => {
+        const it = subById(el2.dataset.s); if (!it) return;
+        el2.style.left = it.start * pps + 'px'; el2.style.width = Math.max(8, it.dur * pps - 2) + 'px';
+        el2.querySelectorAll('.sbq, .sbw').forEach((n) => n.remove());
+        MC.subCues(it, p.lang, it.style).forEach((c) => {
+          el2.append(h('div', { class: 'sbq' + (c.words.some((w) => w.est) ? ' est' : ''), 'data-w': c.words[0].i, title: c.words.map((w) => w.w).join(' '), style: { left: (c.s - it.start) * pps + 'px', width: Math.max(4, (c.e - c.s) * pps - 2) + 'px' } }, c.words.map((w) => w.w).join(' ')));
+          c.words.forEach((w) => el2.append(h('i', { class: 'sbw' + (w.est ? ' est' : ''), style: { left: (w.s - it.start) * pps + 'px' } })));
+        });
+      });
       el.tlContent.querySelectorAll('.clip[data-f]').forEach((el2) => {
         const si = +el2.dataset.fs, shx = p.shots[si], f = shx && (shx.fx || []).find((q) => q.id === el2.dataset.f); if (!f) return;
         el2.style.left = (starts[si] + MC.fxStart(shx, f)) * pps + 'px'; el2.style.width = Math.max(8, f.dur * pps - 2) + 'px';
@@ -1915,8 +2056,9 @@
     }
     /* Si varios clips de una misma pista se solapan, pasan a una segunda (tercera…) fila dentro de esa pista. */
     function layoutLanes() {
-      const LH = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34;
+      const LH0 = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34;
       el.tlContent.querySelectorAll('.tl-track').forEach((row) => {
+        const LH = row.dataset.k === 'subs' ? Math.max(LH0, 46) : LH0;
         const clips = [...row.children].filter((c) => c.classList.contains('clip') && !c.classList.contains('thin'));
         const items = clips.map((c) => ({ c, a: parseFloat(c.style.left) || 0, b: (parseFloat(c.style.left) || 0) + (parseFloat(c.style.width) || 0) })).sort((x, y) => x.a - y.a || x.b - y.b);
         const ends = [];
@@ -2014,7 +2156,7 @@
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
       const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
       const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
-      const ots = p.otracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat(kft ? ['kf'] : [], ['shots', 'text', 'fxr', 'voz', 'sfx', 'musica']);
+      const ots = p.otracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat(kft ? ['kf'] : [], ['shots', 'text', 'subs', 'fxr', 'voz', 'sfx', 'musica']);
       const ovBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración', 'Add an image or video above the artwork'), 'aria-label': t('Añadir una superposición a ', 'Add an overlay to ') + ots[i].name, onClick: () => { fileOv.dataset.track = i; fileOv.click(); } }, MC.icon('plus', 13));
       const eyeBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(ots[i].visible !== false), title: ots[i].visible === false ? t('Mostrar la pista', 'Show track') : t('Ocultar la pista', 'Hide track'), 'aria-label': t('Mostrar u ocultar ', 'Show or hide ') + ots[i].name, onClick: () => { ots[i].visible = ots[i].visible === false; commit(); } }, MC.icon(ots[i].visible === false ? 'eyeoff' : 'eye', 13));
       const delBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Quitar la pista vacía', 'Remove the empty track'), 'aria-label': t('Quitar ', 'Remove ') + ots[i].name, onClick: () => { p.overlays.forEach((o) => { if (o.track > i) o.track--; }); ots.splice(i, 1); commit(); } }, MC.icon('trash', 13));
@@ -2023,6 +2165,7 @@
           h('span', { class: 'trb' }, ovBtn(i), eyeBtn(i), ots.length > 1 && !p.overlays.some((o) => o.track === i) ? delBtn(i) : null)); }
         if (k === 'kf') return h('div', { class: 'trl kfl', 'data-k': k }, h('span', null, t('Fotogramas clave', 'Keyframes')));
         if (k === 'fxr') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Efectos', 'Effects')));
+        if (k === 'subs') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Subtítulos', 'Subtitles')), h('span', { class: 'trb' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Nuevo subtítulo', 'New subtitle'), 'aria-label': t('Nuevo subtítulo', 'New subtitle'), onClick: () => newSubLayer(false) }, MC.icon('plus', 13))));
         const ix = ['shots', 'text', 'voz', 'sfx', 'musica'].indexOf(k), tr = TRACKS[ix];
         return h('div', { class: 'trl', 'data-k': k }, h('span', null, t(tr.es, tr.en)),
           ix >= 2 ? h('span', { class: 'trb' }, addBtn(AU[ix - 2]), ix === 2 ? h('button', { class: 'btn btn-g', type: 'button', title: t('Grabar locución', 'Record voice-over'), 'aria-label': t('Grabar locución', 'Record voice-over'), onClick: recordVoice }, MC.icon('mic', 13)) : null) : null);
@@ -2049,6 +2192,7 @@
       const R = {};
       KEYS.forEach((k) => {
         const ov = /^o\d+$/.test(k), audio = AU.includes(k);
+        if (k === 'subs') { R.subs = h('div', { class: 'tl-track' + (p.subs.length ? '' : ' off'), 'data-k': 'subs', 'data-hint': t('Pulsa + para crear un subtítulo: una capa con todas las palabras y sus tiempos', 'Press + to create a subtitle: one layer with all the words and their timings') }); el.tlContent.append(R.subs); return; }
         if (k === 'fxr') { R.fxr = h('div', { class: 'tl-track' + (p.shots.some((q) => q.fx && q.fx.length) ? '' : ' off'), 'data-k': 'fxr', 'data-hint': t('Los efectos de cada plano (temblor, lluvia, niebla…) aparecen aquí', 'Each shot’s effects (shake, rain, fog…) show up here') }); el.tlContent.append(R.fxr); return; }
         if (k === 'kf') { R.kf = h('div', { class: 'tl-track kft', 'data-k': 'kf', 'data-hint': '' }); el.tlContent.append(R.kf); return; }
         R[k] = h('div', { class: 'tl-track' + (ov ? ' ovt' : '') + ((audio && !p.clips.some((c) => c.track === k)) || (ov && !p.overlays.some((o) => o.track === +k.slice(1))) ? ' off' : ''), 'data-k': k,
@@ -2136,6 +2280,27 @@
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
         R.text.append(el2);
+      });
+      /* capas de subtítulos: un clip con sus líneas dentro */
+      p.subs.forEach((it) => {
+        const el2 = h('div', { class: 'clip sb' + (it.id === S.sb ? ' on' : ''), 'data-s': it.id, role: 'button', tabindex: '0', title: it.name, 'aria-label': it.name + ', ' + MC.fmtTime(it.start) + ', ' + it.dur.toFixed(1) + ' s', 'aria-pressed': String(it.id === S.sb),
+          onKeydown: (e) => { if (e.key === 'Enter') { S.sb = it.id; S.cl = null; S.tx = null; S.ov = null; S.li = -1; commit(); } } }, h('span', { class: 'sbn' }, it.name), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const rz = el2.querySelector('.rz');
+        el2.addEventListener('pointerdown', (e) => {
+          if (e.target === rz) return; el2.setPointerCapture(e.pointerId);
+          const q = e.target.closest('.sbq'); S.sb = it.id; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = []; if (q) S.swi = +q.dataset.w;
+          const x0 = e.clientX, s0 = it.start, snap = []; Object.keys(it.words || {}).forEach((l2) => it.words[l2].forEach((w) => { if (w.s != null) snap.push([w, w.s]); })); let moved = false;
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const ns = Math.max(0, snapT(s0 + (ev.clientX - x0) / S.pps, null)), d = ns - s0; it.start = ns; snap.forEach((z) => { z[0].s = Math.max(0, Math.round((z[1] + d) * 1000) / 1000); }); layoutClips(); S.dirty = true; touch(); };
+          const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { const cue = q ? MC.subCues(it, p.lang, it.style).find((c) => c.words[0].i === +q.dataset.w) : null; setTime(cue ? cue.s + 0.01 : it.start + 0.01); S.selKind = 'subs'; renderInspector(); renderPanels(); renderTimeline(); } };
+          el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
+        });
+        rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = it.dur;
+          const mv = (ev) => { it.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.5, 600); layoutClips(); S.dirty = true; touch(); };
+          const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
+        });
+        R.subs.append(el2);
       });
       /* efectos de todos los planos */
       p.shots.forEach((shx, si) => (shx.fx || []).forEach((f) => {
@@ -2398,6 +2563,7 @@
       delete: () => {
         if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
         else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
+        else if (S.selKind === 'subs' && S.sb && subById(S.sb)) { S.project.subs = S.project.subs.filter((q) => q.id !== S.sb); S.sb = null; S.selKind = 'shot'; commit(); MC.announce(t('Subtítulo eliminado', 'Subtitle deleted')); }
         else if (S.multi.length > 1) { multiItems().forEach((q) => { if (q.k[0] === 'c') S.project.clips = S.project.clips.filter((c) => c.id !== q.it.id); else if (q.k[0] === 'x') S.project.texts = S.project.texts.filter((x) => x.id !== q.it.id); else removeOverlay(q.it); }); S.multi = []; S.selKind = 'shot'; commit(); }
         else if (S.selKind === 'marker' && S.mk && mkById(S.mk)) { S.project.notes = S.project.notes.filter((n) => n.id !== S.mk); S.mk = null; S.selKind = 'shot'; commit(); }
         else if (S.kfid && kfTarget() && (kfTarget().it.kf || []).some((q) => q.id === S.kfid)) { const kt = kfTarget(); kt.it.kf = kt.it.kf.filter((q) => q.id !== S.kfid); S.kfid = null; commit(); MC.announce(t('Fotograma clave eliminado', 'Keyframe deleted')); }
@@ -2412,6 +2578,11 @@
       if (!S.alive || document.querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Enter' && S.poly) { closePoly(); return; }
       if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.fmtOpen || S.ovMenu) { S.fmtOpen = false; S.ovMenu = false; renderFmtPop(); renderVbar(); } else clearSel(); return; }
+      if (S.ws === 'creativo' && curTab() === 'subtitulos' && subById(S.sb) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'Enter') { e.preventDefault(); markWord(); return; }
+        if (e.key === '.') { e.preventDefault(); silenceHere(); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); unmarkWord(); return; }
+      }
       const id = MC.keys.match(e), c = MC.keys.combo(e);
       if (!id || !ACT[id]) return;
       if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa

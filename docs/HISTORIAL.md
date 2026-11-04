@@ -12,6 +12,10 @@ Registro paso a paso de lo que se fue construyendo. Para la descripción públic
 - **Paso 16 · tus proyectos**: archivo `.motioncomic`, versiones persistentes, biblioteca y consejo de instalación.
 - **Paso 17 · salida y entrada**: WebM, GIF, PNG y audio; SVG, ZIP, carpetas, CMYK y texto del PSD; zoom del visor, reglas, vista de profundidad, tabla de traducción y vista previa al pasar el cursor.
 
+## Paso 18 · subtítulos
+
+Capas de subtítulo con el momento de cada palabra y de los silencios, marcado con el cursor, importación de tiempos (JSON, SRT, VTT, CSV), seguimiento de palabra, 13 estilos y pestaña propia. Arreglo del simulador de redes, que se descuadraba con el tamaño de la interfaz.
+
 ## Paso 10 · viñetas y transiciones
 
 Paso 10 (hecho):
