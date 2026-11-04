@@ -114,7 +114,7 @@
     for (let i = 0; i < 46; i++) { const y = r() * SH, x = r() * SW, l = 280 + r() * 700; g.lineWidth = 2 + r() * 7; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
     g.fillStyle = '#0A0A18'; g.beginPath(); g.moveTo(0, SH); g.lineTo(0, 1030); g.lineTo(SW, 1070); g.lineTo(SW, SH); g.fill();
     L.push({ name: 'Primer plano líneas', c, z: 0.95, role: '' });
-    return { name: 'Amanecer', duration: 4, layers: L, preset: ['panl', 1], curve: 'smooth', transition: { type: 'wipe', dur: 0.8 } };
+    return { name: 'Amanecer', duration: 4, layers: L, preset: ['panl', 1], curve: 'smooth', transition: { type: 'gutter', dur: 0.9, dir: 'l' } };
   }
 
   /* --- Plano 3: impacto --- */
@@ -135,7 +135,7 @@
     [[1000, 800, 90], [1200, 800, 100]].forEach((k) => { g.fillStyle = '#5A5470'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
     L.push({ name: 'Humo', c, z: 0.5, role: '' });
 
-    return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
+    return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'impact', dur: 0.5 } };
   }
 
   /* Página de cómic de ejemplo (1600×2300, cinco viñetas) para probar el modo Página. */

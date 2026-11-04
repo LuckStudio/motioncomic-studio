@@ -117,6 +117,8 @@
     ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
+  /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
+  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000' };
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
@@ -124,6 +126,8 @@
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
+    p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
+    if ((p.mode || 'free') === 'free') p.frame.on = true;
     return p;
   };
 

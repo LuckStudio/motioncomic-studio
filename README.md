@@ -5,7 +5,14 @@ Dedicado para mi gran amigo y artista GotiDraw: una herramienta para convertir t
 - Brief del producto: [`docs/PRD.md`](docs/PRD.md)
 - Manual de marca: [`docs/brandbook.html`](docs/brandbook.html)
 
-## Estado: paso 9 · rediseño de la interfaz
+## Estado: paso 10 · viñetas y transiciones
+
+Paso 10 (hecho):
+- **Contenedor de viñeta** en cada plano del Modo Libre (siempre presente): calle entre viñetas con color (blanco, negro, papel…) y textura (trama, papel, rayado, líneas de acción), forma (recta, inclinada, romboide, trapecio, girada, estallido, recuerdo, óvalo), trazo editable (línea, tinta, boceto, doble, discontinua, sin trazo; grosor y color) y sombra. Estilos listos: cómic clásico, manga, noir, tinta a mano, pop, acción, recuerdo, boceto y sin viñeta. Estilo para todo el proyecto (pestaña **Viñetas**) y personalizable por plano.
+- **Ilustraciones por encima del borde**: cualquier capa puede romper la viñeta y dibujarse sobre el trazo y la calle; botón «Añadir ilustración por encima».
+- **28 transiciones** en 4 familias (básicas, movimiento, formas, cómic) con dirección, curva, duración, color y distancia: fundidos a negro/blanco, encadenado, destello, barrido, empujar, cubrir, descubrir, latigazo, zoom a través, giro, círculo, iris de dibujos, rombo, reloj, persianas, puertas, trama, **por la calle** y **vista de página** (las dos viñetas separadas por la calle, como en el papel), pasar página, mancha de tinta, estallido, mosaico de viñetas, pop, impacto e interferencia. Catálogo con miniaturas animadas (pestaña **Transiciones**), «Ver la transición» y «Aplicar a todos».
+- Modo página: contorno opcional de la viñeta activa. «Mi estilo» guarda también la viñeta y la transición completa.
+
 
 Paso 1 (hecho): inicio con proyectos locales, estudio en Modo Libre con parallax 2.5D, cámara con presets y encuadre manual, transiciones, calculadora de resolución, PWA, ES/EN, tema oscuro/claro.
 
@@ -97,7 +104,8 @@ Abre `http://localhost:8000`. Para generar el archivo único de previsualizació
 
 ## Estructura
 
-- `src/js/render.js`: motor de cámara y parallax. El visor y la futura exportación usarán este mismo código.
+- `src/js/render.js`: motor de cámara y parallax. El visor y la exportación usan este mismo código.
+- `src/js/panel.js`: contenedor de viñeta (calle, forma, trazo, sombra) y catálogo de transiciones.
 - `src/js/studio.js`: interfaz del estudio. `src/js/home.js`: pantalla de inicio.
 - `src/js/db.js`: guardado local y modelo de proyecto. `src/js/sample.js`: proyecto de ejemplo dibujado por código.
 

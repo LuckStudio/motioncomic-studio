@@ -382,6 +382,19 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
   .clip .rz { width: 22px; } .tl-track { height: 40px; } .tl-labels { grid-auto-rows: 40px; } .seg button { padding: 8px 14px; }
 }
 
+/* ---------- viñetas y transiciones ---------- */
+.trgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.trtile { display: grid; gap: 6px; padding: 6px; background: var(--raised); border: 1px solid var(--line); color: inherit; font: inherit; font-size: 12px; text-align: left; cursor: pointer; transition: border-color .15s, transform .15s; }
+.trtile canvas { width: 100%; height: auto; aspect-ratio: 112 / 70; display: block; background: #000; }
+.trtile:hover { border-color: var(--accent); }
+.trtile[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.trtile[aria-pressed="true"] span { color: var(--accent); font-weight: 600; }
+.trtile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatches .sw { width: 28px; height: 28px; border: 1px solid var(--line); cursor: pointer; padding: 0; }
+.swatches .sw[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-motion="reduce"] .trtile { transition: none; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -26909,6 +26922,8 @@ module.exports = ZStream;
     ...[...new Set(p.shots.flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
+  /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
+  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000' };
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
@@ -26916,6 +26931,8 @@ module.exports = ZStream;
     p.texts = p.texts || []; p.fonts = p.fonts || []; p.langs = p.langs && p.langs.length ? p.langs : ['es']; p.lang = p.lang || p.langs[0];
     p.sub = Object.assign({ font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null }, p.sub || {});
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
+    p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
+    if ((p.mode || 'free') === 'free') p.frame.on = true;
     return p;
   };
 
@@ -27186,7 +27203,8 @@ module.exports = ZStream;
   const MC = window.MC;
   const { clamp, lerp } = MC;
 
-  const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t) };
+  const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t),
+    back: (t) => { const c = 1.70158, u = t - 1; return 1 + (c + 1) * u * u * u + c * u * u; }, snap: (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)) };
   MC.ease = (k, t) => (EASE[k] || EASE.smooth)(clamp(t, 0, 1));
   const noise = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
   MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
@@ -27309,17 +27327,12 @@ module.exports = ZStream;
     let cam = o.cam || MC.camAt(shot, tl);
     const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
-    ctx.save();
-    if (!o.noClip) {
-      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
-      const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
-      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
-      ctx.fillRect(0, 0, W, H);
-    }
-    for (const layer of shot.layers) {
-      if (layer.visible === false) continue;
+    /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
+    const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
+    const pan = fr ? MC.panelGeom(fr, W, H) : null;
+    const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
-      if (!img) continue;
+      if (!img) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
       const camx = W / 2 + (cam.x + cam.sx) * W * g.f, camy = H / 2 + (cam.y + cam.sy) * H * g.f;
@@ -27343,17 +27356,40 @@ module.exports = ZStream;
         if (cam.poly) { cam.poly.forEach((q, i) => { const X = ix + q[0] * iw, Y = iy + q[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
         else ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
         ctx.fill('evenodd');
+        /* contorno de la viñeta activa (modo página) */
+        if (pg.outline > 0) {
+          ctx.strokeStyle = pg.outlineColor || '#ffffff'; ctx.lineWidth = (pg.outline * Math.min(W, H)) / g.zl; ctx.lineJoin = 'miter';
+          ctx.beginPath();
+          if (cam.poly) { cam.poly.forEach((q, i) => { const X = ix + q[0] * iw, Y = iy + q[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+          else ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
+          ctx.stroke();
+        }
       }
       ctx.restore();
+    };
+    const content = () => { if (pan) { ctx.translate(pan.ox, pan.oy); ctx.scale(pan.s, pan.s); } };
+    ctx.save();
+    if (!o.noClip) {
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
+      if (pan) { MC.drawPanelBg(ctx, fr, W, H); MC.drawPanelShadow(ctx, fr, pan, W, H); ctx.save(); MC.pathPoly(ctx, pan.poly); ctx.clip(); }
+      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
+      ctx.fillRect(0, 0, W, H);
     }
+    ctx.save(); content();
+    for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
     if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
+    if (pan) {
+      ctx.restore();
+      MC.drawPanelStroke(ctx, fr, pan, W, H);
+      /* ilustraciones que rompen la viñeta: encima del trazo y de la calle */
+      ctx.save(); content();
+      for (const layer of shot.layers) if (layer.over && layer.visible !== false) drawLayer(layer);
+      ctx.restore();
+    }
+    ctx.restore();
   };
-
-  MC.TRANSITIONS = [
-    { v: 'cut', es: 'Corte', en: 'Cut' }, { v: 'fade', es: 'Fundido', en: 'Fade' },
-    { v: 'flash', es: 'Destello', en: 'Flash' }, { v: 'wipe', es: 'Barrido', en: 'Wipe' },
-  ];
 
   const renderBase = (ctx, project, time, o) => {
     const { W, H } = o;
@@ -27362,20 +27398,13 @@ module.exports = ZStream;
     if (!cur) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); return; }
     const tr = cur.transition || { type: 'cut' };
     const dur = Math.min(tr.dur || 0.6, cur.duration * 0.9);
-    if (i > 0 && tr.type !== 'cut' && tl < dur) {
+    if (i > 0 && tr.type !== 'cut' && tl < dur && MC.drawTransition) {
       const prev = project.shots[i - 1], p = tl / dur;
-      const drawPrev = () => MC.renderShot(ctx, prev, prev.duration, o);
-      const drawCur = () => MC.renderShot(ctx, cur, tl, o);
-      const veil = (rgb, a) => { ctx.fillStyle = 'rgba(' + rgb + ',' + clamp(a, 0, 1) + ')'; ctx.fillRect(0, 0, W, H); };
-      if (tr.type === 'fade') { if (p < 0.5) { drawPrev(); veil('0,0,0', p * 2); } else { drawCur(); veil('0,0,0', (1 - p) * 2); } return; }
-      if (tr.type === 'flash') { const a = p < 0.3 ? p / 0.3 : (1 - p) / 0.7; if (p < 0.3) drawPrev(); else drawCur(); veil('255,255,255', a); return; }
-      if (tr.type === 'wipe') {
-        const e = MC.ease('smooth', p);
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-        ctx.save(); ctx.translate(-W * e * 0.3, 0); drawPrev(); ctx.restore();
-        ctx.save(); ctx.translate(W * (1 - e), 0); drawCur(); ctx.restore();
-        return;
-      }
+      const fr = MC.frameOf ? MC.frameOf(project, cur) : null;
+      const to = Object.assign({}, o, { frameBg: fr ? fr.bg : '#000000', frameGutter: fr ? clamp(fr.gutter || 0, 0, 0.3) * Math.min(W, H) : 0 });
+      /* el plano entrante arranca su movimiento al empezar la transición */
+      MC.drawTransition(ctx, tr, p, (g) => MC.renderShot(g, prev, prev.duration, o), (g) => MC.renderShot(g, cur, tl, o), to);
+      return;
     }
     MC.renderShot(ctx, cur, tl, o);
   };
@@ -27384,7 +27413,7 @@ module.exports = ZStream;
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
-    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false }, extra || {});
+    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false, project }, extra || {});
   };
 
   MC.makeThumb = (project) => {
@@ -27399,6 +27428,375 @@ module.exports = ZStream;
       MC.renderFrame(ctx, project, sh ? Math.min(0.4, sh.duration * 0.1) : 0, o);
       return c.toDataURL('image/jpeg', 0.7);
     } catch (e) { return ''; }
+  };
+})();
+
+/* Viñetas y transiciones.
+   - Contenedor de viñeta: cada plano vive dentro de un marco (calle, fondo, forma, trazo, sombra) como en una página de cómic.
+   - Capas «por encima del borde»: ilustraciones que rompen la viñeta y se superponen al trazo y a la calle.
+   - Transiciones: catálogo ampliado con dirección, color, curva y distancia. Las usa renderBase, así que visor y exportación coinciden. */
+(function () {
+  const MC = window.MC;
+  const { clamp, lerp } = MC;
+  const noise = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+
+  /* ---------- contenedor de viñeta ---------- */
+  MC.FRAME_SHAPES = [
+    { v: 'rect', es: 'Recta', en: 'Square' }, { v: 'slant', es: 'Inclinada', en: 'Slanted' }, { v: 'slantr', es: 'Inclinada ↘', en: 'Slanted ↘' },
+    { v: 'diag', es: 'Romboide', en: 'Parallelogram' }, { v: 'trap', es: 'Trapecio', en: 'Trapezoid' }, { v: 'tilt', es: 'Girada', en: 'Tilted' },
+    { v: 'burst', es: 'Estallido', en: 'Burst' }, { v: 'wave', es: 'Recuerdo', en: 'Flashback' }, { v: 'circle', es: 'Óvalo', en: 'Oval' },
+  ];
+  MC.FRAME_STROKES = [
+    { v: 'solid', es: 'Línea', en: 'Solid' }, { v: 'ink', es: 'Tinta', en: 'Ink' }, { v: 'sketch', es: 'Boceto', en: 'Sketch' },
+    { v: 'double', es: 'Doble', en: 'Double' }, { v: 'dashed', es: 'Discontinua', en: 'Dashed' }, { v: 'none', es: 'Sin trazo', en: 'No stroke' },
+  ];
+  MC.FRAME_BGS = [
+    { v: 'plain', es: 'Liso', en: 'Plain' }, { v: 'halftone', es: 'Trama', en: 'Halftone' }, { v: 'paper', es: 'Papel', en: 'Paper' },
+    { v: 'hatch', es: 'Rayado', en: 'Hatching' }, { v: 'speed', es: 'Líneas de acción', en: 'Speed lines' },
+  ];
+  MC.FRAME_PRESETS = [
+    { v: 'classic', es: 'Cómic clásico', en: 'Classic comic', f: { gutter: 0.035, bg: '#ffffff', pattern: 'plain', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', shadow: 0 } },
+    { v: 'manga', es: 'Manga', en: 'Manga', f: { gutter: 0.028, bg: '#ffffff', pattern: 'plain', width: 0.0035, color: '#000000', style: 'solid', shape: 'rect', shadow: 0 } },
+    { v: 'noir', es: 'Noir', en: 'Noir', f: { gutter: 0.04, bg: '#0b0b0c', pattern: 'plain', width: 0.003, color: '#f2f2f2', style: 'solid', shape: 'rect', shadow: 0 } },
+    { v: 'ink', es: 'Tinta a mano', en: 'Hand ink', f: { gutter: 0.04, bg: '#fbf7ee', pattern: 'paper', patColor: '#d9cfb8', width: 0.008, color: '#141210', style: 'ink', shape: 'rect', shadow: 0 } },
+    { v: 'pop', es: 'Pop', en: 'Pop', f: { gutter: 0.05, bg: '#ffd84a', pattern: 'halftone', patColor: '#f0a400', width: 0.01, color: '#111111', style: 'solid', shape: 'rect', shadow: 0.6, shadowColor: '#111111' } },
+    { v: 'action', es: 'Acción', en: 'Action', f: { gutter: 0.05, bg: '#ffffff', pattern: 'speed', patColor: '#1a1a1a', width: 0.009, color: '#111111', style: 'solid', shape: 'slant', amount: 0.6, shadow: 0 } },
+    { v: 'flash', es: 'Recuerdo', en: 'Flashback', f: { gutter: 0.05, bg: '#e9e6df', pattern: 'paper', patColor: '#cbc5b8', width: 0.004, color: '#6b665c', style: 'dashed', shape: 'wave', amount: 0.6, shadow: 0 } },
+    { v: 'sketch', es: 'Boceto', en: 'Sketch', f: { gutter: 0.04, bg: '#ffffff', pattern: 'hatch', patColor: '#e3e3e3', width: 0.004, color: '#2a2a2a', style: 'sketch', shape: 'rect', shadow: 0 } },
+    { v: 'none', es: 'Sin viñeta', en: 'No panel', f: { gutter: 0, width: 0, style: 'none', shape: 'rect', shadow: 0, pattern: 'plain' } },
+  ];
+
+  /* Marco efectivo de un plano: el del plano si lo personaliza; si no, el del proyecto. */
+  MC.frameOf = (project, shot) => {
+    const base = Object.assign({}, MC.FRAME_DEF, project && (project.frame || { on: (project.mode || 'free') === 'free' }));
+    const f = shot && shot.frame ? Object.assign(base, shot.frame) : base;
+    return f.on === false ? null : f;
+  };
+  const mapPts = (pts, f) => pts.map((q) => f(q[0], q[1]));
+  /* Geometría de la viñeta en el lienzo: polígono, caja y transformación del contenido para que el plano quepa sin deformarse. */
+  MC.panelGeom = (f, W, H) => {
+    const m = Math.min(W, H), g = clamp(f.gutter || 0, 0, 0.3) * m, a = clamp(f.amount == null ? 0.5 : f.amount, 0, 1);
+    const x0 = g, y0 = g, x1 = W - g, y1 = H - g, bw = x1 - x0, bh = y1 - y0, cx = W / 2, cy = H / 2;
+    let poly;
+    switch (f.shape) {
+      case 'slant': { const d = a * 0.16 * bh; poly = [[x0, y0 + d], [x1, y0], [x1, y1 - d], [x0, y1]]; break; }
+      case 'slantr': { const d = a * 0.16 * bh; poly = [[x0, y0], [x1, y0 + d], [x1, y1], [x0, y1 - d]]; break; }
+      case 'diag': { const d = a * 0.14 * bw; poly = [[x0 + d, y0], [x1, y0], [x1 - d, y1], [x0, y1]]; break; }
+      case 'trap': { const d = a * 0.12 * bw; poly = [[x0 + d, y0], [x1 - d, y0], [x1, y1], [x0, y1]]; break; }
+      case 'tilt': {
+        const r = ((a - 0.5) * 2 * 5 * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+        const k = Math.min(bw / (Math.abs(bw * c) + Math.abs(bh * s)), bh / (Math.abs(bw * s) + Math.abs(bh * c)));
+        poly = mapPts([[-bw / 2, -bh / 2], [bw / 2, -bh / 2], [bw / 2, bh / 2], [-bw / 2, bh / 2]], (x, y) => [cx + (x * c - y * s) * k, cy + (x * s + y * c) * k]);
+        break;
+      }
+      case 'burst': {
+        const n = 34, rx = bw / 2, ry = bh / 2, inner = 1 - 0.07 - 0.12 * a; poly = [];
+        for (let i = 0; i < n * 2; i++) { const th = (i / (n * 2)) * Math.PI * 2, rr = i % 2 ? inner - 0.04 * noise(i) : 1 - 0.03 * noise(i + 9); poly.push([cx + Math.cos(th) * rx * rr, cy + Math.sin(th) * ry * rr]); }
+        break;
+      }
+      case 'wave': {
+        poly = []; const per = 2 * (bw + bh), bumps = Math.max(10, Math.round(per / (m * (0.09 - a * 0.04)))), N = bumps * 10, amp = m * (0.012 + 0.012 * a);
+        for (let i = 0; i < N; i++) {
+          let s = (i / N) * per, x, y, nx, ny;
+          if (s < bw) { x = x0 + s; y = y0; nx = 0; ny = 1; } else if ((s -= bw) < bh) { x = x1; y = y0 + s; nx = -1; ny = 0; } else if ((s -= bh) < bw) { x = x1 - s; y = y1; nx = 0; ny = -1; } else { s -= bw; x = x0; y = y1 - s; nx = 1; ny = 0; }
+          const k = Math.abs(Math.sin(((i / N) * bumps) * Math.PI)) * amp;
+          poly.push([x + nx * (amp - k), y + ny * (amp - k)]);
+        }
+        break;
+      }
+      case 'circle': { poly = []; for (let i = 0; i < 96; i++) { const th = (i / 96) * Math.PI * 2; poly.push([cx + Math.cos(th) * bw / 2, cy + Math.sin(th) * bh / 2]); } break; }
+      default: poly = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    }
+    let px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
+    poly.forEach((q) => { px0 = Math.min(px0, q[0]); py0 = Math.min(py0, q[1]); px1 = Math.max(px1, q[0]); py1 = Math.max(py1, q[1]); });
+    const s = Math.max((px1 - px0) / W, (py1 - py0) / H) || 1;
+    return { poly, x0: px0, y0: py0, x1: px1, y1: py1, s, ox: (px0 + px1) / 2 - (W * s) / 2, oy: (py0 + py1) / 2 - (H * s) / 2, g };
+  };
+  MC.panelXf = (project, shot, W, H) => { const f = MC.frameOf(project, shot); return f ? MC.panelGeom(f, W, H) : null; };
+  const pathPoly = (ctx, poly) => { ctx.beginPath(); poly.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); };
+  MC.pathPoly = pathPoly;
+
+  /* Lienzos auxiliares reutilizables */
+  const pool = {};
+  const canvasOf = (key, W, H) => {
+    key += W + 'x' + H;
+    let c = pool[key];
+    if (!c) { if (Object.keys(pool).length > 12) Object.keys(pool).forEach((k) => delete pool[k]); c = pool[key] = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : document.createElement('canvas'); }
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = 'none';
+    return { c, g };
+  };
+
+  /* Fondo de la calle (color + textura), cacheado por tamaño y ajustes */
+  const bgCache = new Map();
+  MC.drawPanelBg = (ctx, f, W, H) => {
+    const key = [W, H, f.bg, f.pattern, f.patColor].join('|');
+    let c = bgCache.get(key);
+    if (!c) {
+      if (bgCache.size > 24) bgCache.clear();
+      c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d'), m = Math.min(W, H), pc = f.patColor || '#000000';
+      g.fillStyle = f.bg || '#ffffff'; g.fillRect(0, 0, W, H);
+      g.fillStyle = pc; g.strokeStyle = pc;
+      if (f.pattern === 'halftone') {
+        const st = m / 70, rot = Math.PI / 4, d = Math.hypot(W, H);
+        g.save(); g.translate(W / 2, H / 2); g.rotate(rot);
+        for (let y = -d / 2; y < d / 2; y += st) for (let x = -d / 2; x < d / 2; x += st) { g.beginPath(); g.arc(x, y, st * 0.28, 0, Math.PI * 2); g.fill(); }
+        g.restore();
+      } else if (f.pattern === 'paper') {
+        const n = Math.round((W * H) / 900);
+        for (let i = 0; i < n; i++) { g.globalAlpha = 0.15 + 0.35 * noise(i * 3 + 1); g.fillRect(noise(i * 7) * W, noise(i * 11 + 5) * H, 1 + noise(i) * m / 700, 1 + noise(i + 2) * m / 700); }
+        g.globalAlpha = 1;
+      } else if (f.pattern === 'hatch') {
+        g.lineWidth = Math.max(1, m / 600); const st = m / 60;
+        for (let x = -H; x < W; x += st) { g.beginPath(); g.moveTo(x, H); g.lineTo(x + H, 0); g.stroke(); }
+      } else if (f.pattern === 'speed') {
+        const cx = W / 2, cy = H / 2, R = Math.hypot(W, H);
+        for (let i = 0; i < 160; i++) {
+          const a = (i / 160) * Math.PI * 2 + noise(i) * 0.03, w = (0.002 + noise(i + 40) * 0.006) * Math.PI;
+          const r0 = R * (0.18 + noise(i + 80) * 0.18);
+          g.beginPath(); g.moveTo(cx + Math.cos(a - w) * R, cy + Math.sin(a - w) * R); g.lineTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a + w) * R, cy + Math.sin(a + w) * R); g.closePath(); g.fill();
+        }
+      }
+      bgCache.set(key, c);
+    }
+    ctx.drawImage(c, 0, 0, W, H);
+  };
+
+  /* Trazo del contenedor */
+  const shrink = (poly, d) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    poly.forEach((q) => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, kx = Math.max(0, 1 - (2 * d) / (x1 - x0)), ky = Math.max(0, 1 - (2 * d) / (y1 - y0));
+    return poly.map((q) => [cx + (q[0] - cx) * kx, cy + (q[1] - cy) * ky]);
+  };
+  const handLine = (ctx, poly, w, seed, jit, over, varW) => {
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i], b = poly[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 0.5) continue;
+      const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, nx = -uy, ny = ux, ext = n <= 8 ? over : 0;
+      const steps = Math.max(2, Math.round(len / (w * 6)));
+      ctx.beginPath();
+      for (let k = 0; k <= steps; k++) {
+        const tt = k / steps, d = -ext + tt * (len + ext * 2), j = (noise(seed + i * 31 + k) - 0.5) * jit;
+        const x = a[0] + ux * d + nx * j, y = a[1] + uy * d + ny * j;
+        k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.lineWidth = varW ? w * (0.7 + 0.6 * noise(seed + i * 7)) : w;
+      ctx.stroke();
+    }
+  };
+  MC.drawPanelStroke = (ctx, f, pan, W, H) => {
+    const m = Math.min(W, H), w = clamp(f.width || 0, 0, 0.05) * m;
+    if (!w || f.style === 'none') return;
+    ctx.save(); ctx.strokeStyle = f.color || '#111'; ctx.lineJoin = 'miter'; ctx.miterLimit = 6; ctx.lineCap = 'butt';
+    const poly = pan.poly;
+    if (f.style === 'ink') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w, 3, w * 0.35, w * 1.2, true); handLine(ctx, poly, w * 0.55, 17, w * 0.5, w * 0.6, true); }
+    else if (f.style === 'sketch') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w * 0.6, 5, w * 1.6, w * 3, false); handLine(ctx, poly, w * 0.45, 29, w * 1.8, w * 4, false); }
+    else if (f.style === 'double') { ctx.lineWidth = w; pathPoly(ctx, poly); ctx.stroke(); ctx.lineWidth = Math.max(1, w * 0.4); pathPoly(ctx, shrink(poly, w * 2.2)); ctx.stroke(); }
+    else { ctx.lineWidth = w; if (f.style === 'dashed') ctx.setLineDash([w * 3.2, w * 2.2]); pathPoly(ctx, poly); ctx.stroke(); }
+    ctx.restore();
+  };
+  MC.drawPanelShadow = (ctx, f, pan, W, H) => {
+    if (!(f.shadow > 0)) return;
+    const d = f.shadow * 0.022 * Math.min(W, H);
+    ctx.save(); ctx.translate(d, d); ctx.fillStyle = f.shadowColor || '#000'; pathPoly(ctx, pan.poly); ctx.fill(); ctx.restore();
+  };
+
+  /* ---------- transiciones ---------- */
+  MC.TRANSITION_GROUPS = [
+    { v: 'basic', es: 'Básicas', en: 'Basic' }, { v: 'move', es: 'Movimiento', en: 'Movement' },
+    { v: 'shape', es: 'Formas', en: 'Shapes' }, { v: 'comic', es: 'Cómic', en: 'Comic' },
+  ];
+  /* dir: admite dirección · color: admite color · gap: admite distancia (calle) */
+  MC.TRANSITIONS = [
+    { v: 'cut', g: 'basic', es: 'Corte', en: 'Cut' },
+    { v: 'fade', g: 'basic', es: 'Fundido a negro', en: 'Fade to black', color: '#000000' },
+    { v: 'fadew', g: 'basic', es: 'Fundido a blanco', en: 'Fade to white', color: '#ffffff' },
+    { v: 'dissolve', g: 'basic', es: 'Encadenado', en: 'Dissolve' },
+    { v: 'flash', g: 'basic', es: 'Destello', en: 'Flash', color: '#ffffff' },
+    { v: 'wipe', g: 'move', es: 'Barrido', en: 'Wipe', dir: true },
+    { v: 'push', g: 'move', es: 'Empujar', en: 'Push', dir: true },
+    { v: 'slide', g: 'move', es: 'Cubrir', en: 'Cover', dir: true },
+    { v: 'reveal', g: 'move', es: 'Descubrir', en: 'Uncover', dir: true },
+    { v: 'whip', g: 'move', es: 'Latigazo', en: 'Whip pan', dir: true },
+    { v: 'zoom', g: 'move', es: 'Zoom a través', en: 'Zoom through' },
+    { v: 'spin', g: 'move', es: 'Giro', en: 'Spin' },
+    { v: 'iris', g: 'shape', es: 'Círculo', en: 'Circle' },
+    { v: 'iriscart', g: 'shape', es: 'Iris de dibujos', en: 'Cartoon iris', color: '#000000' },
+    { v: 'diamond', g: 'shape', es: 'Rombo', en: 'Diamond' },
+    { v: 'clock', g: 'shape', es: 'Reloj', en: 'Clock' },
+    { v: 'blinds', g: 'shape', es: 'Persianas', en: 'Blinds', dir: true },
+    { v: 'split', g: 'shape', es: 'Puertas', en: 'Doors', dir: true },
+    { v: 'halftone', g: 'shape', es: 'Trama', en: 'Halftone', dir: true, color: '#111111' },
+    { v: 'gutter', g: 'comic', es: 'Por la calle', en: 'Along the gutter', dir: true, gap: true },
+    { v: 'pageview', g: 'comic', es: 'Vista de página', en: 'Page view', dir: true, gap: true },
+    { v: 'pageturn', g: 'comic', es: 'Pasar página', en: 'Page turn', dir: true },
+    { v: 'ink', g: 'comic', es: 'Mancha de tinta', en: 'Ink splash', color: '#000000' },
+    { v: 'burst', g: 'comic', es: 'Estallido', en: 'Burst', color: '#ffffff' },
+    { v: 'grid', g: 'comic', es: 'Mosaico de viñetas', en: 'Panel mosaic', gap: true },
+    { v: 'pop', g: 'comic', es: 'Pop', en: 'Pop', color: '#ffffff' },
+    { v: 'impact', g: 'comic', es: 'Impacto', en: 'Impact', color: '#ffffff' },
+    { v: 'glitch', g: 'comic', es: 'Interferencia', en: 'Glitch' },
+  ];
+  MC.TR_DIRS = [{ v: 'l', l: '←' }, { v: 'r', l: '→' }, { v: 'u', l: '↑' }, { v: 'd', l: '↓' }];
+  MC.TR_EASES = [{ v: 'smooth', es: 'Suave', en: 'Smooth' }, { v: 'linear', es: 'Lineal', en: 'Linear' }, { v: 'out', es: 'Frena', en: 'Ease out' }, { v: 'in', es: 'Acelera', en: 'Ease in' }, { v: 'back', es: 'Rebote', en: 'Overshoot' }, { v: 'snap', es: 'Seco', en: 'Snap' }];
+  MC.trInfo = (v) => MC.TRANSITIONS.find((x) => x.v === v) || MC.TRANSITIONS[0];
+
+  const DV = { l: [-1, 0], r: [1, 0], u: [0, -1], d: [0, 1] };
+  const hexRgb = (c) => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return '0,0,0'; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
+
+  /* Dibuja la transición en curso. A y B dibujan el plano saliente y el entrante en un contexto dado. */
+  MC.drawTransition = (ctx, tr, p, A, B, o) => {
+    const { W, H } = o, info = MC.trInfo(tr.type), type = info.v;
+    const e = MC.ease(tr.ease || 'smooth', p), dir = DV[tr.dir || 'l'] || DV.l, col = tr.color || info.color || '#000000', m = Math.min(W, H);
+    const veil = (c, a) => { ctx.save(); ctx.globalAlpha = clamp(a, 0, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); ctx.restore(); };
+    const at = (fn, dx, dy, k, rot) => { ctx.save(); if (k != null || rot) { ctx.translate(W / 2 + (dx || 0), H / 2 + (dy || 0)); if (rot) ctx.rotate(rot); if (k != null) ctx.scale(k, k); ctx.translate(-W / 2, -H / 2); } else ctx.translate(dx || 0, dy || 0); fn(ctx); ctx.restore(); };
+    const off = (key, fn) => { const r = canvasOf(key, W, H); fn(r.g); return r.c; };
+    const clipped = (pathFn, fn) => { ctx.save(); ctx.beginPath(); pathFn(ctx); ctx.clip(); fn(ctx); ctx.restore(); };
+    const gutterCol = tr.color || (o.frameBg || '#ffffff');
+    switch (type) {
+      case 'fade': case 'fadew': { if (p < 0.5) { A(ctx); veil(col, MC.ease('smooth', p * 2)); } else { B(ctx); veil(col, MC.ease('smooth', (1 - p) * 2)); } return; }
+      case 'dissolve': { B(ctx); const c = off('a', A); ctx.save(); ctx.globalAlpha = 1 - e; ctx.drawImage(c, 0, 0, W, H); ctx.restore(); return; }
+      case 'flash': { const a = p < 0.3 ? p / 0.3 : (1 - p) / 0.7; if (p < 0.3) A(ctx); else B(ctx); veil(col, a); return; }
+      case 'wipe': { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); at(A, dir[0] * W * e * 0.3, dir[1] * H * e * 0.3); clipped((g) => g.rect(dir[0] < 0 ? W * (1 - e) : 0, dir[1] < 0 ? H * (1 - e) : 0, dir[0] ? W * e : W, dir[1] ? H * e : H), (g) => at(B, -dir[0] * W * (1 - e), -dir[1] * H * (1 - e))); return; }
+      case 'push': { at(A, dir[0] * W * e, dir[1] * H * e); at(B, -dir[0] * W * (1 - e), -dir[1] * H * (1 - e)); return; }
+      case 'slide': { A(ctx); veil('#000', e * 0.45); ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = m * 0.04; ctx.fillStyle = '#000'; const dx = -dir[0] * W * (1 - e), dy = -dir[1] * H * (1 - e); ctx.fillRect(dx, dy, W, H); ctx.restore(); at(B, dx, dy); return; }
+      case 'reveal': { B(ctx); const dx = dir[0] * W * e, dy = dir[1] * H * e; ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = m * 0.04; ctx.fillStyle = '#000'; ctx.fillRect(dx, dy, W, H); ctx.restore(); at(A, dx, dy); return; }
+      case 'whip': {
+        const c = off('a', (g) => { g.save(); g.translate(dir[0] * W * e, dir[1] * H * e); A(g); g.restore(); g.save(); g.translate(-dir[0] * W * (1 - e), -dir[1] * H * (1 - e)); B(g); g.restore(); });
+        const blur = Math.sin(Math.PI * p) * m * 0.06, n = 6;
+        ctx.drawImage(c, 0, 0, W, H);
+        for (let i = 1; i <= n; i++) { ctx.save(); ctx.globalAlpha = 0.5 / i; ctx.drawImage(c, -dir[0] * blur * (i / n), -dir[1] * blur * (i / n), W, H); ctx.drawImage(c, dir[0] * blur * (i / n), dir[1] * blur * (i / n), W, H); ctx.restore(); }
+        return;
+      }
+      case 'zoom': { at(B, 0, 0, lerp(0.75, 1, e)); const c = off('a', A); ctx.save(); ctx.globalAlpha = 1 - e; ctx.translate(W / 2, H / 2); ctx.scale(1 + e * 1.4, 1 + e * 1.4); ctx.drawImage(c, -W / 2, -H / 2, W, H); ctx.restore(); return; }
+      case 'spin': { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); if (p < 0.5) at(A, 0, 0, 1 - MC.ease('in', p * 2) * 0.9, MC.ease('in', p * 2) * Math.PI); else at(B, 0, 0, 0.1 + MC.ease('out', (p - 0.5) * 2) * 0.9, -(1 - MC.ease('out', (p - 0.5) * 2)) * Math.PI); return; }
+      case 'iris': { A(ctx); const r = e * Math.hypot(W, H) / 2; clipped((g) => g.arc(W / 2, H / 2, Math.max(0.1, r), 0, Math.PI * 2), B); return; }
+      case 'iriscart': {
+        const R = Math.hypot(W, H) / 2, ph = p < 0.5 ? 1 - MC.ease('in', p * 2) : MC.ease('out', (p - 0.5) * 2), r = Math.max(0, ph * R);
+        (p < 0.5 ? A : B)(ctx);
+        ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2, true); ctx.fill('evenodd'); ctx.restore();
+        return;
+      }
+      case 'diamond': { A(ctx); const r = e * (W + H) / 2; clipped((g) => { g.moveTo(W / 2, H / 2 - r); g.lineTo(W / 2 + r, H / 2); g.lineTo(W / 2, H / 2 + r); g.lineTo(W / 2 - r, H / 2); g.closePath(); }, B); return; }
+      case 'clock': { A(ctx); if (e <= 0) return; const R = Math.hypot(W, H); clipped((g) => { g.moveTo(W / 2, H / 2); g.arc(W / 2, H / 2, R, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); g.closePath(); }, B); return; }
+      case 'blinds': {
+        A(ctx); const n = 9, vert = dir[0] !== 0, size = (vert ? W : H) / n;
+        clipped((g) => { for (let i = 0; i < n; i++) { const k = clamp(e * 1.6 - (i / n) * 0.6, 0, 1), s = size * k, base = i * size, st = (vert ? dir[0] > 0 : dir[1] > 0) ? base : base + size - s; if (s > 0) vert ? g.rect(st, 0, s, H) : g.rect(0, st, W, s); } }, B);
+        return;
+      }
+      case 'split': {
+        B(ctx); const vert = dir[0] === 0;
+        if (!vert) { clipped((g) => g.rect(0, 0, W / 2, H), (g) => at(A, -W / 2 * e, 0)); clipped((g) => g.rect(W / 2, 0, W / 2, H), (g) => at(A, W / 2 * e, 0)); }
+        else { clipped((g) => g.rect(0, 0, W, H / 2), (g) => at(A, 0, -H / 2 * e)); clipped((g) => g.rect(0, H / 2, W, H / 2), (g) => at(A, 0, H / 2 * e)); }
+        return;
+      }
+      case 'halftone': {
+        A(ctx); const st = m / 18, cols = Math.ceil(W / st) + 1, rows = Math.ceil(H / st) + 1;
+        const prog = (x, y) => { const u = dir[0] ? (dir[0] < 0 ? 1 - x / W : x / W) : (dir[1] < 0 ? 1 - y / H : y / H); return clamp(e * 1.7 - u * 0.7, 0, 1); };
+        ctx.save(); ctx.fillStyle = col;
+        ctx.beginPath(); for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const x = i * st, y = j * st, r = clamp(prog(x, y) * 1.4, 0, 1) * st * 0.8; if (r > 0.3 && prog(x, y) < 1) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); } } ctx.fill();
+        ctx.restore();
+        clipped((g) => { for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const x = i * st, y = j * st, k = prog(x, y), r = clamp(k * 1.25 - 0.25, 0, 1) * st * 0.75; if (r > 0.3) { g.moveTo(x + r, y); g.arc(x, y, r, 0, Math.PI * 2); } } }, B);
+        return;
+      }
+      case 'gutter': case 'pageview': {
+        /* las dos viñetas puestas como en una página, separadas por la calle; la cámara viaja de una a otra */
+        const gap = (tr.gap == null ? (type === 'pageview' ? 0.08 : 0.05) : tr.gap) * m + (o.frameGutter || 0);
+        const z = type === 'pageview' ? 0.42 : 0.12, k = 1 - z * Math.sin(Math.PI * clamp(p, 0, 1)) * (type === 'pageview' ? 1 : 1);
+        const Dx = dir[0] * (W + gap), Dy = dir[1] * (H + gap);
+        ctx.save(); ctx.fillStyle = gutterCol; ctx.fillRect(0, 0, W, H);
+        ctx.translate(W / 2, H / 2); ctx.scale(k, k); ctx.translate(-W / 2 + Dx * e, -H / 2 + Dy * e);
+        A(ctx); ctx.translate(-Dx, -Dy); B(ctx);
+        ctx.restore();
+        return;
+      }
+      case 'pageturn': {
+        B(ctx);
+        const vx = -dir[0] || 0, vy = -dir[1] || 0;   /* lado hacia el que se pliega */
+        const L = (vx ? W : H) * 1.15, pos = (1 - e) * L - (vx ? W : H) * 0.15, fold = vx ? (vx > 0 ? pos : W - pos) : (vy > 0 ? pos : H - pos);
+        const keep = (g) => (vx > 0 ? g.rect(0, 0, Math.max(0, fold), H) : vx < 0 ? g.rect(fold, 0, W - fold, H) : vy > 0 ? g.rect(0, 0, W, Math.max(0, fold)) : g.rect(0, fold, W, H - fold));
+        clipped(keep, A);
+        /* reverso de la hoja doblada */
+        const fw = Math.min((vx ? W : H) - (vx > 0 || vy > 0 ? fold : (vx ? W : H) - fold), (vx ? W : H) * 0.35) * Math.sin(Math.PI * e) + 1;
+        ctx.save();
+        const gx0 = vx > 0 ? fold : vx < 0 ? fold - fw : 0, gy0 = vy > 0 ? fold : vy < 0 ? fold - fw : 0;
+        const gr = vx ? ctx.createLinearGradient(fold, 0, fold + (vx > 0 ? fw : -fw), 0) : ctx.createLinearGradient(0, fold, 0, fold + (vy > 0 ? fw : -fw));
+        gr.addColorStop(0, '#d8d4cc'); gr.addColorStop(0.6, '#f7f5f0'); gr.addColorStop(1, '#bdb8ae');
+        ctx.fillStyle = gr; ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = m * 0.03;
+        if (e > 0.001 && e < 0.999) { vx ? ctx.fillRect(gx0, 0, fw, H) : ctx.fillRect(0, gy0, W, fw); }
+        ctx.restore();
+        return;
+      }
+      case 'ink': {
+        A(ctx); const n = 7, R = Math.hypot(W, H) * 0.42;
+        const blot = (i) => ({ cx: W * (0.12 + 0.76 * noise(i * 5 + 1)), cy: H * (0.12 + 0.76 * noise(i * 9 + 3)), r: clamp(e * 1.3 - noise(i + 21) * 0.3, 0, 1.2) * R * (0.7 + 0.5 * noise(i + 4)) });
+        const blots = (g, grow) => { for (let i = 0; i < n; i++) { const b = blot(i), r = b.r * grow; if (r <= 0) continue; const segs = 26; g.moveTo(b.cx + r, b.cy); for (let s = 1; s <= segs; s++) { const th = (s / segs) * Math.PI * 2, rr = r * (0.82 + 0.3 * noise(i * 50 + s)); g.lineTo(b.cx + Math.cos(th) * rr, b.cy + Math.sin(th) * rr); } g.closePath(); } };
+        ctx.save(); ctx.fillStyle = col; ctx.beginPath(); blots(ctx, 1.1);
+        /* salpicaduras alrededor de cada mancha */
+        if (e < 0.95) for (let i = 0; i < n; i++) { const b = blot(i); if (b.r <= 0) continue; for (let k = 0; k < 5; k++) { const th = noise(i * 17 + k) * Math.PI * 2, d = b.r * (1.2 + 0.35 * noise(i * 3 + k * 7)), rr = b.r * (0.04 + 0.06 * noise(i + k * 13)); ctx.moveTo(b.cx + Math.cos(th) * d + rr, b.cy + Math.sin(th) * d); ctx.arc(b.cx + Math.cos(th) * d, b.cy + Math.sin(th) * d, rr, 0, Math.PI * 2); } }
+        ctx.fill(); ctx.restore();
+        clipped((g) => blots(g, 1), B);
+        return;
+      }
+      case 'burst': {
+        A(ctx); const R = Math.hypot(W, H) * 0.75 * e, n = 18;
+        const star = (g, r) => { for (let i = 0; i < n * 2; i++) { const th = (i / (n * 2)) * Math.PI * 2 + e, rr = i % 2 ? r * 0.55 : r * (0.9 + 0.2 * noise(i)); i ? g.lineTo(W / 2 + Math.cos(th) * rr, H / 2 + Math.sin(th) * rr) : g.moveTo(W / 2 + Math.cos(th) * rr, H / 2 + Math.sin(th) * rr); } g.closePath(); };
+        ctx.save(); ctx.fillStyle = col; ctx.beginPath(); star(ctx, R * 1.12 + m * 0.02); ctx.fill(); ctx.restore();
+        clipped((g) => star(g, R), B);
+        return;
+      }
+      case 'grid': {
+        /* la imagen nueva entra en viñetas que aparecen una a una, separadas por la calle */
+        A(ctx); const cols = W >= H ? 4 : 3, rows = W >= H ? 3 : 4, gap = (tr.gap == null ? 0.02 : tr.gap) * m, cw = W / cols, ch = H / rows;
+        const order = []; for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) order.push([i, j, noise(i * 13 + j * 7)]);
+        order.sort((a, b) => a[2] - b[2]);
+        const full = clamp((e - 0.8) / 0.2, 0, 1);
+        if (full >= 1) { B(ctx); return; }
+        ctx.save(); ctx.fillStyle = gutterCol; ctx.globalAlpha = clamp(e * 4, 0, 1) * (1 - full); ctx.fillRect(0, 0, W, H); ctx.restore();
+        clipped((g) => { order.forEach((q, idx) => { const k = clamp(e * 1.25 * order.length - idx, 0, 1); if (k <= 0) return; const gg = gap * (1 - full), x = q[0] * cw + gg / 2, y = q[1] * ch + gg / 2, w = (cw - gg) * k, hh = (ch - gg) * k; g.rect(x + ((cw - gg) - w) / 2, y + ((ch - gg) - hh) / 2, w, hh); }); }, B);
+        return;
+      }
+      case 'pop': { if (p < 0.25) { A(ctx); veil(col, p / 0.25); return; } const q = (p - 0.25) / 0.75; at(B, 0, 0, lerp(1.35, 1, MC.ease('back', q))); veil(col, 1 - q * 1.6); return; }
+      case 'impact': {
+        const q = p;
+        const amp = (1 - q) * m * 0.04, sx = (noise(Math.floor(q * 40)) - 0.5) * 2 * amp, sy = (noise(Math.floor(q * 40) + 7) - 0.5) * 2 * amp;
+        const c = off('a', B); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.drawImage(c, sx, sy, W, H);
+        if (q < 0.18) veil(col, 1 - q / 0.18 * 0.4); else if (q < 0.24) veil('#000', 0.6); else veil(col, Math.max(0, 0.3 - q));
+        return;
+      }
+      case 'glitch': {
+        const fa = off('a', A), fb = off('b', B), f = Math.floor(p * 24), base = p < 0.5 ? fa : fb, other = p < 0.5 ? fb : fa;
+        ctx.drawImage(base, 0, 0, W, H);
+        const intensity = Math.sin(Math.PI * p), n = 10;
+        for (let i = 0; i < n; i++) {
+          if (noise(f * 31 + i) > intensity) continue;
+          const y = noise(f * 17 + i * 3) * H, hh = (0.01 + noise(f + i * 11) * 0.08) * H, dx = (noise(f * 7 + i) - 0.5) * W * 0.12 * intensity;
+          ctx.drawImage(noise(f + i * 5) > 0.5 ? other : base, 0, y, W, hh, dx, y, W, hh);
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.35 * intensity;
+        ctx.drawImage(other, m * 0.012 * intensity, 0, W, H); ctx.restore();
+        return;
+      }
+      default: B(ctx);
+    }
+  };
+  MC.hexRgb = hexRgb;
+
+  /* Miniatura animada para el catálogo: dos viñetas de muestra */
+  MC.trPreview = (canvas, tr, p) => {
+    const W = canvas.width, H = canvas.height, g = canvas.getContext('2d');
+    const card = (fill, ink, label) => (c) => {
+      c.fillStyle = fill; c.fillRect(0, 0, W, H);
+      c.fillStyle = ink; c.globalAlpha = 0.9; c.beginPath(); c.arc(W * 0.3, H * 0.72, H * 0.42, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+      c.font = '700 ' + Math.round(H * 0.42) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText(label, W * 0.7, H * 0.45);
+    };
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    if (tr.type === 'cut') (p < 0.5 ? card('#3b3550', '#8C7CFF', 'A') : card('#4a3a1c', '#F2C14E', 'B'))(g);
+    else MC.drawTransition(g, Object.assign({ dur: 1 }, tr), p, card('#3b3550', '#8C7CFF', 'A'), card('#4a3a1c', '#F2C14E', 'B'), { W, H, frameBg: '#ffffff', frameGutter: 0 });
+    g.restore();
   };
 })();
 
@@ -27915,7 +28313,7 @@ module.exports = ZStream;
     const sh1 = p.shots.find((s) => s.page), second = p.shots[1] || p.shots[0], cam = p.shots[0].camera;
     const bubble = p.texts.slice().reverse().find((x) => x.kind === 'bubble' || x.kind === 'box');
     return {
-      parallax: p.parallax, curve: cam.curve, intensity: cam.intensity || 1, transition: { type: second.transition.type, dur: second.transition.dur },
+      parallax: p.parallax, curve: cam.curve, intensity: cam.intensity || 1, transition: Object.assign({}, second.transition), frame: p.frame ? Object.assign({}, p.frame) : null,
       mode: sh1 ? sh1.page.mode : DEFAULT.mode, travel: sh1 ? sh1.page.travel : DEFAULT.travel, dim: sh1 ? sh1.page.dim : DEFAULT.dim,
       textFont: bubble ? bubble.font : p.textFont || DEFAULT.textFont, sub: Object.assign({}, p.sub),
     };
@@ -27923,10 +28321,11 @@ module.exports = ZStream;
 
   /* Aplica el estilo a un proyecto. El llamador debe reconstruir las trayectorias de página si cambia el ritmo. */
   MC.applyStyle = (p, st, isDraft) => {
+    if (st.frame && (p.mode || 'free') === 'free') p.frame = Object.assign({}, MC.FRAME_DEF, st.frame, { on: true });
     p.parallax = st.parallax; p.sub = Object.assign({}, p.sub, st.sub); p.textFont = st.textFont;
     p.shots.forEach((sh, i) => {
       if (!sh.page) sh.camera.curve = st.curve;
-      if (i > 0) sh.transition = { type: st.transition.type, dur: st.transition.dur };
+      if (i > 0) sh.transition = Object.assign({ type: 'cut', dur: 0.6 }, st.transition);
       else if (isDraft) sh.transition = { type: 'cut', dur: 0.6 };
       if (sh.page) Object.assign(sh.page, { mode: st.mode, travel: st.travel, dim: st.dim });
     });
@@ -28554,7 +28953,7 @@ module.exports = ZStream;
     for (let i = 0; i < 46; i++) { const y = r() * SH, x = r() * SW, l = 280 + r() * 700; g.lineWidth = 2 + r() * 7; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
     g.fillStyle = '#0A0A18'; g.beginPath(); g.moveTo(0, SH); g.lineTo(0, 1030); g.lineTo(SW, 1070); g.lineTo(SW, SH); g.fill();
     L.push({ name: 'Primer plano líneas', c, z: 0.95, role: '' });
-    return { name: 'Amanecer', duration: 4, layers: L, preset: ['panl', 1], curve: 'smooth', transition: { type: 'wipe', dur: 0.8 } };
+    return { name: 'Amanecer', duration: 4, layers: L, preset: ['panl', 1], curve: 'smooth', transition: { type: 'gutter', dur: 0.9, dir: 'l' } };
   }
 
   /* --- Plano 3: impacto --- */
@@ -28575,7 +28974,7 @@ module.exports = ZStream;
     [[1000, 800, 90], [1200, 800, 100]].forEach((k) => { g.fillStyle = '#5A5470'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 6.283); g.fill(); });
     L.push({ name: 'Humo', c, z: 0.5, role: '' });
 
-    return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'flash', dur: 0.5 } };
+    return { name: '¡Impacto!', duration: 2.5, layers: L, preset: ['shake', 1.2], curve: 'smooth', transition: { type: 'impact', dur: 0.5 } };
   }
 
   /* Página de cómic de ejemplo (1600×2300, cinco viñetas) para probar el modo Página. */
@@ -29215,7 +29614,7 @@ module.exports = ZStream;
     if (!p || !canvas.isConnected) return;
     MC.normalizeProject(p);
     await Promise.all(p.shots[0].layers.map((l) => MC.assets.load(l.assetId)));
-    const sh = p.shots[0], o = MC.renderOpts(p, { W: 1280, H: 720, fx: false, noLook: true }), ctx = canvas.getContext('2d');
+    const sh = p.shots[0], o = MC.renderOpts(p, { W: 1280, H: 720, fx: false, noLook: true, frames: false }), ctx = canvas.getContext('2d');
     let mx = 0, my = 0, tx = 0, ty = 0, raf = 0;
     const move = (e) => { const r = canvas.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; };
     window.addEventListener('pointermove', move);
@@ -29613,13 +30012,13 @@ module.exports = ZStream;
     /* ---------- barra superior ---------- */
     /* ---------- espacios de trabajo ---------- */
     const WS = {
-      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'recursos', 'proyecto', 'aspecto', 'estilo'] },
+      montaje: { icon: 'film', es: 'Montaje', en: 'Edit', tl: 'big', tabs: ['planos', 'vinetas', 'transiciones', 'recursos', 'proyecto', 'aspecto', 'estilo'] },
       camara: { icon: 'camera', es: 'Cámara', en: 'Camera', tl: 'strip', tabs: ['planos', 'camara'] },
       capas: { icon: 'layersx', es: 'Capas y profundidad', en: 'Layers and depth', tl: 'strip', tabs: ['recursos', 'rack', 'aspecto'] },
       creativo: { icon: 'sparkle', es: 'Texto, FX y audio', en: 'Text, FX and audio', tl: 'big', tabs: ['texto', 'efectos', 'sonidos', 'mezclador', 'idiomas'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
-    const TABS = { planos: ['film'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+    const TABS = { planos: ['film'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
       texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sonidos: ['note', 'Sonidos', 'Sounds'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
@@ -29715,6 +30114,77 @@ module.exports = ZStream;
     const boxDom = (d) => h('div', { class: 'box', 'data-id': d.id }, h('div', { class: 'eyebrow' }, d.title), d.nodes);
     const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
 
+    /* ---------- transiciones ---------- */
+    const reducedMotion = () => document.documentElement.getAttribute('data-motion') === 'reduce' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    let trAnim = 0;
+    const trTiles = new Set();
+    function trLoop() {
+      if (trAnim) return;
+      const step = (ts) => {
+        let alive = 0;
+        trTiles.forEach((c) => { if (!c.isConnected) { trTiles.delete(c); return; } alive++; if (c._still && !c._hover) return; const ph = ((ts / 1400) + (c._ofs || 0)) % 1.4; MC.trPreview(c, c._tr, clamp(ph - 0.2, 0, 1)); });
+        trAnim = alive ? requestAnimationFrame(step) : 0;
+      };
+      trAnim = requestAnimationFrame(step);
+    }
+    function trTile(tr, selected, onPick, still) {
+      const c = h('canvas', { width: 112, height: 70, 'aria-hidden': 'true' });
+      c._tr = tr; c._still = still || reducedMotion(); c._ofs = (MC.TRANSITIONS.findIndex((x) => x.v === tr.type) % 5) * 0.13;
+      MC.trPreview(c, tr, 0.5);
+      if (!reducedMotion()) { trTiles.add(c); trLoop(); }
+      const info = MC.trInfo(tr.type);
+      return h('button', { type: 'button', class: 'trtile', 'aria-pressed': String(!!selected), title: t(info.es, info.en), onClick: onPick, onPointerenter: () => { c._hover = true; }, onPointerleave: () => { c._hover = false; MC.trPreview(c, tr, 0.5); } }, c, h('span', null, t(info.es, info.en)));
+    }
+    function previewTransition() {
+      const st = MC.shotStarts(S.project)[S.si];
+      setTime(Math.max(0, st - 0.6)); togglePlay(true);
+      const stopAt = st + Math.min(shot().transition.dur || 0.6, shot().duration * 0.9) + 0.6;
+      const iv = setInterval(() => { if (!S.playing || S.time >= stopAt) { clearInterval(iv); if (S.playing) togglePlay(false); } }, 50);
+    }
+    function transEditor(sh, withCatalog) {
+      const tr = sh.transition, info = MC.trInfo(tr.type), p = S.project;
+      const setT = (k, v, hard) => { tr[k] = v; if (hard) commit(); else { layoutClips(); touch(); } };
+      const pickType = (v) => { const ni = MC.trInfo(v); tr.type = v; if (!ni.color) delete tr.color; if (!(tr.dur > 0)) tr.dur = 0.6; commit(); };
+      const nodes = [];
+      if (!withCatalog) {
+        nodes.push(MC.TRANSITION_GROUPS.map((g) => h('div', { class: 'field' }, h('span', { class: 'cap' }, t(g.es, g.en)),
+          MC.ui.chips(MC.TRANSITIONS.filter((x) => x.g === g.v).map((x) => ({ v: x.v, l: t(x.es, x.en) })), tr.type, pickType))));
+      }
+      if (tr.type !== 'cut') {
+        nodes.push(MC.ui.slider({ label: t('Duración', 'Length'), min: 0.2, max: 3, step: 0.05, value: tr.dur, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => setT('dur', v), onChange: commit }));
+        if (info.dir) nodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Dirección', 'Direction')), MC.ui.seg(MC.TR_DIRS, tr.dir || 'l', (v) => setT('dir', v, true), t('Dirección', 'Direction'))));
+        nodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva', 'Easing')), MC.ui.chips(MC.TR_EASES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), tr.ease || 'smooth', (v) => setT('ease', v, true))));
+        if (info.color || info.gap) {
+          const def = info.color || (MC.frameOf(p, sh) || { bg: '#ffffff' }).bg, id = 'tc-' + MC.uid();
+          nodes.push(h('div', { class: 'field' }, h('label', { for: id }, info.gap ? t('Color de la calle', 'Gutter colour') : t('Color', 'Colour')), h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+            h('input', { type: 'color', id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: tr.color || def, onInput: (e) => setT('color', e.target.value), onChange: commit }),
+            h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => setT('color', '#ffffff', true) }, t('Blanco', 'White')), h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => setT('color', '#000000', true) }, t('Negro', 'Black')),
+            tr.color ? h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { delete tr.color; commit(); } }, info.gap ? t('Usar la de la viñeta', 'Use the panel’s') : t('Por defecto', 'Default')) : null)));
+        }
+        if (info.gap) nodes.push(MC.ui.slider({ label: t('Distancia entre viñetas', 'Distance between panels'), min: 0, max: 0.3, step: 0.005, value: tr.gap == null ? (tr.type === 'pageview' ? 0.08 : tr.type === 'grid' ? 0.02 : 0.05) : tr.gap, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setT('gap', v), onChange: commit }));
+      }
+      nodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: tr.type === 'cut', onClick: previewTransition }, MC.icon('play', 14), t('Ver la transición', 'Preview transition')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.shots.length < 3, onClick: () => { p.shots.forEach((x, i) => { if (i > 0 && x !== sh) x.transition = JSON.parse(JSON.stringify(tr)); }); commit(); MC.toast(t('Transición aplicada a todos los planos', 'Transition applied to every shot')); } }, t('Aplicar a todos', 'Apply to all'))));
+      return nodes;
+    }
+    function transPanel() {
+      const p = S.project, sh = shot(), can = S.si > 0;
+      const cur = can ? sh.transition : null;
+      const out = [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, can ? t('Entrada del plano ', 'Entry of shot ') + (S.si + 1) + ' · ' + sh.name : t('Transiciones', 'Transitions')),
+        h('p', { class: 'cap' }, can ? t('Elige cómo entra este plano. Pasa el ratón por encima para verlas moverse.', 'Choose how this shot comes in. Hover to see them move.') : t('El primer plano no tiene transición de entrada: selecciona otro plano en la línea de tiempo.', 'The first shot has no entry transition: pick another shot on the timeline.')),
+        p.shots.length > 1 && !can ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => selectShot(1, true) }, t('Ir al plano 2', 'Go to shot 2')) : null)];
+      MC.TRANSITION_GROUPS.forEach((g) => {
+        out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t(g.es, g.en)), h('div', { class: 'trgrid' },
+          MC.TRANSITIONS.filter((x) => x.g === g.v).map((x) => trTile({ type: x.v, dir: cur && cur.type === x.v ? cur.dir : 'l', color: cur && cur.type === x.v ? cur.color : undefined, gap: cur && cur.type === x.v ? cur.gap : undefined, ease: cur && cur.type === x.v ? cur.ease : undefined }, cur && cur.type === x.v, () => {
+            if (!can) { MC.toast(t('Selecciona un plano a partir del segundo.', 'Select a shot from the second one on.')); return; }
+            sh.transition.type = x.v; if (!x.color) delete sh.transition.color; commit(); renderPanels();
+          })))));
+      });
+      if (can) out.splice(1, 0, h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Ajustes', 'Settings')), transEditor(sh, true)));
+      return out;
+    }
+
     function buildSections() {
       const sh = shot(), l = layer(), p = S.project;
       const sec = (id, title, nodes) => ({ id, title, nodes });
@@ -29724,11 +30194,7 @@ module.exports = ZStream;
         nameIn(t('Nombre del plano', 'Shot name'), sh.name, (v) => { if (v) { sh.name = v; commit(); } }),
         MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { sh.duration = v; layoutClips(); touch(); }, onChange: commit }),
       ];
-      if (S.si > 0) {
-        planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')),
-          MC.ui.chips(MC.TRANSITIONS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), sh.transition.type, (v) => { sh.transition.type = v; commit(); })));
-        if (sh.transition.type !== 'cut') planoNodes.push(MC.ui.slider({ label: t('Duración de la transición', 'Transition length'), min: 0.2, max: 2, step: 0.1, value: sh.transition.dur, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { sh.transition.dur = v; layoutClips(); touch(); }, onChange: commit }));
-      }
+      if (S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
       planoNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
         h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: p.shots.length < 2, onClick: () => { p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot'))));
@@ -29789,6 +30255,8 @@ module.exports = ZStream;
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: l.role === 'fondo', onChange: (e) => { l.role = e.target.checked ? 'fondo' : ''; commit(); } }),
             h('span', null, t('Es el fondo', 'This is the background'), h('small', null, t('Se sobreescala para no dejar huecos al mover la cámara.', 'Scaled up so no gaps show when the camera moves.')))),
           MC.ui.slider({ label: t('Desenfoque de profundidad', 'Depth blur'), min: 0, max: 30, step: 0.5, value: l.blur || 0, fmt: (v) => v.toFixed(1) + ' px', onInput: (v) => set('blur', v), onChange: commit }),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!l.over, disabled: !MC.frameOf(p, sh), onChange: (e) => { l.over = e.target.checked; if (l.over && l.role === 'fondo') l.role = ''; commit(); } }),
+            h('span', null, t('Por encima del borde de la viñeta', 'Above the panel border'), h('small', null, MC.frameOf(p, sh) ? t('Rompe la viñeta: se dibuja sobre el trazo y la calle, como un personaje que se sale del recuadro.', 'Breaks the panel: drawn over the stroke and the gutter, like a character stepping out of the frame.') : t('Activa la viñeta del proyecto para usarlo.', 'Turn on the project panel to use it.')))),
         ];
         if (S.adv) capaNodes.push(
           MC.ui.slider({ label: t('Escala', 'Scale'), min: 0.5, max: 3, step: 0.01, value: l.scale || 1, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => set('scale', v), onChange: commit }),
@@ -29903,6 +30371,8 @@ module.exports = ZStream;
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Cámara entre viñetas', 'Camera between panels')), MC.ui.seg([{ v: 'pan', l: t('Paneo suave', 'Smooth pan') }, { v: 'cut', l: t('Salto', 'Cut') }], pg.mode, (v) => { pg.mode = v; commit(); })),
           pg.mode === 'pan' ? MC.ui.slider({ label: t('Velocidad del paneo', 'Pan time'), min: 0.3, max: 2, step: 0.05, value: pg.travel, fmt: (v) => '×' + (v / 0.8).toFixed(2), onInput: (v) => { pg.travel = v; touch(); }, onChange: commit }) : null,
           MC.ui.slider({ label: t('Atenuación del resto de la página', 'Dimming outside the panel'), min: 0, max: 0.9, step: 0.01, value: pg.dim, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { pg.dim = v; touch(); S.dirty = true; }, onChange: commit }),
+          MC.ui.slider({ label: t('Contorno de la viñeta activa', 'Active panel outline'), min: 0, max: 0.02, step: 0.0005, value: pg.outline || 0, fmt: (v) => (v > 0 ? (v * 1000).toFixed(1) + ' ‰' : t('sin contorno', 'none')), onInput: (v) => { pg.outline = v; touch(); }, onChange: commit }),
+          (pg.outline > 0) ? h('div', { class: 'field' }, h('label', { for: 'pg-oc' }, t('Color del contorno', 'Outline colour')), h('input', { type: 'color', id: 'pg-oc', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: pg.outlineColor || '#ffffff', onInput: (e) => { pg.outlineColor = e.target.value; touch(); }, onChange: commit })) : null,
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const L = sh.layers.find((l) => l.page), img = MC.assets.get(L.assetId); pg.panels = MC.detectPanels(img.bitmap, pg.dir); pg.manual = false; S.pn = null; commit(); MC.toast(t(pg.panels.length + ' viñetas detectadas', pg.panels.length + ' panels detected')); } }, t('Detectar viñetas', 'Detect panels')),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const q = { id: MC.uid(), x0: 0.3, y0: 0.3, x1: 0.7, y1: 0.7, hold: null }; pg.panels.push(q); S.pn = q.id; edit(); S.view = 'page'; commit(); fit(); } }, MC.icon('plus', 14), t('Añadir viñeta', 'Add panel'))),
@@ -30078,8 +30548,51 @@ module.exports = ZStream;
         lk.tint ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { lk.tint = null; commit(); } }, t('Quitar tinte', 'Remove tint')) : null,
       ]);
 
+      /* viñeta: contenedor del proyecto y del plano */
+      const colorIn = (label, value, fn) => { const id = 'c-' + MC.uid(); return h('div', { class: 'field' }, h('label', { for: id }, label), h('input', { type: 'color', id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: value || '#000000', onInput: (e) => { fn(e.target.value); touch(); }, onChange: commit })); };
+      const swatches = (value, fn, list) => h('div', { class: 'swatches' }, list.map((q) => h('button', { type: 'button', class: 'sw', title: q[1], 'aria-label': q[1], 'aria-pressed': String((value || '').toLowerCase() === q[0]), style: { background: q[0] }, onClick: () => { fn(q[0]); commit(); } })));
+      const frameEditor = (f, scope) => {
+        const shapeAmt = !['rect', 'circle'].includes(f.shape || 'rect');
+        const BGS = [['#ffffff', t('Blanco', 'White')], ['#000000', t('Negro', 'Black')], ['#fbf7ee', t('Papel', 'Paper')], ['#e9e6df', t('Gris cálido', 'Warm grey')], ['#ffd84a', t('Amarillo', 'Yellow')], ['#16181b', t('Grafito', 'Graphite')]];
+        return [
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilos de viñeta', 'Panel styles')),
+            MC.ui.chips(MC.FRAME_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), null, (v) => { const pr = MC.FRAME_PRESETS.find((x) => x.v === v); Object.assign(f, { pattern: 'plain', shadow: 0, amount: 0.5 }, pr.f); commit(); })),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Calle (espacio entre viñetas)', 'Gutter (space between panels)')), swatches(f.bg, (v) => { f.bg = v; }, BGS)),
+          MC.ui.slider({ label: t('Ancho de la calle', 'Gutter width'), min: 0, max: 0.15, step: 0.002, value: f.gutter || 0, fmt: (v) => (v * 100).toFixed(1) + ' %', onInput: (v) => { f.gutter = v; touch(); }, onChange: commit }),
+          colorIn(t('Color de la calle', 'Gutter colour'), f.bg, (v) => { f.bg = v; }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Textura de la calle', 'Gutter texture')), MC.ui.chips(MC.FRAME_BGS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.pattern || 'plain', (v) => { f.pattern = v; commit(); })),
+          f.pattern && f.pattern !== 'plain' ? colorIn(t('Color de la textura', 'Texture colour'), f.patColor, (v) => { f.patColor = v; }) : null,
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma de la viñeta', 'Panel shape')), MC.ui.chips(MC.FRAME_SHAPES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.shape || 'rect', (v) => { f.shape = v; commit(); })),
+          shapeAmt ? MC.ui.slider({ label: t('Intensidad de la forma', 'Shape amount'), min: 0, max: 1, step: 0.01, value: f.amount == null ? 0.5 : f.amount, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.amount = v; touch(); }, onChange: commit }) : null,
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Trazo que la bordea', 'Border stroke')), MC.ui.chips(MC.FRAME_STROKES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.style || 'solid', (v) => { f.style = v; if (v !== 'none' && !(f.width > 0)) f.width = 0.006; commit(); })),
+          f.style !== 'none' ? MC.ui.slider({ label: t('Grosor del trazo', 'Stroke width'), min: 0, max: 0.03, step: 0.0005, value: f.width || 0, fmt: (v) => (v * 1000).toFixed(1) + ' ‰', onInput: (v) => { f.width = v; touch(); }, onChange: commit }) : null,
+          f.style !== 'none' ? colorIn(t('Color del trazo', 'Stroke colour'), f.color, (v) => { f.color = v; }) : null,
+          MC.ui.slider({ label: t('Sombra de la viñeta', 'Panel shadow'), min: 0, max: 1, step: 0.01, value: f.shadow || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.shadow = v; touch(); }, onChange: commit }),
+          f.shadow > 0 ? colorIn(t('Color de la sombra', 'Shadow colour'), f.shadowColor, (v) => { f.shadowColor = v; }) : null,
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileOver.click() }, MC.icon('plus', 14), t('Añadir ilustración por encima', 'Add artwork on top')),
+            scope === 'shot' ? null : h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.shots.some((x) => x.frame), onClick: () => { p.shots.forEach((x) => { x.frame = null; }); commit(); MC.toast(t('Todas las viñetas usan el estilo del proyecto', 'All panels use the project style')); } }, t('Quitar personalizaciones', 'Clear overrides'))),
+          h('p', { class: 'cap' }, t('Las ilustraciones por encima rompen la viñeta: se dibujan sobre el trazo y la calle. Cualquier capa puede hacerlo desde sus propiedades.', 'Artwork on top breaks the panel: it is drawn over the stroke and the gutter. Any layer can do it from its properties.')),
+        ];
+      };
+      const pf = p.frame || (p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }));
+      const isFree = (p.mode || 'free') === 'free';
+      const vinetasNodes = [
+        h('p', { class: 'cap' }, isFree ? t('Cada plano vive dentro de una viñeta: la calle se ve entre plano y plano como en una página de cómic. Esto es el estilo de todo el proyecto; cada plano puede personalizar el suyo.', 'Every shot lives inside a panel: the gutter shows between shots like on a comic page. This is the style for the whole project; each shot can customise its own.') : t('Tus páginas ya traen sus viñetas. Puedes añadir además un marco alrededor del encuadre.', 'Your pages already have their panels. You can also add a frame around the picture.')),
+        isFree ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: pf.on !== false, onChange: (e) => { pf.on = e.target.checked; commit(); } }), h('span', null, t('Marco alrededor del encuadre', 'Frame around the picture'))),
+      ].concat(isFree || pf.on !== false ? frameEditor(pf, 'project') : []);
+      const own = !!sh.frame, sf = sh.frame;
+      const vinetaNodes = [
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: own, disabled: !MC.frameOf(p, Object.assign({}, sh, { frame: null })), onChange: (e) => { if (e.target.checked) { const c = Object.assign({}, MC.frameOf(p, Object.assign({}, sh, { frame: null })) || MC.FRAME_DEF); delete c.on; sh.frame = c; } else sh.frame = null; commit(); } }),
+          h('span', null, t('Personalizar la viñeta de este plano', 'Customise this shot’s panel'), h('small', null, own ? t('Este plano tiene su propio contenedor.', 'This shot has its own container.') : t('Usa el estilo de viñeta del proyecto (pestaña Viñetas).', 'Uses the project panel style (Panels tab).')))),
+      ].concat(own ? frameEditor(sf, 'shot') : [h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.ws === 'montaje' || setWs('montaje'); S.tab.montaje = 'vinetas'; renderRail(); renderPanels(); } }, MC.icon('page', 14), t('Editar el estilo del proyecto', 'Edit the project style')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, disabled: !MC.frameOf(p, sh), onClick: () => fileOver.click() }, MC.icon('plus', 14), t('Añadir ilustración por encima', 'Add artwork on top'))]);
+
+      /* transición de entrada del plano */
+      const trNodes = S.si > 0 ? transEditor(sh) : [h('p', { class: 'cap' }, t('El primer plano no tiene transición de entrada.', 'The first shot has no entry transition.'))];
+
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
-        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes)];
+        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
+        sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
       const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
         try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
@@ -30190,14 +30703,14 @@ module.exports = ZStream;
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
-        planos: shotsPanel, recursos: resourcesPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
+        planos: shotsPanel, recursos: resourcesPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
         rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sonidos: soundsPanel, mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
       if (tab) { const lt = el.leftBody.scrollTop; el.leftTitle.textContent = tabLabel(tab); MC.put(MC.clear(el.leftBody), L[tab] ? L[tab]() : null); el.leftBody.scrollTop = lt; }
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
-      const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
+      const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
         layer: () => [secDom(DP.capa)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
@@ -30491,7 +31004,8 @@ module.exports = ZStream;
           const l = layer(), img = MC.assets.get(l.assetId);
           if (!img) return;
           const tl = clamp(S.time - MC.shotStarts(S.project)[S.si], 0, sh.duration);
-          drag = { m: 'layer', p0: p, x0: l.x || 0, y0: l.y || 0, zl: MC.layerGeom(l, img, MC.camAt(sh, tl, false), o).zl, l };
+          const px2 = MC.panelXf(S.project, sh, o.W, o.H);
+          drag = { m: 'layer', p0: p, x0: l.x || 0, y0: l.y || 0, zl: MC.layerGeom(l, img, MC.camAt(sh, tl, false), o).zl * (px2 && S.view === 'out' ? px2.s : 1), l };
           }
         }
         if (drag) { c.setPointerCapture(e.pointerId); S.dragging = true; }
@@ -30714,6 +31228,14 @@ module.exports = ZStream;
     }
 
     /* ---------- montaje de la interfaz ---------- */
+    const fileOver = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, hidden: true, id: 'f-over', onChange: async (e) => {
+      const list = [...e.target.files]; e.target.value = ''; if (!list.length) return;
+      const sh = shot();
+      try {
+        for (const f of list) { const a = await MC.assets.add(f, f.name); const L = MC.newLayer(a, { z: 0.95, role: '' }); L.over = true; sh.layers.push(L); }
+        S.li = sh.layers.length - 1; commit(); checkMemory(); MC.toast(t('Ilustración añadida por encima de la viñeta', 'Artwork added above the panel'));
+      } catch (err) { MC.toast(t('No se pudo leer esa imagen.', 'Could not read that image.')); }
+    } });
     const fileLayers = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf,audio/*', multiple: true, hidden: true, id: 'f-layers', onChange: (e) => { importFiles(e.target.files, 'layers'); e.target.value = ''; } });
     const fileShots = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,.psd,.pdf', multiple: true, hidden: true, id: 'f-shots', onChange: (e) => { importFiles(e.target.files, 'shots'); e.target.value = ''; } });
     const fileAudio = h('input', { type: 'file', accept: 'audio/*,.wav,.mp3,.m4a,.ogg', multiple: true, hidden: true, id: 'f-audio', onChange: (e) => { importAudio([...e.target.files], fileAudio.dataset.track || 'auto'); e.target.value = ''; } });
@@ -30760,7 +31282,7 @@ module.exports = ZStream;
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
     const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
-    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, el.rail, el.leftEl, viewer, el.rightEl, exportPanel), mtabs, timeline, fileLayers, fileShots, fileAudio);
+    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, h('div', { class: 's-main' }, el.rail, el.leftEl, viewer, el.rightEl, exportPanel), mtabs, timeline, fileLayers, fileOver, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 1400);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
@@ -30840,6 +31362,7 @@ module.exports = ZStream;
     function cleanup() { offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
+      seek: (tm) => { togglePlay(false); setTime(tm); },
       selectLayer: () => { const sh = shot(); if (sh && sh.layers.length && S.li < 0) { S.li = sh.layers.length - 1; S.tx = null; renderLayers(); renderInspector(); } },
       openMix: () => { setWs('creativo'); S.tab.creativo = 'mezclador'; renderRail(); renderPanels(); },
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },

@@ -4,7 +4,8 @@
   const MC = window.MC;
   const { clamp, lerp } = MC;
 
-  const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t) };
+  const EASE = { linear: (t) => t, smooth: (t) => t * t * (3 - 2 * t), in: (t) => t * t, out: (t) => 1 - (1 - t) * (1 - t),
+    back: (t) => { const c = 1.70158, u = t - 1; return 1 + (c + 1) * u * u * u + c * u * u; }, snap: (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)) };
   MC.ease = (k, t) => (EASE[k] || EASE.smooth)(clamp(t, 0, 1));
   const noise = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
   MC.PARALLAX = { subtle: 0.5, normal: 1, wild: 1.6 };
@@ -127,17 +128,12 @@
     let cam = o.cam || MC.camAt(shot, tl);
     const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
-    ctx.save();
-    if (!o.noClip) {
-      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
-      const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
-      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
-      ctx.fillRect(0, 0, W, H);
-    }
-    for (const layer of shot.layers) {
-      if (layer.visible === false) continue;
+    /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
+    const fr = !o.noClip && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
+    const pan = fr ? MC.panelGeom(fr, W, H) : null;
+    const drawLayer = (layer) => {
       const img = o.getImg(layer.assetId);
-      if (!img) continue;
+      if (!img) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
       const camx = W / 2 + (cam.x + cam.sx) * W * g.f, camy = H / 2 + (cam.y + cam.sy) * H * g.f;
@@ -161,17 +157,40 @@
         if (cam.poly) { cam.poly.forEach((q, i) => { const X = ix + q[0] * iw, Y = iy + q[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
         else ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
         ctx.fill('evenodd');
+        /* contorno de la viñeta activa (modo página) */
+        if (pg.outline > 0) {
+          ctx.strokeStyle = pg.outlineColor || '#ffffff'; ctx.lineWidth = (pg.outline * Math.min(W, H)) / g.zl; ctx.lineJoin = 'miter';
+          ctx.beginPath();
+          if (cam.poly) { cam.poly.forEach((q, i) => { const X = ix + q[0] * iw, Y = iy + q[1] * ih; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+          else ctx.rect(ix + r.x0 * iw, iy + r.y0 * ih, (r.x1 - r.x0) * iw, (r.y1 - r.y0) * ih);
+          ctx.stroke();
+        }
       }
       ctx.restore();
+    };
+    const content = () => { if (pan) { ctx.translate(pan.ox, pan.oy); ctx.scale(pan.s, pan.s); } };
+    ctx.save();
+    if (!o.noClip) {
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      const hasBg = shot.layers.some((l) => l.role === 'fondo' && l.visible !== false);
+      if (pan) { MC.drawPanelBg(ctx, fr, W, H); MC.drawPanelShadow(ctx, fr, pan, W, H); ctx.save(); MC.pathPoly(ctx, pan.poly); ctx.clip(); }
+      ctx.fillStyle = o.holes && hasBg ? '#E5333D' : '#000';
+      ctx.fillRect(0, 0, W, H);
     }
+    ctx.save(); content();
+    for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
     if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
+    if (pan) {
+      ctx.restore();
+      MC.drawPanelStroke(ctx, fr, pan, W, H);
+      /* ilustraciones que rompen la viñeta: encima del trazo y de la calle */
+      ctx.save(); content();
+      for (const layer of shot.layers) if (layer.over && layer.visible !== false) drawLayer(layer);
+      ctx.restore();
+    }
+    ctx.restore();
   };
-
-  MC.TRANSITIONS = [
-    { v: 'cut', es: 'Corte', en: 'Cut' }, { v: 'fade', es: 'Fundido', en: 'Fade' },
-    { v: 'flash', es: 'Destello', en: 'Flash' }, { v: 'wipe', es: 'Barrido', en: 'Wipe' },
-  ];
 
   const renderBase = (ctx, project, time, o) => {
     const { W, H } = o;
@@ -180,20 +199,13 @@
     if (!cur) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); return; }
     const tr = cur.transition || { type: 'cut' };
     const dur = Math.min(tr.dur || 0.6, cur.duration * 0.9);
-    if (i > 0 && tr.type !== 'cut' && tl < dur) {
+    if (i > 0 && tr.type !== 'cut' && tl < dur && MC.drawTransition) {
       const prev = project.shots[i - 1], p = tl / dur;
-      const drawPrev = () => MC.renderShot(ctx, prev, prev.duration, o);
-      const drawCur = () => MC.renderShot(ctx, cur, tl, o);
-      const veil = (rgb, a) => { ctx.fillStyle = 'rgba(' + rgb + ',' + clamp(a, 0, 1) + ')'; ctx.fillRect(0, 0, W, H); };
-      if (tr.type === 'fade') { if (p < 0.5) { drawPrev(); veil('0,0,0', p * 2); } else { drawCur(); veil('0,0,0', (1 - p) * 2); } return; }
-      if (tr.type === 'flash') { const a = p < 0.3 ? p / 0.3 : (1 - p) / 0.7; if (p < 0.3) drawPrev(); else drawCur(); veil('255,255,255', a); return; }
-      if (tr.type === 'wipe') {
-        const e = MC.ease('smooth', p);
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-        ctx.save(); ctx.translate(-W * e * 0.3, 0); drawPrev(); ctx.restore();
-        ctx.save(); ctx.translate(W * (1 - e), 0); drawCur(); ctx.restore();
-        return;
-      }
+      const fr = MC.frameOf ? MC.frameOf(project, cur) : null;
+      const to = Object.assign({}, o, { frameBg: fr ? fr.bg : '#000000', frameGutter: fr ? clamp(fr.gutter || 0, 0, 0.3) * Math.min(W, H) : 0 });
+      /* el plano entrante arranca su movimiento al empezar la transición */
+      MC.drawTransition(ctx, tr, p, (g) => MC.renderShot(g, prev, prev.duration, o), (g) => MC.renderShot(g, cur, tl, o), to);
+      return;
     }
     MC.renderShot(ctx, cur, tl, o);
   };
@@ -202,7 +214,7 @@
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
-    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false }, extra || {});
+    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false, project }, extra || {});
   };
 
   MC.makeThumb = (project) => {

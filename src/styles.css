@@ -368,3 +368,16 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
   .btn-ic { width: 40px; height: 40px; } .layer { padding-block: 9px; } .layer .btn { width: 36px; height: 36px; }
   .clip .rz { width: 22px; } .tl-track { height: 40px; } .tl-labels { grid-auto-rows: 40px; } .seg button { padding: 8px 14px; }
 }
+
+/* ---------- viñetas y transiciones ---------- */
+.trgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.trtile { display: grid; gap: 6px; padding: 6px; background: var(--raised); border: 1px solid var(--line); color: inherit; font: inherit; font-size: 12px; text-align: left; cursor: pointer; transition: border-color .15s, transform .15s; }
+.trtile canvas { width: 100%; height: auto; aspect-ratio: 112 / 70; display: block; background: #000; }
+.trtile:hover { border-color: var(--accent); }
+.trtile[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.trtile[aria-pressed="true"] span { color: var(--accent); font-weight: 600; }
+.trtile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatches .sw { width: 28px; height: 28px; border: 1px solid var(--line); cursor: pointer; padding: 0; }
+.swatches .sw[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-motion="reduce"] .trtile { transition: none; }
