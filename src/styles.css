@@ -411,7 +411,7 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- superposiciones y filas extra en la línea de tiempo ---------- */
 :root { --lh: 34px; }
-.tl-labels { grid-auto-rows: auto; }
+.tl-labels { grid-auto-rows: auto; align-content: start; }
 .tl-labels .trl { min-height: var(--lh); }
 .tl-track { min-height: var(--lh); }
 .tl-track.ovt { background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
@@ -438,3 +438,25 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .kfrow[aria-selected="true"] { border-color: var(--accent); }
 .cved { display: grid; gap: 8px; }
 .cvcanvas { width: 100%; max-width: 260px; height: auto; aspect-ratio: 220 / 200; background: var(--bg); border: 1px solid var(--line); touch-action: none; cursor: crosshair; }
+
+/* ---------- mezclador: silenciar, solo y medidores ---------- */
+.mixrow { display: grid; gap: 4px; }
+.mixrow.muted .slider { opacity: .45; }
+.mixctl { display: flex; gap: 6px; align-items: center; }
+.msb { min-width: 30px; padding: 3px 8px; font-weight: 700; font-size: 12px; }
+.msb[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.meter { flex: 1; height: 8px; background: var(--bg); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #3ec97b, #e8c547 75%, #e5333d); transition: width .06s linear; }
+.meter.hot { border-color: #e5333d; }
+
+/* ---------- línea de tiempo avanzada ---------- */
+.clip.sel { box-shadow: 0 0 0 2px var(--accent); }
+.clip.grp { border-bottom: 3px dashed var(--warn); }
+.marq { position: absolute; z-index: 6; border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
+.clip.shotc.th { background-size: auto 100%; background-repeat: repeat-x; background-position: left center; color: #fff; }
+.clip.shotc.th span { background: rgba(0,0,0,.62); padding: 1px 7px; }
+.clip.ov.film { padding-left: 8px; color: #fff; } .clip.ov.film span { background: rgba(0,0,0,.6); padding: 1px 7px; }
+.clip.ef { background: var(--warn); color: #1a1a1a; }
+.mkn { position: absolute; bottom: 0; width: 11px; height: 14px; padding: 0; border: 0; background: currentColor; clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); cursor: ew-resize; z-index: 4; touch-action: none; }
+.mkn.beat { height: 11px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.mkn.on { outline: 2px solid var(--fg); outline-offset: 1px; }

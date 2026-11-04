@@ -118,6 +118,15 @@
     V.busy = true; V.prepare(p, time).finally(() => { V.busy = false; if (then) then(); });
   };
 
+  /* Tira de fotogramas de un vídeo (para el fondo de su clip en la línea de tiempo). */
+  V.strip = async (asset, n) => {
+    n = n || 10; const v = mkEl(asset.url); await whenReady(v, 12000);
+    const fh = 40, fw = Math.max(20, Math.round(fh * (asset.w / asset.h))), c = document.createElement('canvas'); c.width = fw * n; c.height = fh; const g = c.getContext('2d');
+    for (let i = 0; i < n; i++) { await seekTo(v, Math.min(asset.dur - 0.05, (i + 0.5) * asset.dur / n)); g.drawImage(v, i * fw, 0, fw, fh); }
+    v.removeAttribute('src'); v.load();
+    return c.toDataURL('image/jpeg', 0.6);
+  };
+
   /* Croma: quita un color de fondo. Devuelve un lienzo con el fotograma ya recortado. */
   const keyPool = new Map();
   V.keyed = (src, key, id, maxW) => {

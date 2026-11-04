@@ -22,6 +22,10 @@
     { id: 'redo', g: 'edit', es: 'Rehacer', en: 'Redo' },
     { id: 'addBubble', g: 'edit', es: 'Añadir un bocadillo', en: 'Add a speech bubble' },
     { id: 'save', g: 'edit', es: 'Guardar ahora', en: 'Save now' },
+    { id: 'duplicate', g: 'edit', es: 'Duplicar lo seleccionado', en: 'Duplicate selection' },
+    { id: 'selectAll', g: 'edit', es: 'Seleccionar todos los clips', en: 'Select all clips' },
+    { id: 'marker', g: 'edit', es: 'Añadir un marcador con nota', en: 'Add a marker with a note' },
+    { id: 'tapBeat', g: 'edit', es: 'Marcar un pulso musical', en: 'Mark a music beat' },
     { id: 'viewSwitch', g: 'view', es: 'Cambiar de vista (cámara, página o tira)', en: 'Switch view (camera, page or strip)' },
     { id: 'fullscreen', g: 'view', es: 'Pantalla completa del visor', en: 'Viewer full screen' },
     { id: 'zoomIn', g: 'view', es: 'Acercar la línea de tiempo', en: 'Zoom the timeline in' },
@@ -36,7 +40,7 @@
     motioncomic: {
       play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'],
       start: ['Home'], end: ['End'], prevShot: ['['], nextShot: [']'], split: ['S'], delete: ['Delete', 'Backspace'], undo: ['Ctrl+Z'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'],
-      addBubble: ['T'], save: ['Ctrl+S'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
+      addBubble: ['T'], save: ['Ctrl+S'], duplicate: ['Ctrl+D'], selectAll: ['Ctrl+A'], marker: ['M'], tapBeat: ['B'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
     },
   };
   /* Premiere: J K L, Ctrl+K para cortar, flechas arriba y abajo entre cortes, Ctrl+M para exportar. */

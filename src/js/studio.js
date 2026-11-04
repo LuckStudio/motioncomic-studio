@@ -15,7 +15,7 @@
     await MC.loadProjectAssets(project);
 
     const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay' };
-    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
+    const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, li: -1, cl: null, tx: null, ov: null, kfid: null, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
       ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
@@ -589,12 +589,12 @@
       /* plano */
       const planoNodes = [
         nameIn(t('Nombre del plano', 'Shot name'), sh.name, (v) => { if (v) { sh.name = v; commit(); } }),
-        MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { sh.duration = v; layoutClips(); touch(); }, onChange: commit }),
+        (() => { let rp = null, d0 = sh.duration; return MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { if (S.ripple && !rp) rp = rippleBegin(MC.shotStarts(p)[S.si] + d0); sh.duration = v; if (rp) rippleApply(rp, v - d0); layoutClips(); touch(); }, onChange: () => { rp = null; commit(); } }); })(),
       ];
       if (S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
       planoNodes.push(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
-        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: p.shots.length < 2, onClick: () => { p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot'))));
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.name += ' 2'; c.layers.forEach((x) => { x.id = MC.uid(); }); if (S.ripple) rippleApply(rippleBegin(MC.shotStarts(p)[S.si] + sh.duration), sh.duration); p.shots.splice(S.si + 1, 0, c); commit(); selectShot(S.si + 1, true); } }, MC.icon('copy', 14), t('Duplicar plano', 'Duplicate shot')),
+        h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', disabled: p.shots.length < 2, onClick: () => { if (S.ripple) { const rp = rippleBegin(MC.shotStarts(p)[S.si] + sh.duration); rippleApply(rp, -sh.duration); } p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.time = clamp(S.time, 0, MC.totalTime(p) - 0.001); commit(); setTime(S.time); } }, MC.icon('trash', 14), t('Eliminar plano', 'Delete shot'))));
 
       /* cámara */
       const cam = sh.camera;
@@ -847,11 +847,21 @@
           a ? h('p', { class: 'cap' }, t('Duración original: ', 'Original length: ') + a.dur.toFixed(1) + ' s') : null]));
       }
       const hasVoice = p.clips.some((c) => c.track === 'voz');
+      mixv.mute = mixv.mute || {}; mixv.solo = mixv.solo || {};
+      const mixRow = (tr, label, max) => {
+        const tog = (key, ch, title) => h('button', { type: 'button', class: 'btn btn-s msb', 'aria-pressed': String(!!mixv[key][tr]), title, 'aria-label': title + ' · ' + label, onClick: () => { mixv[key][tr] = !mixv[key][tr]; if (key === 'solo' && mixv.solo[tr]) mixv.mute[tr] = false; commit(); if (S.playing) MC.audio.play(S.project, S.time); } }, ch);
+        return h('div', { class: 'mixrow' + (mixv.mute[tr] ? ' muted' : '') },
+          MC.ui.slider({ label, min: 0, max, step: 0.01, value: mixv[tr], fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv[tr] = v; touch(); }, onChange: commit }),
+          h('div', { class: 'mixctl' }, tog('mute', 'M', t('Silenciar', 'Mute')), tog('solo', 'S', t('Solo', 'Solo')), h('div', { class: 'meter', 'data-m': tr, role: 'meter', 'aria-label': t('Nivel de ', 'Level of ') + label, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i'))));
+      };
       audioSecs.push(sec('mezcla', t('Mezcla de audio', 'Audio mix'), [
-        MC.ui.slider({ label: t('Locución', 'Voice'), min: 0, max: 1.5, step: 0.01, value: mixv.voz, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.voz = v; touch(); }, onChange: commit }),
-        MC.ui.slider({ label: 'SFX', min: 0, max: 1.5, step: 0.01, value: mixv.sfx, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.sfx = v; touch(); }, onChange: commit }),
-        MC.ui.slider({ label: t('Música', 'Music'), min: 0, max: 1.5, step: 0.01, value: mixv.musica, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { mixv.musica = v; touch(); }, onChange: commit }),
+        mixRow('voz', t('Locución', 'Voice'), 1.5), mixRow('sfx', 'SFX', 1.5), mixRow('musica', t('Música', 'Music'), 1.5),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: mixv.duck !== false, onChange: (e) => { mixv.duck = e.target.checked; commit(); } }), h('span', null, t('Ducking automático', 'Automatic ducking'), h('small', null, t('La música baja sola cuando habla la voz.', 'Music lowers by itself when the voice speaks.')))),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Pulso de la música', 'Music beat')),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.clips.some((c) => c.track === 'musica'), onClick: () => { const cs = p.clips.filter((c) => c.track === 'musica'); const n = cs.reduce((a, c) => a + detectBeats(c), 0); commit(); MC.toast(n ? t(n + ' pulsos marcados en la línea de tiempo', n + ' beats marked on the timeline') : t('No se encontró un pulso claro.', 'No clear beat found.')); } }, MC.icon('note', 14), t('Detectar el pulso', 'Detect the beat')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { addMarker('beat'); } }, t('Marcar un pulso aquí (B)', 'Mark a beat here (B)')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !(p.notes || []).some((n) => n.kind === 'beat') || p.shots.length < 2, onClick: () => { const n = cutsToBeat(); commit(); setTime(S.time); MC.toast(n ? t(n + ' cortes ajustados al pulso', n + ' cuts fitted to the beat') : t('Los cortes ya están cerca del pulso o no hay pulsos cercanos.', 'Cuts are already near the beat, or no beats are close.')); } }, t('Cortes al pulso', 'Cuts to the beat')))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice, onClick: () => { const ps = MC.audio.voicePauses(p); p.markers = ps.map((x) => Math.round(x.t * 100) / 100); commit(); MC.toast(ps.length ? t(ps.length + ' pausas marcadas en la regla', ps.length + ' pauses marked on the ruler') : t('No se han encontrado pausas', 'No pauses found')); } }, t('Marcar pausas de la voz', 'Mark voice pauses')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !hasVoice || p.shots.length < 2, onClick: () => { if (MC.audio.fitShotsToVoice(p)) { commit(); setTime(S.time); MC.toast(t('Planos ajustados a la voz', 'Shots fitted to the voice')); } else MC.toast(t('Faltan pausas en la voz para repartir ' + p.shots.length + ' planos.', 'Not enough voice pauses to split ' + p.shots.length + ' shots.')); } }, t('Ajustar planos a la voz', 'Fit shots to voice'))),
@@ -1116,9 +1126,32 @@
       const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, MC.shotStarts(p)[S.si], sh.duration))] : [];
       const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
+      /* selección múltiple */
+      const mItems = multiItems(), mNodes = [], mSet = (fn) => { mItems.forEach((q) => fn(q.it, q.k)); commit(); };
+      if (mItems.length > 1) {
+        const grouped = mItems.every((q) => q.it.group && q.it.group === mItems[0].it.group);
+        mNodes.push(h('p', { class: 'cap' }, mItems.length + t(' elementos seleccionados. Arrastra cualquiera para moverlos juntos. Mayús + clic añade o quita; Mayús + arrastrar en una zona vacía selecciona con un recuadro.', ' items selected. Drag any to move them together. Shift-click adds or removes; Shift-drag on an empty area selects with a box.')),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => dupSelection() }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const g = grouped ? null : MC.uid(); mSet((it) => { if (g) it.group = g; else delete it.group; }); MC.toast(grouped ? t('Desagrupado', 'Ungrouped') : t('Agrupados: se mueven y se seleccionan juntos', 'Grouped: they move and select together')); } }, MC.icon('layersx', 14), grouped ? t('Desagrupar', 'Ungroup') : t('Agrupar', 'Group')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const mn = Math.min(...mItems.filter((q) => !(q.k[0] === 'x' && q.it.link)).map((q) => q.it.start)), d = S.time - mn; mSet((it, k) => { if (k[0] === 'x' && it.link) return; it.start = Math.max(0, Math.round((it.start + d) * 100) / 100); if (k[0] === 'o') syncOvAudio(it); }); } }, t('Llevar al cabezal', 'Move to playhead')),
+            h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { mItems.forEach((q) => { if (q.k[0] === 'c') p.clips = p.clips.filter((c) => c.id !== q.it.id); else if (q.k[0] === 'x') p.texts = p.texts.filter((x) => x.id !== q.it.id); else removeOverlay(q.it); }); S.multi = []; S.selKind = 'shot'; commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete'))),
+          MC.ui.slider({ label: t('Desplazar todos', 'Nudge all'), min: -2, max: 2, step: 0.05, value: 0, fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(2) + ' s', onInput: () => {}, onChange: (v) => { mSet((it, k) => { if (k[0] === 'x' && it.link) return; it.start = Math.max(0, Math.round((it.start + v) * 100) / 100); if (k[0] === 'o') syncOvAudio(it); }); } }));
+      }
+      /* marcador */
+      const mkx = mkById(S.mk), mkNodes = [];
+      if (mkx) {
+        const MKC = ['#8C7CFF', '#e8c547', '#3ec97b', '#e5333d', '#4aa8ff', '#ffffff'];
+        mkNodes.push(nameIn(t('Nota', 'Note'), mkx.text || '', (v) => { mkx.text = v; commit(); }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tipo', 'Type')), MC.ui.seg([{ v: 'note', l: t('Nota', 'Note') }, { v: 'beat', l: t('Pulso musical', 'Music beat') }], mkx.kind, (v) => { mkx.kind = v; commit(); })),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Color', 'Colour')), h('div', { class: 'swatches' }, MKC.map((c) => h('button', { type: 'button', class: 'sw', 'aria-label': c, 'aria-pressed': String((mkx.color || '').toLowerCase() === c.toLowerCase()), style: { background: c }, onClick: () => { mkx.color = c; commit(); } })))),
+          MC.ui.slider({ label: t('Momento', 'Time'), min: 0, max: Math.max(MC.totalTime(p), mkx.t + 1), step: 0.01, value: mkx.t, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { mkx.t = v; touch(); }, onChange: commit }),
+          h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { p.notes = p.notes.filter((n) => n.id !== mkx.id); S.mk = null; S.selKind = 'shot'; commit(); } }, MC.icon('trash', 14), t('Eliminar', 'Delete')));
+      }
+
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
         sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
-        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
+        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovNodes), sec('multi', t('Selección múltiple', 'Multiple selection'), mNodes), sec('marker', t('Marcador', 'Marker'), mkNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
       const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
         try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
@@ -1141,8 +1174,17 @@
       MC.put(el.rail, WS[S.ws].tabs.map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
     }
     const thumbCache = new Map();
+    const djb = (str) => { let hh = 5381; for (let i = 0; i < str.length; i++) hh = ((hh << 5) + hh + str.charCodeAt(i)) | 0; return hh; };
+    const thumbKey = (sh) => sh.id + ':' + djb(JSON.stringify([sh.layers, sh.camera && sh.camera.from, sh.camera && sh.camera.to, sh.camera && sh.camera.path, sh.page && sh.page.panels.length, sh.frame, S.project.frame, S.project.ratio]));
+    /* Miniatura del plano como imagen, para el fondo de su clip en la línea de tiempo. */
+    const clipThumbs = new Map();
+    function shotThumbURL(sh) {
+      const key = thumbKey(sh); if (clipThumbs.has(key)) return clipThumbs.get(key);
+      const c = shotThumb(sh), u = c.toDataURL('image/jpeg', 0.55);
+      if (clipThumbs.size > 120) clipThumbs.clear(); clipThumbs.set(key, u); return u;
+    }
     function shotThumb(sh) {
-      const key = sh.id + ':' + S.thumbV, c = document.createElement('canvas'); c.width = 172; c.height = 112;
+      const key = thumbKey(sh), c = document.createElement('canvas'); c.width = 172; c.height = 112;
       if (!thumbCache.has(key)) {
         const tc = document.createElement('canvas'), o = opts({ fx: false, noLook: true, lang: S.project.lang });
         const k = Math.min(172 / o.W, 112 / o.H); tc.width = Math.max(1, Math.round(o.W * k)); tc.height = Math.max(1, Math.round(o.H * k));
@@ -1211,21 +1253,23 @@
       if (k === 'text' && S.tx && txById(S.tx)) return 'text';
       if (k === 'clip' && S.cl && clipById(S.cl)) return 'clip';
       if (k === 'overlay' && S.ov && ovById(S.ov)) return 'overlay';
+      if (k === 'multi' && S.multi.length > 1) return 'multi';
+      if (k === 'marker' && S.mk && mkById(S.mk)) return 'marker';
       if (k === 'fx' && S.fxsel && sh.fx.find((f) => f.id === S.fxsel)) return 'fx';
       if (k === 'panel' && S.pn && sh.page && sh.page.panels.find((q) => q.id === S.pn)) return 'panel';
       if (k === 'stop' && S.sp && sh.webtoon && sh.webtoon.stops.find((q) => q.id === S.sp)) return 'stop';
-      return k === 'shot' || k === 'layer' || k === 'text' || k === 'clip' || k === 'fx' || k === 'panel' || k === 'stop' || k === 'overlay' ? 'shot' : 'project';
+      return k === 'shot' || k === 'layer' || k === 'text' || k === 'clip' || k === 'fx' || k === 'panel' || k === 'stop' || k === 'overlay' || k === 'multi' || k === 'marker' ? 'shot' : 'project';
     };
     function crumbs(kind) {
       const p = S.project, sh = shot(), parts = [[t('Proyecto', 'Project'), () => { clearSel(); }]];
       if (kind !== 'project') parts.push([sh.name, () => { S.selKind = 'shot'; S.li = -1; S.tx = null; S.cl = null; S.fxsel = null; renderPanels(); renderLayers(); }]);
-      const leaf = { layer: layer() && layer().name, text: S.tx && txById(S.tx) && (MC.textOf(txById(S.tx), p) || t('Texto', 'Text')).slice(0, 18), clip: S.cl && clipById(S.cl) && clipById(S.cl).name, overlay: S.ov && ovById(S.ov) && ovById(S.ov).name, fx: S.fxsel && sh.fx.find((f) => f.id === S.fxsel) && MC.fxName(sh.fx.find((f) => f.id === S.fxsel).type), panel: t('Viñeta', 'Panel'), stop: t('Pausa', 'Pause') }[kind];
+      const leaf = { layer: layer() && layer().name, text: S.tx && txById(S.tx) && (MC.textOf(txById(S.tx), p) || t('Texto', 'Text')).slice(0, 18), clip: S.cl && clipById(S.cl) && clipById(S.cl).name, overlay: S.ov && ovById(S.ov) && ovById(S.ov).name, multi: S.multi.length + t(' elementos', ' items'), marker: S.mk && mkById(S.mk) && (mkById(S.mk).text || (mkById(S.mk).kind === 'beat' ? t('Pulso', 'Beat') : t('Marcador', 'Marker'))), fx: S.fxsel && sh.fx.find((f) => f.id === S.fxsel) && MC.fxName(sh.fx.find((f) => f.id === S.fxsel).type), panel: t('Viñeta', 'Panel'), stop: t('Pausa', 'Pause') }[kind];
       if (leaf) parts.push([leaf, null]);
       const box = h('div', { class: 'crumbs', 'aria-label': t('Ruta de la selección', 'Selection path') });
       parts.forEach((q, i) => { if (i) box.append(h('span', { 'aria-hidden': 'true' }, '›')); box.append(h('button', { type: 'button', disabled: !q[1], onClick: q[1] || undefined }, q[0])); });
       return box;
     }
-    function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.ov = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
+    function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.ov = null; S.multi = []; S.mk = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
     function renderPanels() {
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
@@ -1238,8 +1282,8 @@
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
-      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)] : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_look), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }
     function renderInspector() { renderPanels(); }
@@ -1672,9 +1716,14 @@
         el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
         drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
       });
+      el.tlContent.querySelectorAll('.clip[data-f]').forEach((el2) => {
+        const si = +el2.dataset.fs, shx = p.shots[si], f = shx && (shx.fx || []).find((q) => q.id === el2.dataset.f); if (!f) return;
+        el2.style.left = (starts[si] + MC.fxStart(shx, f)) * pps + 'px'; el2.style.width = Math.max(8, f.dur * pps - 2) + 'px';
+      });
       el.tlContent.querySelectorAll('.clip[data-o]').forEach((el2) => {
         const it = ovById(el2.dataset.o); if (!it) return;
         el2.style.left = it.start * pps + 'px'; el2.style.width = Math.max(8, it.dur * pps - 2) + 'px';
+        const aa = MC.assets.get(it.assetId); if (aa && aa.strip && el2.classList.contains('vid')) applyStrip(el2, it, aa);
       });
       const kt = kfTarget();
       if (kt) el.tlContent.querySelectorAll('.kfd').forEach((d) => { const q = (kt.it.kf || []).find((z) => z.id === d.dataset.kf); if (q) d.style.left = (kt.start + q.t) * pps - 7 + 'px'; });
@@ -1694,17 +1743,95 @@
         row.classList.toggle('multi', n > 1);
       });
     }
+    /* tiras de fotogramas de los vídeos dentro de sus clips */
+    function applyStrip(n, it, a) { n.style.backgroundImage = 'url(' + a.strip + ')'; n.style.backgroundRepeat = 'no-repeat'; n.style.backgroundSize = a.dur * S.pps + 'px 100%'; n.style.backgroundPosition = -(it.offset || 0) * S.pps + 'px center'; n.classList.add('film'); }
+    function stripPending() {
+      el.tlContent.querySelectorAll('.clip.ov.vid').forEach((n) => {
+        const it = ovById(n.dataset.o), a = it && MC.assets.get(it.assetId); if (!a || !a.video) return;
+        if (a.strip) { applyStrip(n, it, a); return; }
+        if (a._stripBusy) return; a._stripBusy = true;
+        MC.video.strip(a).then((u) => { a.strip = u; a._stripBusy = false; if (S.alive) layoutClips(); }).catch(() => { a._stripBusy = false; });
+      });
+    }
     function snapT(tm, ignore) {
-      const pts = [0, S.time].concat(MC.shotStarts(S.project), S.project.clips.filter((c) => c.id !== ignore).flatMap((c) => [c.start, c.start + c.dur]));
+      const pts = [0, S.time].concat(MC.shotStarts(S.project), (S.project.notes || []).map((n) => n.t), S.project.clips.filter((c) => c.id !== ignore).flatMap((c) => [c.start, c.start + c.dur]), S.project.overlays.flatMap((o) => [o.start, o.start + o.dur]));
       let best = tm; const thr = 8 / S.pps;
       pts.forEach((x) => { if (Math.abs(x - tm) < thr && Math.abs(x - tm) <= Math.abs(best - tm)) best = x; });
       return Math.max(0, Math.round(best * 100) / 100);
+    }
+    /* ---------- línea de tiempo avanzada: ripple, selección múltiple, grupos y marcadores ---------- */
+    S.ripple = MC.store.get('ripple', '0') === '1';
+    const rippleBegin = (fromT) => {
+      const p = S.project, snap = [];
+      p.clips.forEach((c) => { if (c.start >= fromT - 0.001) snap.push([c, 'start', c.start]); });
+      p.overlays.forEach((o) => { if (o.start >= fromT - 0.001) snap.push([o, 'start', o.start]); });
+      p.texts.forEach((x) => { if (!x.link && x.start >= fromT - 0.001) snap.push([x, 'start', x.start]); });
+      (p.notes || []).forEach((n) => { if (n.t >= fromT - 0.001) snap.push([n, 't', n.t]); });
+      return snap;
+    };
+    const rippleApply = (snap, delta) => { snap.forEach((q) => { q[0][q[1]] = Math.max(0, Math.round((q[2] + delta) * 100) / 100); }); S.project.overlays.forEach(syncOvAudio); };
+    const mkKey = { c: 'clip', x: 'text', o: 'overlay' };
+    const itemOfKey = (k) => (k[0] === 'c' ? clipById(k.slice(2)) : k[0] === 'x' ? txById(k.slice(2)) : k[0] === 'o' ? ovById(k.slice(2)) : null);
+    const allKeys = () => S.project.clips.map((c) => 'c:' + c.id).concat(S.project.overlays.map((o) => 'o:' + o.id), S.project.texts.filter((x) => !x.link).map((x) => 'x:' + x.id));
+    const keyEl = (el2) => (el2.dataset.c ? 'c:' + el2.dataset.c : el2.dataset.x ? 'x:' + el2.dataset.x : el2.dataset.o ? 'o:' + el2.dataset.o : null);
+    const multiItems = () => S.multi.map((k) => ({ k, it: itemOfKey(k) })).filter((q) => q.it);
+    function setMulti(keys) {
+      S.multi = keys.filter((k) => itemOfKey(k));
+      if (S.multi.length > 1) { S.selKind = 'multi'; S.cl = null; S.tx = null; S.ov = null; S.li = -1; }
+      else if (S.multi.length === 1) { const k = S.multi[0]; S.multi = []; if (k[0] === 'c') S.cl = k.slice(2); else if (k[0] === 'x') S.tx = k.slice(2); else S.ov = k.slice(2); }
+      renderInspector(); renderTimeline(); renderLayers(); S.dirty = true;
+    }
+    const markMulti = () => el.tlContent.querySelectorAll('.clip[data-c], .clip[data-x], .clip[data-o]').forEach((n) => n.classList.toggle('sel', S.multi.includes(keyEl(n))));
+    function dupSelection() {
+      const p = S.project; let keys = S.multi.length > 1 ? S.multi.slice() : S.cl ? ['c:' + S.cl] : S.tx ? ['x:' + S.tx] : S.ov ? ['o:' + S.ov] : [];
+      const items = keys.map((k) => ({ k, it: itemOfKey(k) })).filter((q) => q.it && !(q.k[0] === 'x' && q.it.link)); if (!items.length) return false;
+      let a = Infinity, b = 0; items.forEach((q) => { const st = q.k[0] === 'x' ? MC.textSpan(q.it, p) : { start: q.it.start, dur: q.it.dur }; a = Math.min(a, st.start); b = Math.max(b, st.start + st.dur); });
+      const shift = Math.round((b - a) * 100) / 100 || 1, ng = {}, out = [];
+      items.forEach((q) => {
+        const c = JSON.parse(JSON.stringify(q.it)); c.id = MC.uid(); c.start = Math.round((q.it.start + shift) * 100) / 100;
+        if (q.it.group) { ng[q.it.group] = ng[q.it.group] || MC.uid(); c.group = ng[q.it.group]; }
+        if (q.k[0] === 'c') { p.clips.push(c); out.push('c:' + c.id); }
+        else if (q.k[0] === 'x') { p.texts.push(c); out.push('x:' + c.id); }
+        else { c.audioClip = null; if (q.it.audioClip && clipById(q.it.audioClip)) { const k2 = JSON.parse(JSON.stringify(clipById(q.it.audioClip))); k2.id = MC.uid(); c.audioClip = k2.id; p.clips.push(k2); } p.overlays.push(c); syncOvAudio(c); out.push('o:' + c.id); }
+      });
+      S.multi = out.length > 1 ? out : []; if (out.length === 1) { const k = out[0]; if (k[0] === 'c') S.cl = k.slice(2); else if (k[0] === 'x') S.tx = k.slice(2); else S.ov = k.slice(2); }
+      if (out.length > 1) S.selKind = 'multi';
+      commit(); MC.announce(t('Duplicado', 'Duplicated')); return true;
+    }
+    /* marcadores con notas y de pulso */
+    S.mk = null;
+    const mkById = (id) => (S.project.notes || []).find((n) => n.id === id);
+    function addMarker(kind) {
+      const p = S.project; p.notes = p.notes || [];
+      const n = { id: MC.uid(), t: Math.round(S.time * 100) / 100, text: '', color: kind === 'beat' ? '#e8c547' : '#8C7CFF', kind: kind || 'note' };
+      p.notes.push(n); S.mk = n.id; S.selKind = 'marker'; commit(); return n;
+    }
+    function detectBeats(c) {
+      const p = S.project, a = MC.audio.get(c.assetId); if (!a || !a.peaks) return 0;
+      p.notes = (p.notes || []).filter((n) => !(n.kind === 'beat' && n.t >= c.start - 0.01 && n.t <= c.start + c.dur + 0.01));
+      const pk = a.peaks, i0 = Math.floor(c.offset * 50), i1 = Math.min(pk.length, Math.floor((c.offset + c.dur) * 50)); let last = -99, n = 0;
+      const sm = (i) => (pk[i - 1] || 0) * 0.25 + (pk[i] || 0) * 0.5 + (pk[i + 1] || 0) * 0.25;
+      for (let i = i0 + 2; i < i1 - 1; i++) {
+        let av = 0; for (let j = Math.max(i0, i - 25); j < i; j++) av += pk[j]; av /= Math.max(1, Math.min(25, i - i0));
+        const v = sm(i);
+        if (v > av * 1.45 + 8 && v >= sm(i - 1) && v > sm(i + 1) && v > 40 && i - last > 12) { last = i; n++; p.notes.push({ id: MC.uid(), t: Math.round((c.start + (i / 50 - c.offset)) * 100) / 100, text: '', color: '#e8c547', kind: 'beat' }); }
+      }
+      return n;
+    }
+    function cutsToBeat() {
+      const p = S.project, beats = (p.notes || []).filter((n) => n.kind === 'beat').map((n) => n.t).sort((a, b) => a - b); if (!beats.length) return 0;
+      let t0 = 0, n = 0;
+      p.shots.forEach((sh, i) => {
+        if (i < p.shots.length - 1 && !(sh.page || sh.webtoon)) { const end = t0 + sh.duration, near = beats.reduce((b, x) => (Math.abs(x - end) < Math.abs(b - end) ? x : b), beats[0]); if (Math.abs(near - end) <= 0.4 && near - t0 >= 0.5 && Math.abs(near - end) > 0.01) { sh.duration = Math.round((near - t0) * 100) / 100; n++; } }
+        t0 += sh.duration;
+      });
+      return n;
     }
     function renderTimeline() {
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
       const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
       const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
-      const ots = p.otracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat(kft ? ['kf'] : [], ['shots', 'text', 'voz', 'sfx', 'musica']);
+      const ots = p.otracks, kft = kfTarget(), KEYS = ots.map((q, i) => 'o' + i).concat(kft ? ['kf'] : [], ['shots', 'text', 'fxr', 'voz', 'sfx', 'musica']);
       const ovBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración', 'Add an image or video above the artwork'), 'aria-label': t('Añadir una superposición a ', 'Add an overlay to ') + ots[i].name, onClick: () => { fileOv.dataset.track = i; fileOv.click(); } }, MC.icon('plus', 13));
       const eyeBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(ots[i].visible !== false), title: ots[i].visible === false ? t('Mostrar la pista', 'Show track') : t('Ocultar la pista', 'Hide track'), 'aria-label': t('Mostrar u ocultar ', 'Show or hide ') + ots[i].name, onClick: () => { ots[i].visible = ots[i].visible === false; commit(); } }, MC.icon(ots[i].visible === false ? 'eyeoff' : 'eye', 13));
       const delBtn = (i) => h('button', { class: 'btn btn-g', type: 'button', title: t('Quitar la pista vacía', 'Remove the empty track'), 'aria-label': t('Quitar ', 'Remove ') + ots[i].name, onClick: () => { p.overlays.forEach((o) => { if (o.track > i) o.track--; }); ots.splice(i, 1); commit(); } }, MC.icon('trash', 13));
@@ -1712,6 +1839,7 @@
         if (/^o\d+$/.test(k)) { const i = +k.slice(1); return h('div', { class: 'trl ot', 'data-k': k }, h('span', { title: t('Doble clic para renombrar', 'Double-click to rename'), onDblclick: () => { const v = prompt(t('Nombre de la pista', 'Track name'), ots[i].name); if (v && v.trim()) { ots[i].name = v.trim(); commit(); } } }, ots[i].name),
           h('span', { class: 'trb' }, ovBtn(i), eyeBtn(i), ots.length > 1 && !p.overlays.some((o) => o.track === i) ? delBtn(i) : null)); }
         if (k === 'kf') return h('div', { class: 'trl kfl', 'data-k': k }, h('span', null, t('Fotogramas clave', 'Keyframes')));
+        if (k === 'fxr') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Efectos', 'Effects')));
         const ix = ['shots', 'text', 'voz', 'sfx', 'musica'].indexOf(k), tr = TRACKS[ix];
         return h('div', { class: 'trl', 'data-k': k }, h('span', null, t(tr.es, tr.en)),
           ix >= 2 ? h('span', { class: 'trb' }, addBtn(AU[ix - 2]), ix === 2 ? h('button', { class: 'btn btn-g', type: 'button', title: t('Grabar locución', 'Record voice-over'), 'aria-label': t('Grabar locución', 'Record voice-over'), onClick: recordVoice }, MC.icon('mic', 13)) : null) : null);
@@ -1723,17 +1851,30 @@
       const end = Math.max(total, ...p.clips.map((c) => c.start + c.dur), ...p.overlays.map((o) => o.start + o.dur), ...p.texts.map((x) => { const q = MC.textSpan(x, p); return q.start + q.dur; }));
       for (let s = 0; s <= end + 40; s += step) ruler.append(h('b', { style: { left: s * pps + 'px' } }, Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')));
       p.markers.forEach((m) => ruler.append(h('i', { class: 'mk', title: t('Pausa de la voz', 'Voice pause'), style: { left: m * pps + 'px' } })));
+      (p.notes || []).forEach((n) => {
+        const b = h('button', { type: 'button', class: 'mkn ' + n.kind + (n.id === S.mk ? ' on' : ''), 'data-mk': n.id, style: { left: n.t * pps - 5 + 'px', color: n.color || '#8C7CFF' }, title: (n.kind === 'beat' ? t('Pulso · ', 'Beat · ') : t('Marcador · ', 'Marker · ')) + MC.fmtTime(n.t) + (n.text ? ' · ' + n.text : ''), 'aria-label': (n.kind === 'beat' ? t('Pulso en ', 'Beat at ') : t('Marcador en ', 'Marker at ')) + MC.fmtTime(n.t) + (n.text ? ': ' + n.text : '') });
+        b.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); b.setPointerCapture(e.pointerId); S.mk = n.id; S.selKind = 'marker'; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = [];
+          const x0 = e.clientX, t0 = n.t; let moved = false;
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; n.t = Math.max(0, Math.round((t0 + (ev.clientX - x0) / S.pps) * 100) / 100); b.style.left = n.t * S.pps - 5 + 'px'; touch(); };
+          const up = () => { b.removeEventListener('pointermove', mv); b.removeEventListener('pointerup', up); b.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(n.t); renderInspector(); renderTimeline(); } };
+          b.addEventListener('pointermove', mv); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+        });
+        ruler.append(b);
+      });
       el.tlContent.append(ruler);
       const R = {};
       KEYS.forEach((k) => {
         const ov = /^o\d+$/.test(k), audio = AU.includes(k);
+        if (k === 'fxr') { R.fxr = h('div', { class: 'tl-track' + (p.shots.some((q) => q.fx && q.fx.length) ? '' : ' off'), 'data-k': 'fxr', 'data-hint': t('Los efectos de cada plano (temblor, lluvia, niebla…) aparecen aquí', 'Each shot’s effects (shake, rain, fog…) show up here') }); el.tlContent.append(R.fxr); return; }
         if (k === 'kf') { R.kf = h('div', { class: 'tl-track kft', 'data-k': 'kf', 'data-hint': '' }); el.tlContent.append(R.kf); return; }
         R[k] = h('div', { class: 'tl-track' + (ov ? ' ovt' : '') + ((audio && !p.clips.some((c) => c.track === k)) || (ov && !p.overlays.some((o) => o.track === +k.slice(1))) ? ' off' : ''), 'data-k': k,
           'data-hint': ov ? t('Pulsa + para añadir una imagen o un vídeo por encima de la ilustración', 'Press + to add an image or video above the artwork') : t('Importa o graba audio con los botones de la izquierda', 'Import or record audio with the buttons on the left') });
         el.tlContent.append(R[k]);
       });
       p.shots.forEach((sh, i) => {
-        const clip = h('div', { class: 'clip' + (i === S.si ? ' on' : ''), 'data-i': i, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
+        let thumbU = ''; if (p.shots.length <= 40) { try { thumbU = shotThumbURL(sh); } catch (e) { thumbU = ''; } }
+        const clip = h('div', { class: 'clip shotc' + (thumbU ? ' th' : '') + (i === S.si ? ' on' : ''), 'data-i': i, style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null, role: 'button', tabindex: '0', title: sh.name + ' · ' + sh.duration.toFixed(1) + ' s',
           onClick: () => { if (!clip._moved) selectShot(i, true); },
           'aria-label': sh.name + ', ' + sh.duration.toFixed(1) + ' s', 'aria-pressed': String(i === S.si),
           onKeydown: (e) => {
@@ -1748,8 +1889,8 @@
         if (sh.page || sh.webtoon) rz.remove();
         else rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
-          const x0 = e.clientX, d0 = sh.duration; clip._moved = true;
-          const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
+          const x0 = e.clientX, d0 = sh.duration; clip._moved = true; const rp = S.ripple ? rippleBegin(MC.shotStarts(p)[i] + sh.duration) : null;
+          const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); if (rp) rippleApply(rp, sh.duration - d0); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
           const endd = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', endd); rz.removeEventListener('pointercancel', endd); setTimeout(() => { clip._moved = false; }, 0); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', endd); rz.addEventListener('pointercancel', endd);
         });
@@ -1813,6 +1954,28 @@
         });
         R.text.append(el2);
       });
+      /* efectos de todos los planos */
+      p.shots.forEach((shx, si) => (shx.fx || []).forEach((f) => {
+        const el2 = h('div', { class: 'clip ef' + (f.id === S.fxsel && si === S.si ? ' on' : ''), 'data-f': f.id, 'data-fs': si, role: 'button', tabindex: '0', title: MC.fxName(f.type) + ' · ' + shx.name, 'aria-label': MC.fxName(f.type) + ', ' + shx.name + ', ' + f.dur.toFixed(1) + ' s', 'aria-pressed': String(f.id === S.fxsel && si === S.si) },
+          h('span', null, MC.fxName(f.type)), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+        const rz = el2.querySelector('.rz');
+        el2.addEventListener('pointerdown', (e) => {
+          if (e.target === rz) return; el2.setPointerCapture(e.pointerId);
+          S.si = si; S.li = -1; S.cl = null; S.tx = null; S.ov = null; S.multi = []; S.fxsel = f.id;
+          const x0 = e.clientX, s0 = f.start; let moved = false;
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved || f.panel != null) return; f.start = clamp(Math.round((s0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0, Math.max(0, shx.duration - 0.1)); layoutClips(); S.dirty = true; touch(); };
+          const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(MC.shotStarts(p)[si] + clamp(MC.fxStart(shx, f), 0, Math.max(0, shx.duration - 0.001))); S.fxsel = f.id; S.selKind = 'fx'; renderLayers(); renderInspector(); renderTimeline(); } };
+          el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
+        });
+        rz.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); rz.setPointerCapture(e.pointerId);
+          const x0 = e.clientX, d0 = f.dur;
+          const mv = (ev) => { f.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.1, 30); layoutClips(); S.dirty = true; touch(); };
+          const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
+          rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
+        });
+        R.fxr.append(el2);
+      }));
       /* superposiciones: clips con miniatura, arrastrables entre pistas */
       p.overlays.forEach((it) => {
         const a = MC.assets.get(it.assetId), vis = (ots[it.track] || {}).visible !== false && it.visible !== false;
@@ -1865,16 +2028,62 @@
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
       layoutClips();
+      el.tlContent.querySelectorAll('.clip[data-c], .clip[data-x], .clip[data-o]').forEach((n) => { const it = itemOfKey(keyEl(n)); n.classList.toggle('grp', !!(it && it.group)); });
+      markMulti(); stripPending();
     }
     function wireTimeline() {
-      let down = false;
+      let down = false, marq = null;
       const at = (e) => (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps;
+      /* selección múltiple (Mayús o Ctrl + clic), mover varios a la vez y grupos: se atiende antes que los controladores de cada clip */
       el.tlContent.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.clip')) return;
+        const c = e.target.closest('.clip[data-c], .clip[data-x], .clip[data-o]');
+        if (!c || e.target.classList.contains('rz')) { if (c) return; return; }
+        const k = keyEl(c), it = itemOfKey(k); if (!it) return;
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          e.stopPropagation(); e.preventDefault();
+          const cur = S.multi.length ? S.multi.slice() : (S.cl ? ['c:' + S.cl] : S.tx ? ['x:' + S.tx] : S.ov ? ['o:' + S.ov] : []);
+          const grp = it.group ? allKeys().filter((q) => (itemOfKey(q) || {}).group === it.group) : [k];
+          const has = cur.includes(k); setMulti(has ? cur.filter((q) => !grp.includes(q)) : cur.concat(grp.filter((q) => !cur.includes(q)))); return;
+        }
+        const grpKeys = it.group ? allKeys().filter((q) => (itemOfKey(q) || {}).group === it.group) : [];
+        if (grpKeys.length > 1 && !S.multi.includes(k)) { S.multi = grpKeys; S.selKind = 'multi'; S.cl = null; S.tx = null; S.ov = null; S.li = -1; renderInspector(); markMulti(); }
+        if (S.multi.length > 1 && S.multi.includes(k)) {
+          e.stopPropagation(); c.setPointerCapture(e.pointerId);
+          const items = multiItems().filter((q) => !(q.k[0] === 'x' && q.it.link)), x0 = e.clientX, starts0 = items.map((q) => q.it.start); let moved = false;
+          const mv = (ev) => {
+            if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return;
+            const mn = Math.min(...starts0), d = Math.max(-mn, Math.round(((ev.clientX - x0) / S.pps) * 100) / 100);
+            items.forEach((q, i) => { q.it.start = Math.round((starts0[i] + d) * 100) / 100; if (q.k[0] === 'o') syncOvAudio(q.it); });
+            layoutClips(); touch();
+          };
+          const up = () => { c.removeEventListener('pointermove', mv); c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', up); if (moved) commit(); };
+          c.addEventListener('pointermove', mv); c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up); return;
+        }
+        if (S.multi.length) { S.multi = []; markMulti(); }
+      }, true);
+      el.tlContent.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.clip') || e.target.closest('.mkn')) return;
+        if (e.shiftKey) { /* recuadro de selección */
+          const box = el.tlContent.getBoundingClientRect(); el.tlContent.setPointerCapture(e.pointerId);
+          marq = { x0: e.clientX, y0: e.clientY, n: h('div', { class: 'marq' }) }; el.tlContent.append(marq.n); return;
+        }
         down = true; el.tlContent.setPointerCapture(e.pointerId); togglePlay(false); setTime(at(e));
       });
-      el.tlContent.addEventListener('pointermove', (e) => { if (down) setTime(at(e)); });
-      const end = () => { down = false; };
+      el.tlContent.addEventListener('pointermove', (e) => {
+        if (marq) {
+          const box = el.tlContent.getBoundingClientRect(), x = Math.min(e.clientX, marq.x0) - box.left, y = Math.min(e.clientY, marq.y0) - box.top, w = Math.abs(e.clientX - marq.x0), hh = Math.abs(e.clientY - marq.y0);
+          Object.assign(marq.n.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: hh + 'px' }); return;
+        }
+        if (down) setTime(at(e));
+      });
+      const end = (e) => {
+        down = false;
+        if (marq) {
+          const r = marq.n.getBoundingClientRect(); marq.n.remove(); marq = null;
+          const hit = [...el.tlContent.querySelectorAll('.clip[data-c], .clip[data-x], .clip[data-o]')].filter((n) => { const q = n.getBoundingClientRect(); return !(q.right < r.left || q.left > r.right || q.bottom < r.top || q.top > r.bottom); }).map(keyEl).filter((k) => { const it = itemOfKey(k); return it && !(k[0] === 'x' && it.link); });
+          setMulti(hit);
+        }
+      };
       el.tlContent.addEventListener('pointerup', end); el.tlContent.addEventListener('pointercancel', end);
     }
 
@@ -1930,6 +2139,9 @@
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileShots.click() }, MC.icon('plus', 14), t('Planos desde imágenes', 'Shots from images')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track'), onClick: () => { fileOv.dataset.track = 0; fileOv.click(); } }, MC.icon('layersx', 14), t('Superposición', 'Overlay')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)'), onClick: () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); } }, MC.icon('plus', 14), t('Pista', 'Track')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!S.ripple), title: t('Ripple: al cambiar la duración de un plano, todo lo que va detrás se mueve con él', 'Ripple: when a shot’s length changes, everything after it moves along'), onClick: (e) => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); e.currentTarget.setAttribute('aria-pressed', String(S.ripple)); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); } }, t('Ripple', 'Ripple')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)'), onClick: () => addMarker('note') }, MC.icon('bookmark', 14), t('Marcador', 'Marker')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)'), onClick: () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); } }, MC.icon('copy', 14), t('Duplicar', 'Duplicate')),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: splitClip, title: t('Dividir el clip de audio seleccionado en el cabezal (S)', 'Split the selected audio clip at the playhead (S)') }, MC.icon('cut', 14), t('Dividir', 'Split')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Alejar', 'Zoom out'), 'aria-label': t('Alejar', 'Zoom out'), onClick: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); } }, MC.icon('minus')),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Acercar', 'Zoom in'), 'aria-label': t('Acercar', 'Zoom in'), onClick: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); } }, MC.icon('plus')), el.tlTime),
@@ -1969,6 +2181,10 @@
         setTime(tm);
         if (wrapped) MC.audio.play(S.project, 0);
       }
+      if (S.playing && (now - (loop.mt || 0)) > 50) {
+        loop.mt = now; const mt = el.rightEl && el.rightEl.querySelectorAll('.meter, .meter'), lv = MC.audio.levels();
+        document.querySelectorAll('.studio .meter').forEach((m) => { const v = lv[m.dataset.m] || 0; m.firstChild.style.width = Math.round(v * 100) + '%'; m.setAttribute('aria-valuenow', Math.round(v * 100)); m.classList.toggle('hot', v > 0.92); });
+      } else if (!S.playing && loop.mt) { loop.mt = 0; document.querySelectorAll('.studio .meter i').forEach((i) => { i.style.width = '0'; }); }
       if (S.dirty) {
         S.dirty = false; const t0 = performance.now();
         try { draw(); } catch (e) { console.error(e); }
@@ -1986,6 +2202,8 @@
       start: () => setTime(0), end: () => setTime(total() - 0.001),
       prevShot: () => selectShot(S.si - 1, true), nextShot: () => selectShot(S.si + 1, true),
       split: () => { if (S.cl) splitClip(); else return false; },
+      duplicate: () => dupSelection(), marker: () => { addMarker('note'); }, tapBeat: () => { addMarker('beat'); },
+      selectAll: () => { setMulti(allKeys()); },
       undo: () => { undo(); MC.announce(t('Deshacer', 'Undo')); }, redo: () => { redo(); MC.announce(t('Rehacer', 'Redo')); },
       addBubble: () => addText('bubble'), save: () => { save().then(() => MC.toast(t('Guardado en este equipo', 'Saved on this device'))); },
       fullscreen: () => { const v = el.viewerEl; if (!v) return; if (document.fullscreenElement) document.exitFullscreen(); else if (v.requestFullscreen) v.requestFullscreen().catch(() => MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.'))); else MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.')); },
@@ -1995,6 +2213,8 @@
       delete: () => {
         if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
         else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
+        else if (S.multi.length > 1) { multiItems().forEach((q) => { if (q.k[0] === 'c') S.project.clips = S.project.clips.filter((c) => c.id !== q.it.id); else if (q.k[0] === 'x') S.project.texts = S.project.texts.filter((x) => x.id !== q.it.id); else removeOverlay(q.it); }); S.multi = []; S.selKind = 'shot'; commit(); }
+        else if (S.selKind === 'marker' && S.mk && mkById(S.mk)) { S.project.notes = S.project.notes.filter((n) => n.id !== S.mk); S.mk = null; S.selKind = 'shot'; commit(); }
         else if (S.kfid && kfTarget() && (kfTarget().it.kf || []).some((q) => q.id === S.kfid)) { const kt = kfTarget(); kt.it.kf = kt.it.kf.filter((q) => q.id !== S.kfid); S.kfid = null; commit(); MC.announce(t('Fotograma clave eliminado', 'Keyframe deleted')); }
         else if (S.ov && ovById(S.ov) && !layer() && S.selKind === 'overlay') { removeOverlay(ovById(S.ov)); commit(); MC.announce(t('Superposición eliminada', 'Overlay deleted')); }
         else if (S.tx) { S.project.texts = S.project.texts.filter((x) => x.id !== S.tx); S.tx = null; commit(); MC.announce(t('Texto eliminado', 'Text deleted')); }

@@ -61,18 +61,21 @@
 
   /* Programa todos los clips en un contexto (en vivo o fuera de línea). from = punto de la línea de tiempo que corresponde a base. */
   A.schedule = (ac, dest, p, from, base, to) => {
-    const mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {}), tg = {}, sources = [];
-    A.TRACKS.forEach((tr) => { const g = ac.createGain(); g.gain.value = mix[tr]; g.connect(dest); tg[tr] = g; });
+    const mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {}), tg = {}, sources = [], mute = mix.mute || {}, solo = mix.solo || {}, anySolo = A.TRACKS.some((q) => solo[q]);
+    const fac = (tr) => (anySolo ? (solo[tr] ? 1 : 0) : mute[tr] ? 0 : 1);
+    const isLive = typeof AudioContext !== 'undefined' && ac instanceof AudioContext || (typeof webkitAudioContext !== 'undefined' && ac instanceof webkitAudioContext);
+    if (isLive) A.meters = {};
+    A.TRACKS.forEach((tr) => { const g = ac.createGain(); g.gain.value = mix[tr] * fac(tr); g.connect(dest); tg[tr] = g; if (isLive) { const an = ac.createAnalyser(); an.fftSize = 512; g.connect(an); A.meters[tr] = an; } });
     if (mix.duck !== false) {
-      const tt = (t) => base + Math.max(0, t - from), duck = mix.musica * 0.28, g = tg.musica.gain;
+      const tt = (t) => base + Math.max(0, t - from), mm = mix.musica * fac('musica'), duck = mm * 0.28, g = tg.musica.gain;
       const pts = [];
       let inside = false;
       voiceSpans(p).forEach((s) => { if (s[0] <= from && s[1] > from) inside = true; });
-      pts.push([base, inside ? duck : mix.musica]);
+      pts.push([base, inside ? duck : mm]);
       voiceSpans(p).forEach((s) => {
         if (s[1] <= from) return;
-        if (s[0] > from) { pts.push([tt(s[0]) - 0.18, mix.musica]); pts.push([tt(s[0]), duck]); }
-        pts.push([tt(s[1]), duck]); pts.push([tt(s[1]) + 0.5, mix.musica]);
+        if (s[0] > from) { pts.push([tt(s[0]) - 0.18, mm]); pts.push([tt(s[0]), duck]); }
+        pts.push([tt(s[1]), duck]); pts.push([tt(s[1]) + 0.5, mm]);
       });
       let last = -1;
       pts.forEach((pt, i) => { const t = Math.max(pt[0], last); last = t; if (i === 0) g.setValueAtTime(pt[1], t); else g.linearRampToValueAtTime(pt[1], t); });
@@ -105,7 +108,15 @@
       playing = A.schedule(ac, ac.destination, p, from, ac.currentTime + 0.06);
     } catch (e) { console.warn('audio', e); }
   };
-  A.stop = () => { if (playing) { playing.stop(); playing = null; } };
+  A.stop = () => { if (playing) { playing.stop(); playing = null; } A.meters = null; };
+  /* Nivel (0 a 1) de cada pista en este instante, para los medidores del mezclador. */
+  const lvlBuf = new Uint8Array(512);
+  A.levels = () => {
+    const out = { voz: 0, sfx: 0, musica: 0 };
+    if (!A.meters || !playing) return out;
+    A.TRACKS.forEach((tr) => { const an = A.meters[tr]; if (!an) return; an.getByteTimeDomainData(lvlBuf); let m = 0; for (let i = 0; i < an.fftSize; i++) m = Math.max(m, Math.abs(lvlBuf[i] - 128)); out[tr] = Math.min(1, (m / 128) * 1.4); });
+    return out;
+  };
   A.preview = async (buffer) => {
     const ac = live(); if (ac.state === 'suspended') await ac.resume();
     const s = ac.createBufferSource(); s.buffer = buffer; s.connect(ac.destination); s.start(); return s;
