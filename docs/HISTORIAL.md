@@ -244,3 +244,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Forma (rectángulo, esquinas redondeadas, elipse) y marco de color con grosor propio, dibujados por el motor compartido (visor y exportación) sobre el rectángulo ya recortado; la forma se aplica como recorte y el marco por dentro.
 - Ajustes de color nuevos por elemento: blanco y negro, sepia, invertir y desenfoque (en unidades del vídeo, no del píxel de pantalla). Copiar y pegar ajustes entre capas y superposiciones (aspecto, forma, recorte, mezcla, opacidad, reflejos, 3D, animaciones y pivote). Giro base de la capa alrededor de su pivote.
 - Inicio: aviso que recomienda el ordenador para editar vídeo, visible en tablets, móviles y pantallas estrechas (`?pcnote=1` lo fuerza), con botón «Entendido» que lo oculta para siempre.
+
+## Bloque 9 del plan: parallax avanzado
+
+- `MC.layerGeom` calcula el desplazamiento por eje (`fx`, `fy`), la respuesta al zoom y al giro a partir de `layer.px` ({x, y, zoom, rot, off}) y de la curva del proyecto (`pxGamma`); las capas fijas, al revés o solo en un eje salen igual en el visor y en la exportación, y el cubrimiento automático de huecos usa los mismos valores.
+- Pestaña Parallax en las propiedades de la capa (el límite de desplazamiento se muda aquí desde Pivote), curva de profundidad en Proyecto y profundidad de campo por plano (`shot.dof`, `MC.dofBlur`) junto al rack focus.

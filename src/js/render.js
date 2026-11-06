@@ -78,11 +78,16 @@
     const dx = doc ? doc.left + img.w / 2 - doc.w / 2 : 0, dy = doc ? doc.top + img.h / 2 - doc.h / 2 : 0;
     return { base, s: sc, dx, dy, cx: o.W / 2 + dx * sc + (layer.x || 0) * o.W, cy: o.H / 2 + dy * sc + (layer.y || 0) * o.H };
   };
+  /* Parallax de una capa. Además de su profundidad (z) y de la intensidad global del proyecto, cada capa puede llevar sus propios ajustes (layer.px):
+     x e y = cuánto se desplaza con la cámara en cada eje (negativo = al revés, 0 = fija), zoom = cuánto acompaña al zoom, off = empuje extra, rot = cuánto acompaña al giro de la cámara.
+     El proyecto puede además curvar la profundidad (pxGamma): menos de 1 separa más las capas centrales, más de 1 las junta. */
   MC.layerGeom = (layer, img, cam, o) => {
-    const I = o.parallaxI;
+    const I = o.parallaxI, P = layer.px, gam = o.pxGamma || 1, d = layer.z - 0.5;
+    const dz = gam === 1 ? d : Math.sign(d) * Math.pow(Math.min(1, Math.abs(d) * 2), gam) / 2;
+    const f = 1 + dz * I * 0.8 + (P && P.off ? P.off : 0), kx = P && P.x != null ? P.x : 1, ky = P && P.y != null ? P.y : 1, kz = P && P.zoom != null ? P.zoom : 1;
     return {
-      f: 1 + (layer.z - 0.5) * I * 0.8, // cuánto se desplaza con la cámara
-      zl: (1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6)) * (cam.dolly ? (cam.dolly > 0 ? 1 + cam.dolly * Math.max(0, 0.5 - layer.z) * 1.1 : 1 - cam.dolly * Math.max(0, layer.z - 0.5) * 1.1) : 1), // cuánto se acerca con el zoom (y el efecto vértigo)
+      f, fx: f * kx, fy: f * ky, kr: P && P.rot != null ? P.rot : 1, // cuánto se desplaza con la cámara
+      zl: (1 + (cam.zoom - 1) * kz * (1 + dz * I * 0.6)) * (cam.dolly ? (cam.dolly > 0 ? 1 + cam.dolly * Math.max(0, 0.5 - layer.z) * 1.1 : 1 - cam.dolly * Math.max(0, layer.z - 0.5) * 1.1) : 1), // cuánto se acerca con el zoom (y el efecto vértigo)
       base: MC.layerBox(layer, img, o).base,
     };
   };
@@ -98,8 +103,8 @@
       const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
       const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
       out.push({
-        Ax: W / 2 + (layer.x || 0) * W - (W / 2 + cam.x * W * g.f), Bx: (W / (2 * g.zl)) * rk + shake * 0.014 * W,
-        Ay: H / 2 + (layer.y || 0) * H - (H / 2 + cam.y * H * g.f), By: (H / (2 * g.zl)) * rk + shake * 0.014 * H, zl: g.zl,
+        Ax: W / 2 + (layer.x || 0) * W - (W / 2 + cam.x * W * g.fx), Bx: (W / (2 * g.zl)) * rk + shake * 0.014 * W,
+        Ay: H / 2 + (layer.y || 0) * H - (H / 2 + cam.y * H * g.fy), By: (H / (2 * g.zl)) * rk + shake * 0.014 * H, zl: g.zl,
       });
     }
     return out;
@@ -159,16 +164,16 @@
       if (MC.rigShow && !MC.rigShow(shot, layer, tl, shotStart, o.project)) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
-      const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.f, -lim, lim) : (cam.x + cam.sx) * g.f, cys = lim ? clamp((cam.y + cam.sy) * g.f, -lim, lim) : (cam.y + cam.sy) * g.f;
+      const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.fx, -lim, lim) : (cam.x + cam.sx) * g.fx, cys = lim ? clamp((cam.y + cam.sy) * g.fy, -lim, lim) : (cam.y + cam.sy) * g.fy;
       const camx = W / 2 + cxs * W, camy = H / 2 + cys * H;
       const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl - (layer.ts || 0), (layer.te == null ? shot.duration : layer.te) - (layer.ts || 0)) : null;
       ctx.save();
       ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1) * amul;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
-      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
+      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0, !o.noClip && MC.dofBlur ? MC.dofBlur(shot, layer) : 0), lf = anim && anim.layers[layer.id];
       if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0, W / 1920) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
       ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
-      if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
+      if (cam.rot || lf) ctx.rotate(((cam.rot * g.kr + (lf ? lf.rot : 0)) * Math.PI) / 180);
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
@@ -260,7 +265,7 @@
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
-    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false, project }, extra || {});
+    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, pxGamma: project.pxGamma || 1, overscan: project.overscan !== false, project }, extra || {});
   };
 
   MC.makeThumb = (project) => {

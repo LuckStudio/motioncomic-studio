@@ -1038,6 +1038,9 @@
         MC.formatPicker(st, () => { p.ratio = st.ratio; p.res = st.res; p.zoomPlan = st.zoom; fit(); commit(); }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Intensidad del parallax', 'Parallax intensity')),
           MC.ui.seg([{ v: 'subtle', l: t('Sutil', 'Subtle') }, { v: 'normal', l: 'Normal' }, { v: 'wild', l: t('Exagerado', 'Exaggerated') }], p.parallax, (v) => { p.parallax = v; commit(); })),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de profundidad', 'Depth curve')),
+          MC.ui.seg([{ v: '0.6', l: t('Marcada', 'Strong') }, { v: '1', l: t('Lineal', 'Linear') }, { v: '1.8', l: t('Suave', 'Soft') }], String(p.pxGamma || 1), (v) => { if (+v === 1) delete p.pxGamma; else p.pxGamma = +v; commit(); }, t('Curva de profundidad', 'Depth curve')),
+          h('span', { class: 'cap' }, t('Marcada separa más las capas cercanas y lejanas del centro; suave las junta.', 'Strong pulls near and far layers further from the middle; soft pulls them together.'))),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: p.overscan !== false, onChange: (e) => { p.overscan = e.target.checked; commit(); } }),
           h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
       ];
@@ -1306,6 +1309,19 @@
           }
         }
         fxSecs.push(sec('rack', t('Rack focus', 'Rack focus') + (r && r.on ? ' · ' + t('activo', 'on') : ''), nodes));
+        {
+          const dof = sh.dof || {}, setD = (k, v) => { sh.dof = Object.assign({ on: true, focus: 0.5, range: 0.08, amount: 14 }, sh.dof, { [k]: v }); S.dirty = true; touch(); }, dn = [];
+          dn.push(h('p', { class: 'cap' }, t('Desenfoca las capas según lo lejos que estén de la profundidad enfocada, como una cámara real. Es fijo durante el plano; para pasar el foco de una capa a otra usa el rack focus.', 'Blurs layers according to how far they are from the focused depth, like a real camera. It is fixed during the shot; to move focus from one layer to another use rack focus.')),
+            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!dof.on, onChange: (e) => { setD('on', e.target.checked); commit(); } }), h('span', null, t('Profundidad de campo', 'Depth of field'))));
+          if (dof.on) {
+            const l0 = sh.layers[S.li];
+            dn.push(MC.ui.slider({ label: t('Profundidad enfocada (z)', 'Focused depth (z)'), min: 0, max: 1, step: 0.01, value: dof.focus == null ? 0.5 : dof.focus, fmt: (v) => v.toFixed(2), onInput: (v) => setD('focus', v), onChange: commit }),
+              l0 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { setD('focus', l0.z); commit(); } }, t('Enfocar la capa «' + l0.name + '»', 'Focus layer “' + l0.name + '”')) : null,
+              MC.ui.slider({ label: t('Zona nítida', 'Sharp zone'), min: 0, max: 0.5, step: 0.01, value: dof.range == null ? 0.08 : dof.range, fmt: (v) => '± ' + v.toFixed(2), onInput: (v) => setD('range', v), onChange: commit }),
+              MC.ui.slider({ label: t('Desenfoque máximo', 'Maximum blur'), min: 1, max: 40, step: 0.5, value: dof.amount == null ? 14 : dof.amount, fmt: (v) => v + ' px', onInput: (v) => setD('amount', v), onChange: commit }));
+          }
+          fxSecs.push(sec('dof', t('Profundidad de campo', 'Depth of field') + (dof.on ? ' · ' + t('activa', 'on') : ''), dn));
+        }
       }
       const lk = p.look;
       const lookSec = sec('aspecto', t('Aspecto global', 'Global look'), [
@@ -1443,7 +1459,24 @@
           h('div', { class: 'agrid' }, [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.5, 0.5], [1, 0.5], [0, 1], [0.5, 1], [1, 1]].map((q, i) => h('button', { type: 'button', class: 'btn btn-s', 'aria-pressed': String(Math.abs(pv.x - q[0]) < 0.01 && Math.abs(pv.y - q[1]) < 0.01), 'aria-label': t('Pivote ', 'Pivot ') + ['↖', '↑', '↗', '←', '·', '→', '↙', '↓', '↘'][i], onClick: () => { setP(q[0], q[1]); commit(); } }, ['↖', '↑', '↗', '←', '·', '→', '↙', '↓', '↘'][i]))),
           MC.ui.slider({ label: t('Pivote X', 'Pivot X'), min: 0, max: 1, step: 0.01, value: pv.x, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP(v, (l2.pivot || pv).y), onChange: commit }),
           MC.ui.slider({ label: t('Pivote Y', 'Pivot Y'), min: 0, max: 1, step: 0.01, value: pv.y, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP((l2.pivot || pv).x, v), onChange: commit }),
-          MC.ui.slider({ label: t('Límite de desplazamiento por parallax', 'Parallax travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit })];
+          h('p', { class: 'cap' }, t('El límite de desplazamiento por parallax está ahora en la pestaña Parallax.', 'The parallax travel limit is now in the Parallax tab.'))];
+      };
+      /* parallax de una sola capa: cuánto se mueve con la cámara en cada eje, con el zoom y con el giro */
+      const pxNodes = (l2) => {
+        const P = l2.px || {}, setP = (k, v) => { l2.px = Object.assign({}, l2.px, { [k]: v }); S.dirty = true; touch(); }, I = MC.PARALLAX[S.project.parallax] || 1;
+        const f0 = 1 + (l2.z - 0.5) * I * 0.8, kx = P.x == null ? 1 : P.x, ky = P.y == null ? 1 : P.y;
+        const PRS = [['normal', t('Normal', 'Normal'), null], ['fixed', t('Fija (sin parallax)', 'Fixed (no parallax)'), { x: 0, y: 0, zoom: 0, rot: 0 }], ['double', t('Doble', 'Double'), { x: 2, y: 2, zoom: 1.5 }], ['inv', t('Al revés', 'Reversed'), { x: -1, y: -1 }], ['horiz', t('Solo horizontal', 'Horizontal only'), { x: 1, y: 0 }], ['vert', t('Solo vertical', 'Vertical only'), { x: 0, y: 1 }]];
+        const cur = PRS.find((q) => (q[2] == null ? !l2.px || !Object.keys(l2.px).length : ['x', 'y', 'zoom', 'rot'].every((k) => (P[k] == null ? (k === 'x' || k === 'y' || k === 'zoom' || k === 'rot' ? 1 : 0) : P[k]) === (q[2][k] == null ? 1 : q[2][k])) && !P.off));
+        const sl = (key, label, min, max, step, def, fmt) => MC.ui.slider({ label, min, max, step, value: P[key] == null ? def : P[key], fmt, onInput: (v) => setP(key, v), onChange: commit });
+        const ax = (v) => (v === 0 ? t('fija', 'fixed') : '×' + v.toFixed(2));
+        return [h('p', { class: 'cap' }, t('Con la cámara en movimiento, esta capa se desplaza según su profundidad (z ' + l2.z.toFixed(2) + ') y la intensidad del proyecto. Aquí lo afinas solo para esta capa. Se ve al reproducir o al mover el cabezal.', 'With the camera moving, this layer shifts according to its depth (z ' + l2.z.toFixed(2) + ') and the project intensity. Here you fine-tune it for this layer only. You see it when playing or moving the playhead.')),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Ajustes rápidos', 'Quick settings')), MC.ui.chips(PRS.map((q) => ({ v: q[0], l: q[1] })), cur ? cur[0] : '', (v) => { const q = PRS.find((z) => z[0] === v); if (q[2]) l2.px = Object.assign({}, q[2]); else delete l2.px; commit(); })),
+          sl('x', t('Desplazamiento horizontal', 'Horizontal travel'), -2, 3, 0.05, 1, ax), sl('y', t('Desplazamiento vertical', 'Vertical travel'), -2, 3, 0.05, 1, ax),
+          sl('zoom', t('Respuesta al zoom', 'Zoom response'), 0, 3, 0.05, 1, ax), sl('rot', t('Respuesta al giro de la cámara', 'Camera rotation response'), 0, 2, 0.05, 1, ax),
+          sl('off', t('Empuje extra', 'Extra push'), -1, 1, 0.02, 0, (v) => (v > 0 ? '+' : '') + v.toFixed(2)),
+          MC.ui.slider({ label: t('Límite de desplazamiento', 'Travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit }),
+          h('p', { class: 'cap' }, t('Con la cámara a 10 % de desplazamiento, esta capa se mueve ' + (Math.abs(f0 * kx) * 10).toFixed(1) + ' % en horizontal y ' + (Math.abs(f0 * ky) * 10).toFixed(1) + ' % en vertical' + (kx < 0 || ky < 0 ? ' (en sentido contrario)' : '') + '.', 'With the camera shifting 10 %, this layer moves ' + (Math.abs(f0 * kx) * 10).toFixed(1) + ' % horizontally and ' + (Math.abs(f0 * ky) * 10).toFixed(1) + ' % vertically' + (kx < 0 || ky < 0 ? ' (the opposite way)' : '') + '.')),
+          l2.px && Object.keys(l2.px).length ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l2.px; commit(); } }, t('Restablecer el parallax de esta capa', 'Reset this layer’s parallax')) : null];
       };
       const COPY_KEYS = ['look', 'shape', 'crop', 'blend', 'opacity', 'flipX', 'flipY', 'flip', 'r3', 'persp', 'anim', 'pivot'];
       const lookNodes = (it) => {
@@ -1525,7 +1558,7 @@
         if (l.ts || l.te != null || (l.segs && l.segs.length)) nodes.push(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l.ts; l.te = null; l.segs = []; delete l.xf; S.sg = 0; commit(); } }, t('Quitar todos los cortes y tiempos', 'Remove all cuts and timing')));
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote', 'Pivot'), pivotNodes(l)), sec('capa_px', t('Parallax de la capa', 'Layer parallax'), pxNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
       const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
@@ -1943,7 +1976,7 @@
     /* ---------- propiedades con pestañas (una barra arriba, una a la vez, como en CapCut) ---------- */
     const PTABS = {
       shot: [['basic', ['Básico', 'Basic'], ['plano']], ['camera', ['Cámara', 'Camera'], ['camara', 'tray', 'pagina', 'tira']], ['trans', ['Transición', 'Transition'], ['transicion']], ['panel', ['Viñeta', 'Panel'], ['vineta']]],
-      layer: [['basic', ['Básico', 'Basic'], ['capa']], ['anim', ['Animación', 'Animation'], ['capa_anim', 'capa_rig', 'capa_kf']], ['time', ['Tiempo y gestos', 'Timing and gestures'], ['capa_time']], ['d3', ['3D y pivote', '3D and pivot'], ['capa_3d', 'capa_pivot']], ['crop', ['Recorte', 'Crop'], ['capa_crop']], ['look', ['Aspecto', 'Look'], ['capa_look']]],
+      layer: [['basic', ['Básico', 'Basic'], ['capa']], ['anim', ['Animación', 'Animation'], ['capa_anim', 'capa_rig', 'capa_kf']], ['time', ['Tiempo y gestos', 'Timing and gestures'], ['capa_time']], ['d3', ['3D y pivote', '3D and pivot'], ['capa_3d', 'capa_pivot']], ['px', ['Parallax', 'Parallax'], ['capa_px']], ['crop', ['Recorte', 'Crop'], ['capa_crop']], ['look', ['Aspecto', 'Look'], ['capa_look']]],
       text: [['basic', ['Texto', 'Text'], ['texto']], ['anim', ['Animación', 'Animation'], ['texto_kf']]],
       clip: [['basic', ['Básico', 'Basic'], ['audio']], ['vol', ['Volumen y fundidos', 'Volume and fades'], ['audio_vol']]],
       overlay: [['basic', ['Básico', 'Basic'], ['overlay']], ['anim', ['Animación', 'Animation'], ['overlay_anim', 'overlay_kf']], ['d3', ['3D', '3D'], ['overlay_3d']], ['crop', ['Recorte', 'Crop'], ['overlay_crop']], ['look', ['Aspecto', 'Look'], ['overlay_look']]],
@@ -1977,7 +2010,7 @@
       const L = {
         subtitulos: subsPanel, planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, curvas: graphPanel, favs: favsPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
-        rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sfx: () => soundsPanel('sfx'), musica: () => soundsPanel('music'), mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
+        rack: () => [boxDom(DL.rack)].concat(DL.dof ? [boxDom(DL.dof)] : []), texto: textPanel, efectos: () => [boxDom(DL.efectos)], sfx: () => soundsPanel('sfx'), musica: () => soundsPanel('music'), mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
       if (tab) { const lt = el.leftBody.scrollTop; el.leftTitle.textContent = tabLabel(tab); MC.put(MC.clear(el.leftBody), L[tab] ? L[tab]() : null); el.leftBody.scrollTop = lt; }
       /* propiedades según la selección */

@@ -28009,11 +28009,16 @@ module.exports = ZStream;
     const dx = doc ? doc.left + img.w / 2 - doc.w / 2 : 0, dy = doc ? doc.top + img.h / 2 - doc.h / 2 : 0;
     return { base, s: sc, dx, dy, cx: o.W / 2 + dx * sc + (layer.x || 0) * o.W, cy: o.H / 2 + dy * sc + (layer.y || 0) * o.H };
   };
+  /* Parallax de una capa. Además de su profundidad (z) y de la intensidad global del proyecto, cada capa puede llevar sus propios ajustes (layer.px):
+     x e y = cuánto se desplaza con la cámara en cada eje (negativo = al revés, 0 = fija), zoom = cuánto acompaña al zoom, off = empuje extra, rot = cuánto acompaña al giro de la cámara.
+     El proyecto puede además curvar la profundidad (pxGamma): menos de 1 separa más las capas centrales, más de 1 las junta. */
   MC.layerGeom = (layer, img, cam, o) => {
-    const I = o.parallaxI;
+    const I = o.parallaxI, P = layer.px, gam = o.pxGamma || 1, d = layer.z - 0.5;
+    const dz = gam === 1 ? d : Math.sign(d) * Math.pow(Math.min(1, Math.abs(d) * 2), gam) / 2;
+    const f = 1 + dz * I * 0.8 + (P && P.off ? P.off : 0), kx = P && P.x != null ? P.x : 1, ky = P && P.y != null ? P.y : 1, kz = P && P.zoom != null ? P.zoom : 1;
     return {
-      f: 1 + (layer.z - 0.5) * I * 0.8, // cuánto se desplaza con la cámara
-      zl: (1 + (cam.zoom - 1) * (1 + (layer.z - 0.5) * I * 0.6)) * (cam.dolly ? (cam.dolly > 0 ? 1 + cam.dolly * Math.max(0, 0.5 - layer.z) * 1.1 : 1 - cam.dolly * Math.max(0, layer.z - 0.5) * 1.1) : 1), // cuánto se acerca con el zoom (y el efecto vértigo)
+      f, fx: f * kx, fy: f * ky, kr: P && P.rot != null ? P.rot : 1, // cuánto se desplaza con la cámara
+      zl: (1 + (cam.zoom - 1) * kz * (1 + dz * I * 0.6)) * (cam.dolly ? (cam.dolly > 0 ? 1 + cam.dolly * Math.max(0, 0.5 - layer.z) * 1.1 : 1 - cam.dolly * Math.max(0, layer.z - 0.5) * 1.1) : 1), // cuánto se acerca con el zoom (y el efecto vértigo)
       base: MC.layerBox(layer, img, o).base,
     };
   };
@@ -28029,8 +28034,8 @@ module.exports = ZStream;
       const r = Math.abs(cam.rot) * Math.PI / 180 + shake * 0.8 * Math.PI / 180;
       const rk = Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) * Math.max(W / H, H / W);
       out.push({
-        Ax: W / 2 + (layer.x || 0) * W - (W / 2 + cam.x * W * g.f), Bx: (W / (2 * g.zl)) * rk + shake * 0.014 * W,
-        Ay: H / 2 + (layer.y || 0) * H - (H / 2 + cam.y * H * g.f), By: (H / (2 * g.zl)) * rk + shake * 0.014 * H, zl: g.zl,
+        Ax: W / 2 + (layer.x || 0) * W - (W / 2 + cam.x * W * g.fx), Bx: (W / (2 * g.zl)) * rk + shake * 0.014 * W,
+        Ay: H / 2 + (layer.y || 0) * H - (H / 2 + cam.y * H * g.fy), By: (H / (2 * g.zl)) * rk + shake * 0.014 * H, zl: g.zl,
       });
     }
     return out;
@@ -28090,16 +28095,16 @@ module.exports = ZStream;
       if (MC.rigShow && !MC.rigShow(shot, layer, tl, shotStart, o.project)) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
-      const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.f, -lim, lim) : (cam.x + cam.sx) * g.f, cys = lim ? clamp((cam.y + cam.sy) * g.f, -lim, lim) : (cam.y + cam.sy) * g.f;
+      const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.fx, -lim, lim) : (cam.x + cam.sx) * g.fx, cys = lim ? clamp((cam.y + cam.sy) * g.fy, -lim, lim) : (cam.y + cam.sy) * g.fy;
       const camx = W / 2 + cxs * W, camy = H / 2 + cys * H;
       const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl - (layer.ts || 0), (layer.te == null ? shot.duration : layer.te) - (layer.ts || 0)) : null;
       ctx.save();
       ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1) * amul;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
-      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
+      const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0, !o.noClip && MC.dofBlur ? MC.dofBlur(shot, layer) : 0), lf = anim && anim.layers[layer.id];
       if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0, W / 1920) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
       ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
-      if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
+      if (cam.rot || lf) ctx.rotate(((cam.rot * g.kr + (lf ? lf.rot : 0)) * Math.PI) / 180);
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
       ctx.translate(-camx, -camy);
       const ix = box.cx - (img.w * box.s) / 2, iy = box.cy - (img.h * box.s) / 2, iw = img.w * box.s, ih = img.h * box.s;
@@ -28191,7 +28196,7 @@ module.exports = ZStream;
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);
-    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, overscan: project.overscan !== false, project }, extra || {});
+    return Object.assign({ W: s.w, H: s.h, getImg: (id) => MC.assets.get(id), parallaxI: MC.PARALLAX[project.parallax] || 1, pxGamma: project.pxGamma || 1, overscan: project.overscan !== false, project }, extra || {});
   };
 
   MC.makeThumb = (project) => {
@@ -29532,6 +29537,11 @@ module.exports = ZStream;
   };
 
   /* Rack focus: el enfoque pasa de una capa a otra. */
+  /* Profundidad de campo: las capas se desenfocan según lo lejos que estén de la profundidad enfocada (shot.dof = { on, focus, range, amount }) */
+  MC.dofBlur = (shot, layer) => {
+    const d = shot.dof; if (!d || !d.on) return 0;
+    return (d.amount == null ? 14 : d.amount) * clamp((Math.abs(layer.z - (d.focus == null ? 0.5 : d.focus)) - (d.range == null ? 0.08 : d.range)) / 0.5, 0, 1);
+  };
   MC.rackBlur = (shot, layer, tl) => {
     const r = shot.rack;
     if (!r || !r.on || (layer.id !== r.a && layer.id !== r.b)) return 0;
@@ -31416,10 +31426,12 @@ module.exports = ZStream;
     vinetas: [['Viñetas', 'Define cómo se ve el marco de cada plano: borde de cómic, esquinas, calle entre viñetas y sombra. Es el aspecto «de página» del vídeo.', 'Elige un estilo para todo el proyecto y, si quieres, cambia el de un plano concreto desde sus propiedades. Verás el resultado al momento en el visor.'], ['Panels', 'Sets how each shot’s frame looks: comic border, corners, gutter and shadow. It is the “page” look of the video.', 'Pick a style for the whole project and, if you want, change a single shot from its properties. You see the result right away in the viewer.'], 'vinetas'],
     camara: [['Cámara', 'Controla el movimiento de la cámara dentro de un plano: dónde empieza y dónde termina el encuadre, cuánto dura y con qué curva acelera.', 'Coloca el cabezal al inicio o al final del plano y arrastra el visor para encuadrar. Los presets de cámara aplican movimientos típicos (zoom, paneo, deriva). Con una trayectoria dibujada la cámara sigue una ruta libre.'], ['Camera', 'Controls how the camera moves inside a shot: where the framing starts and ends, how long it takes and which curve it eases with.', 'Put the playhead at the start or the end of the shot and drag the viewer to frame it. Camera presets apply typical moves (zoom, pan, drift). With a drawn route the camera follows a free path.'], 'parallax'],
     curvas: [['Curvas', 'Editor gráfico de los fotogramas clave. Muestra cómo cambia una propiedad (posición, escala, giro, opacidad…) a lo largo del tiempo y te deja suavizar o endurecer cada tramo.', 'Elige la propiedad, arrastra los rombos en tiempo y valor y usa los tiradores para cambiar la curva. «Lineal» va a velocidad constante; «Suave» acelera y frena; «Rebote» y «Elástico» pasan de largo y vuelven.'], ['Curves', 'Graph editor for keyframes. It shows how a property (position, scale, rotation, opacity…) changes over time and lets you soften or harden each stretch.', 'Pick the property, drag the diamonds in time and value, and use the handles to change the curve. “Linear” keeps a constant speed; “Smooth” eases in and out; “Bounce” and “Elastic” overshoot and settle.'], 'curvas'],
+    dof: [['Profundidad de campo', 'Desenfoca las capas según lo lejos que estén de la profundidad enfocada, como una cámara real: lo que está en el foco sale nítido y lo demás se difumina.', 'Actívala, elige qué profundidad (z) está enfocada (o pulsa «Enfocar la capa…»), la zona nítida y el desenfoque máximo. Es fijo durante el plano; para pasar el foco de una capa a otra usa el rack focus.'], ['Depth of field', 'Blurs layers according to how far they are from the focused depth, like a real camera: what is in focus stays sharp and the rest is softened.', 'Turn it on, choose which depth (z) is focused (or press “Focus layer…”), the sharp zone and the maximum blur. It is fixed during the shot; to move focus from one layer to another use rack focus.']],
+    capa_px: [['Parallax de la capa', 'Cuánto se mueve esta capa cuando la cámara se desplaza, hace zoom o gira. Por defecto depende de su profundidad; aquí lo cambias solo para ella: más o menos en horizontal y en vertical, al revés, fija…', 'Elige un ajuste rápido o mueve los deslizadores (negativo = se mueve al revés, 0 = fija). Se ve al reproducir o mover el cabezal. El límite de desplazamiento impide que la capa se aleje demasiado.'], ['Layer parallax', 'How much this layer moves when the camera moves, zooms or rotates. By default it depends on its depth; here you change it for this layer only: more or less horizontally and vertically, reversed, fixed…', 'Pick a quick setting or move the sliders (negative = moves the opposite way, 0 = fixed). You see it when playing or moving the playhead. The travel limit stops the layer drifting too far.']],
     rack: [['Rack focus', 'Es el cambio de enfoque de cine: una capa empieza nítida y otra borrosa, y a mitad del plano el foco pasa de una a la otra. Sirve para dirigir la mirada del espectador.', 'Necesitas al menos dos capas en el plano. Activa «Rack focus», elige qué capa empieza nítida y cuál termina nítida, cuándo empieza el cambio, cuánto dura y cuánto desenfoque tiene.'], ['Rack focus', 'A cinematic focus pull: one layer starts sharp and another blurry, and midway through the shot the focus moves from one to the other. It guides the viewer’s eye.', 'You need at least two layers in the shot. Turn on “Rack focus”, choose which layer starts sharp and which ends sharp, when the shift starts, how long it lasts and how blurry it gets.'], 'rack'],
     recursos: [['Recursos', 'Todos los archivos que has importado al proyecto (imágenes, vídeos, audio, fuentes). Desde aquí los reutilizas sin volver a subirlos.', 'Arrastra un recurso al visor para crear una capa, a la línea de tiempo para colocarlo, o usa su menú para añadirlo a la biblioteca.'], ['Assets', 'Every file you imported into the project (images, video, audio, fonts). You reuse them from here without uploading again.', 'Drag an asset onto the viewer to make a layer, onto the timeline to place it, or use its menu to add it to the library.']],
     biblioteca: [['Biblioteca', 'Recursos guardados que comparten todos tus proyectos: personajes, fondos, sonidos. Se quedan aunque borres un proyecto.', 'Añade un recurso desde su menú, organízalo en carpetas y etiquetas, y arrástralo a cualquier proyecto.'], ['Library', 'Saved assets shared by all your projects: characters, backgrounds, sounds. They stay even if you delete a project.', 'Add an asset from its menu, organise it in folders and tags, and drag it into any project.']],
-    proyecto: [['Proyecto', 'Ajustes generales: formato y resolución del vídeo, intensidad del parallax, duración y resumen de lo que hay.', 'Cambia el formato desde el botón de proporción de la barra superior; el parallax (sutil, normal, intensa) afecta a todo el proyecto.'], ['Project', 'General settings: video format and resolution, parallax strength, length and a summary of what is in it.', 'Change the format from the aspect-ratio button in the top bar; parallax (subtle, normal, strong) affects the whole project.'], 'parallax'],
+    proyecto: [['Proyecto', 'Ajustes generales: formato y resolución del vídeo, intensidad y curva del parallax, duración y resumen de lo que hay.', 'Cambia el formato desde el botón de proporción de la barra superior; el parallax (sutil, normal, intensa) afecta a todo el proyecto.'], ['Project', 'General settings: video format and resolution, parallax strength, length and a summary of what is in it.', 'Change the format from the aspect-ratio button in the top bar; parallax (subtle, normal, strong) affects the whole project.'], 'parallax'],
     aspecto: [['Aspecto global', 'Retoques de imagen para todo el vídeo: viñeta oscura, grano, trama de puntos, tinte, saturación y contraste.', 'Mueve los deslizadores y mira el visor. Cada ajuste vuelve a su valor neutro con el botón de restablecer.'], ['Global look', 'Image touches for the whole video: dark vignette, grain, halftone, tint, saturation and contrast.', 'Move the sliders and watch the viewer. Each setting returns to neutral with the reset button.']],
     estilo: [['Mi estilo y presets', '«Mi estilo» es tu receta personal: guarda cómo montas (transiciones, curva de cámara, ritmo de las viñetas, parallax y tipografías) para repetirlo sin empezar de cero. Los presets guardan movimientos de cámara y pilas de efectos con nombre.', 'Monta un proyecto a tu gusto y pulsa «Guardar como Mi estilo»; se aplica solo a proyectos nuevos y al borrador en un clic, o a mano con «Aplicar al proyecto». «Exportar» e «Importar» lo llevan a otro equipo en un archivo. No guarda tus dibujos, solo los ajustes.'], ['My style and presets', '“My style” is your personal recipe: it saves how you edit (transitions, camera curve, panel pacing, parallax and fonts) so you can repeat it without starting over. Presets save named camera moves and effect stacks.', 'Build a project the way you like and press “Save as My style”; it is applied to new projects and to the one-click draft, or by hand with “Apply to project”. “Export” and “Import” take it to another device in a file. It saves settings, never your drawings.'], 'estilo'],
     favs: [['Favoritos', 'Los sonidos, transiciones y estilos de subtítulos que marcas con la estrella ★, juntos en un solo sitio.', 'Pulsa la estrella de cualquier elemento; aquí aparece para usarlo rápido.'], ['Favourites', 'The sounds, transitions and subtitle styles you mark with the star ★, together in one place.', 'Press the star on any item; it shows up here for quick use.']],
@@ -31435,7 +31447,7 @@ module.exports = ZStream;
     capa: [['Capa', 'Una capa es una ilustración dentro del plano. Aquí colocas su profundidad, posición, escala y opacidad. Con el parallax, las capas cercanas se mueven más que las lejanas cuando la cámara se desplaza.', 'Ajusta la profundidad con las etiquetas rápidas o el deslizador. El rombo de cada propiedad crea fotogramas clave para animarla.'], ['Layer', 'A layer is one illustration inside the shot. Here you set its depth, position, scale and opacity. With parallax, near layers move more than far ones when the camera moves.', 'Set depth with the quick chips or the slider. The diamond on each property creates keyframes to animate it.'], 'parallax'],
     capa_anim: [['Animación de la capa', 'Entradas, salidas y bucles de la capa (aparecer, deslizar, latir, flotar…) y movimientos listos.', 'Pasa el ratón por encima de una opción para verla en el visor antes de aplicarla (con Tab también, o pulsación larga en táctil); haz clic para aplicarla y ajusta su duración. Los bucles se repiten mientras la capa está en pantalla.'], ['Layer animation', 'Entries, exits and loops for the layer (appear, slide, pulse, float…) and ready-made moves.', 'Hover over an option to see it in the viewer before applying it (with Tab too, or long-press on touch); click to apply it and set its length. Loops repeat while the layer is on screen.']],
     capa_rig: [['Personaje: parpadeo y boca', 'Dibuja ojos cerrados y bocas en capas extra y la capa del personaje parpadea y mueve la boca sola, siguiendo la voz.', 'Elige qué capas son los ojos cerrados y las bocas, y el ritmo del parpadeo.'], ['Character: blink and mouth', 'Draw closed eyes and mouths on extra layers and the character blinks and moves its mouth by itself, following the voice.', 'Choose which layers are the closed eyes and the mouths, and the blink pace.']],
-    capa_pivot: [['Pivote y límites', 'El pivote es el punto alrededor del que gira y escala la capa. Los límites impiden que se salga demasiado.', 'Mueve el pivote a la articulación o al centro que quieras (por ejemplo, el hombro de un brazo) antes de animar el giro.'], ['Pivot and limits', 'The pivot is the point the layer rotates and scales around. Limits stop it going too far.', 'Move the pivot to the joint or centre you want (for example, an arm’s shoulder) before animating the rotation.']],
+    capa_pivot: [['Pivote y límites', 'El pivote es el punto alrededor del que gira y escala la capa.', 'Mueve el pivote a la articulación o al centro que quieras (por ejemplo, el hombro de un brazo) antes de animar el giro.'], ['Pivot and limits', 'The pivot is the point the layer rotates and scales around.', 'Move the pivot to the joint or centre you want (for example, an arm’s shoulder) before animating the rotation.']],
     capa_kf: [['Fotogramas clave', 'Un fotograma clave guarda el valor de una propiedad en un instante. Entre dos fotogramas, el programa calcula el movimiento con la curva que elijas.', 'Mueve el cabezal, cambia un valor y pulsa el rombo de esa propiedad. Los rombos aparecen en la línea de tiempo y se afinan en la pestaña Curvas.'], ['Keyframes', 'A keyframe stores a property’s value at one moment. Between two keyframes the program works out the movement with the curve you choose.', 'Move the playhead, change a value and press that property’s diamond. The diamonds show on the timeline and are refined in the Curves tab.'], 'keyframes'],
     capa_3d: [['Giro en 3D', 'Gira la capa sobre los ejes X, Y y Z con perspectiva, como una carta que se da la vuelta.', 'Mueve los deslizadores de giro; con fotogramas clave puedes animar el giro.'], ['3D turn', 'Rotates the layer on the X, Y and Z axes with perspective, like a card flipping over.', 'Move the rotation sliders; with keyframes you can animate the turn.']],
     capa_look: [['Sombra, brillo, contorno y color', 'Retoques de la capa: sombra, resplandor, contorno y ajustes de color (brillo, contraste, saturación, tono, blanco y negro, sepia, invertir, desenfoque).', 'Activa lo que necesites y ajusta la intensidad. «Copiar ajustes» y «Pegar ajustes» pasan todo el aspecto, la forma, el recorte y las animaciones a otra capa o superposición.'], ['Shadow, glow, outline and colour', 'Layer touches: shadow, glow, outline and colour adjustments.', 'Turn on what you need and set the strength; each layer has its own.']],
@@ -33631,6 +33643,9 @@ module.exports = ZStream;
         MC.formatPicker(st, () => { p.ratio = st.ratio; p.res = st.res; p.zoomPlan = st.zoom; fit(); commit(); }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Intensidad del parallax', 'Parallax intensity')),
           MC.ui.seg([{ v: 'subtle', l: t('Sutil', 'Subtle') }, { v: 'normal', l: 'Normal' }, { v: 'wild', l: t('Exagerado', 'Exaggerated') }], p.parallax, (v) => { p.parallax = v; commit(); })),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Curva de profundidad', 'Depth curve')),
+          MC.ui.seg([{ v: '0.6', l: t('Marcada', 'Strong') }, { v: '1', l: t('Lineal', 'Linear') }, { v: '1.8', l: t('Suave', 'Soft') }], String(p.pxGamma || 1), (v) => { if (+v === 1) delete p.pxGamma; else p.pxGamma = +v; commit(); }, t('Curva de profundidad', 'Depth curve')),
+          h('span', { class: 'cap' }, t('Marcada separa más las capas cercanas y lejanas del centro; suave las junta.', 'Strong pulls near and far layers further from the middle; soft pulls them together.'))),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: p.overscan !== false, onChange: (e) => { p.overscan = e.target.checked; commit(); } }),
           h('span', null, t('Sobreescalado automático del fondo', 'Automatic background overscale'), h('small', null, t('Desactívalo para ver dónde aparecerían huecos con «Huecos» en el visor.', 'Turn it off to see where gaps would appear with “Gaps” in the viewer.')))),
       ];
@@ -33899,6 +33914,19 @@ module.exports = ZStream;
           }
         }
         fxSecs.push(sec('rack', t('Rack focus', 'Rack focus') + (r && r.on ? ' · ' + t('activo', 'on') : ''), nodes));
+        {
+          const dof = sh.dof || {}, setD = (k, v) => { sh.dof = Object.assign({ on: true, focus: 0.5, range: 0.08, amount: 14 }, sh.dof, { [k]: v }); S.dirty = true; touch(); }, dn = [];
+          dn.push(h('p', { class: 'cap' }, t('Desenfoca las capas según lo lejos que estén de la profundidad enfocada, como una cámara real. Es fijo durante el plano; para pasar el foco de una capa a otra usa el rack focus.', 'Blurs layers according to how far they are from the focused depth, like a real camera. It is fixed during the shot; to move focus from one layer to another use rack focus.')),
+            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!dof.on, onChange: (e) => { setD('on', e.target.checked); commit(); } }), h('span', null, t('Profundidad de campo', 'Depth of field'))));
+          if (dof.on) {
+            const l0 = sh.layers[S.li];
+            dn.push(MC.ui.slider({ label: t('Profundidad enfocada (z)', 'Focused depth (z)'), min: 0, max: 1, step: 0.01, value: dof.focus == null ? 0.5 : dof.focus, fmt: (v) => v.toFixed(2), onInput: (v) => setD('focus', v), onChange: commit }),
+              l0 ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { setD('focus', l0.z); commit(); } }, t('Enfocar la capa «' + l0.name + '»', 'Focus layer “' + l0.name + '”')) : null,
+              MC.ui.slider({ label: t('Zona nítida', 'Sharp zone'), min: 0, max: 0.5, step: 0.01, value: dof.range == null ? 0.08 : dof.range, fmt: (v) => '± ' + v.toFixed(2), onInput: (v) => setD('range', v), onChange: commit }),
+              MC.ui.slider({ label: t('Desenfoque máximo', 'Maximum blur'), min: 1, max: 40, step: 0.5, value: dof.amount == null ? 14 : dof.amount, fmt: (v) => v + ' px', onInput: (v) => setD('amount', v), onChange: commit }));
+          }
+          fxSecs.push(sec('dof', t('Profundidad de campo', 'Depth of field') + (dof.on ? ' · ' + t('activa', 'on') : ''), dn));
+        }
       }
       const lk = p.look;
       const lookSec = sec('aspecto', t('Aspecto global', 'Global look'), [
@@ -34036,7 +34064,24 @@ module.exports = ZStream;
           h('div', { class: 'agrid' }, [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.5, 0.5], [1, 0.5], [0, 1], [0.5, 1], [1, 1]].map((q, i) => h('button', { type: 'button', class: 'btn btn-s', 'aria-pressed': String(Math.abs(pv.x - q[0]) < 0.01 && Math.abs(pv.y - q[1]) < 0.01), 'aria-label': t('Pivote ', 'Pivot ') + ['↖', '↑', '↗', '←', '·', '→', '↙', '↓', '↘'][i], onClick: () => { setP(q[0], q[1]); commit(); } }, ['↖', '↑', '↗', '←', '·', '→', '↙', '↓', '↘'][i]))),
           MC.ui.slider({ label: t('Pivote X', 'Pivot X'), min: 0, max: 1, step: 0.01, value: pv.x, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP(v, (l2.pivot || pv).y), onChange: commit }),
           MC.ui.slider({ label: t('Pivote Y', 'Pivot Y'), min: 0, max: 1, step: 0.01, value: pv.y, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP((l2.pivot || pv).x, v), onChange: commit }),
-          MC.ui.slider({ label: t('Límite de desplazamiento por parallax', 'Parallax travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit })];
+          h('p', { class: 'cap' }, t('El límite de desplazamiento por parallax está ahora en la pestaña Parallax.', 'The parallax travel limit is now in the Parallax tab.'))];
+      };
+      /* parallax de una sola capa: cuánto se mueve con la cámara en cada eje, con el zoom y con el giro */
+      const pxNodes = (l2) => {
+        const P = l2.px || {}, setP = (k, v) => { l2.px = Object.assign({}, l2.px, { [k]: v }); S.dirty = true; touch(); }, I = MC.PARALLAX[S.project.parallax] || 1;
+        const f0 = 1 + (l2.z - 0.5) * I * 0.8, kx = P.x == null ? 1 : P.x, ky = P.y == null ? 1 : P.y;
+        const PRS = [['normal', t('Normal', 'Normal'), null], ['fixed', t('Fija (sin parallax)', 'Fixed (no parallax)'), { x: 0, y: 0, zoom: 0, rot: 0 }], ['double', t('Doble', 'Double'), { x: 2, y: 2, zoom: 1.5 }], ['inv', t('Al revés', 'Reversed'), { x: -1, y: -1 }], ['horiz', t('Solo horizontal', 'Horizontal only'), { x: 1, y: 0 }], ['vert', t('Solo vertical', 'Vertical only'), { x: 0, y: 1 }]];
+        const cur = PRS.find((q) => (q[2] == null ? !l2.px || !Object.keys(l2.px).length : ['x', 'y', 'zoom', 'rot'].every((k) => (P[k] == null ? (k === 'x' || k === 'y' || k === 'zoom' || k === 'rot' ? 1 : 0) : P[k]) === (q[2][k] == null ? 1 : q[2][k])) && !P.off));
+        const sl = (key, label, min, max, step, def, fmt) => MC.ui.slider({ label, min, max, step, value: P[key] == null ? def : P[key], fmt, onInput: (v) => setP(key, v), onChange: commit });
+        const ax = (v) => (v === 0 ? t('fija', 'fixed') : '×' + v.toFixed(2));
+        return [h('p', { class: 'cap' }, t('Con la cámara en movimiento, esta capa se desplaza según su profundidad (z ' + l2.z.toFixed(2) + ') y la intensidad del proyecto. Aquí lo afinas solo para esta capa. Se ve al reproducir o al mover el cabezal.', 'With the camera moving, this layer shifts according to its depth (z ' + l2.z.toFixed(2) + ') and the project intensity. Here you fine-tune it for this layer only. You see it when playing or moving the playhead.')),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Ajustes rápidos', 'Quick settings')), MC.ui.chips(PRS.map((q) => ({ v: q[0], l: q[1] })), cur ? cur[0] : '', (v) => { const q = PRS.find((z) => z[0] === v); if (q[2]) l2.px = Object.assign({}, q[2]); else delete l2.px; commit(); })),
+          sl('x', t('Desplazamiento horizontal', 'Horizontal travel'), -2, 3, 0.05, 1, ax), sl('y', t('Desplazamiento vertical', 'Vertical travel'), -2, 3, 0.05, 1, ax),
+          sl('zoom', t('Respuesta al zoom', 'Zoom response'), 0, 3, 0.05, 1, ax), sl('rot', t('Respuesta al giro de la cámara', 'Camera rotation response'), 0, 2, 0.05, 1, ax),
+          sl('off', t('Empuje extra', 'Extra push'), -1, 1, 0.02, 0, (v) => (v > 0 ? '+' : '') + v.toFixed(2)),
+          MC.ui.slider({ label: t('Límite de desplazamiento', 'Travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit }),
+          h('p', { class: 'cap' }, t('Con la cámara a 10 % de desplazamiento, esta capa se mueve ' + (Math.abs(f0 * kx) * 10).toFixed(1) + ' % en horizontal y ' + (Math.abs(f0 * ky) * 10).toFixed(1) + ' % en vertical' + (kx < 0 || ky < 0 ? ' (en sentido contrario)' : '') + '.', 'With the camera shifting 10 %, this layer moves ' + (Math.abs(f0 * kx) * 10).toFixed(1) + ' % horizontally and ' + (Math.abs(f0 * ky) * 10).toFixed(1) + ' % vertically' + (kx < 0 || ky < 0 ? ' (the opposite way)' : '') + '.')),
+          l2.px && Object.keys(l2.px).length ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l2.px; commit(); } }, t('Restablecer el parallax de esta capa', 'Reset this layer’s parallax')) : null];
       };
       const COPY_KEYS = ['look', 'shape', 'crop', 'blend', 'opacity', 'flipX', 'flipY', 'flip', 'r3', 'persp', 'anim', 'pivot'];
       const lookNodes = (it) => {
@@ -34118,7 +34163,7 @@ module.exports = ZStream;
         if (l.ts || l.te != null || (l.segs && l.segs.length)) nodes.push(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l.ts; l.te = null; l.segs = []; delete l.xf; S.sg = 0; commit(); } }, t('Quitar todos los cortes y tiempos', 'Remove all cuts and timing')));
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote', 'Pivot'), pivotNodes(l)), sec('capa_px', t('Parallax de la capa', 'Layer parallax'), pxNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
       const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
@@ -34536,7 +34581,7 @@ module.exports = ZStream;
     /* ---------- propiedades con pestañas (una barra arriba, una a la vez, como en CapCut) ---------- */
     const PTABS = {
       shot: [['basic', ['Básico', 'Basic'], ['plano']], ['camera', ['Cámara', 'Camera'], ['camara', 'tray', 'pagina', 'tira']], ['trans', ['Transición', 'Transition'], ['transicion']], ['panel', ['Viñeta', 'Panel'], ['vineta']]],
-      layer: [['basic', ['Básico', 'Basic'], ['capa']], ['anim', ['Animación', 'Animation'], ['capa_anim', 'capa_rig', 'capa_kf']], ['time', ['Tiempo y gestos', 'Timing and gestures'], ['capa_time']], ['d3', ['3D y pivote', '3D and pivot'], ['capa_3d', 'capa_pivot']], ['crop', ['Recorte', 'Crop'], ['capa_crop']], ['look', ['Aspecto', 'Look'], ['capa_look']]],
+      layer: [['basic', ['Básico', 'Basic'], ['capa']], ['anim', ['Animación', 'Animation'], ['capa_anim', 'capa_rig', 'capa_kf']], ['time', ['Tiempo y gestos', 'Timing and gestures'], ['capa_time']], ['d3', ['3D y pivote', '3D and pivot'], ['capa_3d', 'capa_pivot']], ['px', ['Parallax', 'Parallax'], ['capa_px']], ['crop', ['Recorte', 'Crop'], ['capa_crop']], ['look', ['Aspecto', 'Look'], ['capa_look']]],
       text: [['basic', ['Texto', 'Text'], ['texto']], ['anim', ['Animación', 'Animation'], ['texto_kf']]],
       clip: [['basic', ['Básico', 'Basic'], ['audio']], ['vol', ['Volumen y fundidos', 'Volume and fades'], ['audio_vol']]],
       overlay: [['basic', ['Básico', 'Basic'], ['overlay']], ['anim', ['Animación', 'Animation'], ['overlay_anim', 'overlay_kf']], ['d3', ['3D', '3D'], ['overlay_3d']], ['crop', ['Recorte', 'Crop'], ['overlay_crop']], ['look', ['Aspecto', 'Look'], ['overlay_look']]],
@@ -34570,7 +34615,7 @@ module.exports = ZStream;
       const L = {
         subtitulos: subsPanel, planos: shotsPanel, recursos: resourcesPanel, biblioteca: libraryPanel, vinetas: () => [boxDom(DL.vinetas)], transiciones: transPanel, curvas: graphPanel, favs: favsPanel, proyecto: () => [boxDom(DL.proyecto)], aspecto: () => [boxDom(DL.aspecto)], estilo: () => [boxDom(DL.estilo)],
         camara: () => [boxDom(DL.camara)].concat(DL.pagina ? [boxDom(DL.pagina)] : [], DL.tira ? [boxDom(DL.tira)] : [], DL.tray ? [boxDom(DL.tray)] : []),
-        rack: () => [boxDom(DL.rack)], texto: textPanel, efectos: () => [boxDom(DL.efectos)], sfx: () => soundsPanel('sfx'), musica: () => soundsPanel('music'), mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
+        rack: () => [boxDom(DL.rack)].concat(DL.dof ? [boxDom(DL.dof)] : []), texto: textPanel, efectos: () => [boxDom(DL.efectos)], sfx: () => soundsPanel('sfx'), musica: () => soundsPanel('music'), mezclador: () => [boxDom(DL.mezcla)], idiomas: () => [boxDom(DL.idiomas)],
       };
       if (tab) { const lt = el.leftBody.scrollTop; el.leftTitle.textContent = tabLabel(tab); MC.put(MC.clear(el.leftBody), L[tab] ? L[tab]() : null); el.leftBody.scrollTop = lt; }
       /* propiedades según la selección */

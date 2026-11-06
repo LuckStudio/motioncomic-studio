@@ -57,6 +57,11 @@
   };
 
   /* Rack focus: el enfoque pasa de una capa a otra. */
+  /* Profundidad de campo: las capas se desenfocan según lo lejos que estén de la profundidad enfocada (shot.dof = { on, focus, range, amount }) */
+  MC.dofBlur = (shot, layer) => {
+    const d = shot.dof; if (!d || !d.on) return 0;
+    return (d.amount == null ? 14 : d.amount) * clamp((Math.abs(layer.z - (d.focus == null ? 0.5 : d.focus)) - (d.range == null ? 0.08 : d.range)) / 0.5, 0, 1);
+  };
   MC.rackBlur = (shot, layer, tl) => {
     const r = shot.rack;
     if (!r || !r.on || (layer.id !== r.a && layer.id !== r.b)) return 0;
