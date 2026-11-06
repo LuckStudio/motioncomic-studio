@@ -287,3 +287,15 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - `safeRects`, `subPresets`, `safeCheck` y `safeNote` en studio.js; `renderSubs` entrega los límites de cada subtítulo al visor para poder medirlos.
 - Posición rápida según formato (antes valores fijos, uno fuera del rango del control) y mismo selector para el valor por defecto del proyecto; rango de altura ampliado a −0,40.
 - Aviso con botón de corrección, recalculado tras cada dibujo del visor para que no vaya con retraso. Probado con Playwright en 9:16 (aviso, corrección, estrechar, «Dentro de la zona segura») y en 16:9 (presets distintos). Corregido en la prueba: el preset «Arriba» caía sobre la barra superior con tres líneas y se dejó más hueco.
+
+## Fase E del plan nuevo: fotogramas clave avanzados (versión 0.18)
+
+- Vista avanzada de la fila de fotogramas clave con una fila por propiedad (`kfAdvProps`, `kfMoveProp`, `kfDelProp` en studio.js); etiquetas y pista con la misma altura; `layoutLanes` ya no pisa la altura de esta fila.
+- Mover un rombo de una propiedad la separa o la une a otro fotograma según el caso; doble pulsación (detectada con dos pulsaciones seguidas porque la primera redibujaba la línea de tiempo) crea un fotograma de una sola propiedad; menú con «Eliminar solo …».
+- Probado con ratón real: fila 26 → 136 px, 5 filas, mover solo Y separa un tercer fotograma y X se queda, crear y borrar un fotograma solo de escala, volver a la vista simple.
+- Límites conocidos: aún no hay selección de varios rombos, copiar/pegar fotogramas ni curva por rombo desde la fila (la curva se edita en el editor de curvas, eligiendo la propiedad); el movimiento suave o lineal se aplica al fotograma entero.
+
+## Fase G añadida al final del plan: cursores personalizados (pendiente)
+
+- Pedido de la persona: poder tener el cursor de siempre pero personalizarlo con una ilustración propia o elegir cursores ya preparados de otros estilos (retro, futurista, pixelado…).
+- Propuesta: Preferencias → Cursor con cursor del sistema por defecto, una colección de cursores incluidos dibujados por nosotros (retro, futurista, pixelado, de cómic, minimalista…), importar una imagen propia (PNG/SVG, con punto activo ajustable y límite de tamaño), vista previa y restablecer. Se aplica con la propiedad CSS `cursor` (con el del sistema como alternativa) y se guarda en este equipo. Va como fase G, después de F (Aprender).
