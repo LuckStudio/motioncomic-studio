@@ -710,7 +710,7 @@
       c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
     }
     const offJobChip = MC.onExportJob(updateJobChip);
-    async function close() { MC.studioApi = null; S.alive = false; togglePlay(false); await save(); try { await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } cleanup(); MC.app.render(); }
+    async function close() { S.alive = false; togglePlay(false); await save(); try { await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } if (MC.motion) await MC.motion.leaveStudio(studio); MC.studioApi = null; cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
     /* ---------- capas: como en Photoshop, arriba = más cerca y tapa lo de abajo ---------- */
@@ -3134,7 +3134,7 @@
     const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab },
       h('div', { class: 'skiplinks' }, [['viewer', 'Saltar al visor', 'Skip to the viewer'], ['timeline', 'Saltar a la línea de tiempo', 'Skip to the timeline'], ['props', 'Saltar a las propiedades', 'Skip to properties']].map((q) => h('button', { type: 'button', onClick: () => focusRegion(q[0]) }, t(q[1], q[2])))),
       el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), el.sheetGrab, mtabs, el.sBot = h('div', { class: 's-bot' }, el.zBL, timeline, el.zBR), fileLayers, fileOver, fileOv, fileShots, fileAudio);
-    setTimeout(() => studio.classList.remove('enter'), 1400);
+    setTimeout(() => studio.classList.remove('enter'), 3000); if (MC.motion && !MC.motion.reduced()) MC.motion.watchEnter(3000);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     MC.put(MC.clear(root), studio);

@@ -176,3 +176,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Paneles junto a la línea de tiempo
 
 - Dos zonas nuevas, abajo a la izquierda y abajo a la derecha de la línea de tiempo, para acoplar Capas y Propiedades (menú ⋮, arrastre del asa y tres disposiciones nuevas); ancho ajustable por zona y guardado en las vistas.
+
+## Animaciones de entrada y salida del estudio
+
+- Transición en dos tiempos al abrir un proyecto (el inicio se deshace y el estudio se construye por piezas, unos 2,3 s en total) y al revés al volver al inicio; más lentas y suaves que antes, saltables con un toque o una tecla y desactivadas con animaciones reducidas.

@@ -18,19 +18,9 @@
       await MC.app.openProject(p);
     },
     async openProject(p, fromEl) {
-      const reduced = MC.store.get('motion', 'auto') === 'reduce' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-      let fx = null;
-      if (fromEl && !reduced && p.thumb && fromEl.getBoundingClientRect) {
-        const R0 = fromEl.getBoundingClientRect(), uz = MC.uz(), r = { left: R0.left / uz, top: R0.top / uz, width: R0.width / uz, height: R0.height / uz };
-        fx = document.createElement('div'); fx.className = 'zoomfx';
-        Object.assign(fx.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', backgroundImage: 'url(' + p.thumb + ')', backgroundSize: 'contain', backgroundRepeat: 'no-repeat' });
-        document.body.append(fx);
-        fx.animate([{ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }, { left: '0px', top: '0px', width: innerWidth / uz + 'px', height: innerHeight / uz + 'px' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
-      }
-      const full = (await MC.db.get('projects', p.id)) || p;
-      const mounted = MC.mountStudio(root, full);
-      await Promise.all([mounted, fx ? new Promise((r) => setTimeout(r, 380)) : null]);
-      if (fx) { const a = fx.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }); a.onfinish = () => fx.remove(); }
+      /* 1) el inicio se deshace, 2) el estudio se construye pieza a pieza */
+      const [full] = await Promise.all([MC.db.get('projects', p.id).then((x) => x || p), MC.motion ? MC.motion.leaveHome(root) : null]);
+      await MC.mountStudio(root, full);
     },
   };
 

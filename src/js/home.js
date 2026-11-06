@@ -173,7 +173,7 @@
       let list = projects.filter((p) => p.name.toLowerCase().includes(q.text.toLowerCase()));
       if (q.sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
       else if (q.sort === 'mode') list = list.slice().sort((a, b) => (a.mode || 'free').localeCompare(b.mode || 'free') || b.updated - a.updated);
-      list.forEach((p, i) => { const c = card(p); c.style.animationDelay = Math.min(i, 8) * 45 + 'ms'; grid.append(c); });
+      list.forEach((p, i) => { const c = card(p); c.style.animationDelay = (250 + Math.min(i, 10) * 80) + 'ms'; grid.append(c); });
       if (!list.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1' } }, h('p', null, t('Ningún proyecto coincide con la búsqueda.', 'No project matches the search.'))));
     };
     const scene = h('canvas', { 'aria-hidden': 'true' }), sceneCap = h('span', { class: 'cap', hidden: true }, t('El parallax responde a tu ratón', 'The parallax follows your mouse'));
@@ -199,10 +199,10 @@
       })(),
       h('section', { class: 'hero' },
         h('div', { class: 'hero-copy' },
-          h('div', { class: 'hero-logo' }, h('span', { style: { animation: 'slide-a .7s cubic-bezier(.2,.8,.2,1) both', display: 'inline-flex' } }, MC.mark(46)), h('span', { class: 'eyebrow', style: { animation: 'rise .6s .2s both' } }, t('Estudio de vídeo-cómic', 'Motion-comic studio'))),
-          h('h1', { style: { animation: 'rise .6s .1s both' } }, t('Un cuarto oscuro para que el arte brille', 'A dark room for your art to shine')),
-          h('p', { style: { animation: 'rise .6s .2s both' } }, t('Convierte tus páginas en vídeo animado sin pasar por After Effects. Todo ocurre en este equipo: tus dibujos no salen de aquí.', 'Turn your pages into animated video without After Effects. Everything happens on this device: your art never leaves it.')),
-          h('div', { class: 'hero-cta', style: { animation: 'rise .6s .3s both' } },
+          h('div', { class: 'hero-logo' }, h('span', { style: { animation: 'slide-a 1s cubic-bezier(.2,.8,.2,1) both', display: 'inline-flex' } }, MC.mark(46)), h('span', { class: 'eyebrow', style: { animation: 'rise .9s .35s both' } }, t('Estudio de vídeo-cómic', 'Motion-comic studio'))),
+          h('h1', { style: { animation: 'rise .9s .2s both' } }, t('Un cuarto oscuro para que el arte brille', 'A dark room for your art to shine')),
+          h('p', { style: { animation: 'rise .9s .35s both' } }, t('Convierte tus páginas en vídeo animado sin pasar por After Effects. Todo ocurre en este equipo: tus dibujos no salen de aquí.', 'Turn your pages into animated video without After Effects. Everything happens on this device: your art never leaves it.')),
+          h('div', { class: 'hero-cta', style: { animation: 'rise .9s .5s both' } },
             h('button', { class: 'btn btn-p', type: 'button', onClick: () => MC.newProjectDialog() }, MC.icon('plus'), t('Proyecto nuevo', 'New project')),
             h('button', { class: 'btn btn-s', type: 'button', onClick: MC.draftDialog }, MC.icon('sparkle'), t('Borrador en un clic', 'One-click draft')),
             h('button', { class: 'btn btn-g', type: 'button', onClick: () => MC.app.openSample() }, t('Abrir el ejemplo', 'Open the example')))),
