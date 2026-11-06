@@ -762,6 +762,17 @@ html[data-touch="1"] .updcard .btn { min-height: 44px; }
 html:not([data-compact="1"]) .tl-head [data-tb="more"] { display: none; }
 .sheetgrab { display: none; }
 
+/* ---------- propiedades con pestañas ---------- */
+.ptabs { position: sticky; top: 0; z-index: 6; display: flex; align-items: stretch; background: var(--panel); border-bottom: 1px solid var(--line); margin: 0 0 8px; }
+.ptabs-scroll { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; gap: 2px; } .ptabs-scroll::-webkit-scrollbar { display: none; }
+.ptab { flex: none; border: 0; background: transparent; color: var(--muted); padding: 11px 14px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; }
+.ptab:hover { color: var(--fg); } .ptab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.ptnav { flex: none; width: 34px; border: 0; background: transparent; color: var(--fg); cursor: pointer; display: grid; place-items: center; } .ptnav:disabled { opacity: .25; cursor: default; } .ptnav:hover:not(:disabled) { background: var(--raised); }
+.ptp { padding: 0 14px 16px; } .sec.bare > .sb { padding: 0; }
+html[data-touch="1"] .ptab { padding: 14px 18px; min-height: 48px; } html[data-touch="1"] .ptnav { width: 44px; }
+html[data-marks="1"] .ptab[aria-selected="true"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.p-props .pbody, .p-props > div { min-width: 0; } .ptabs { width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -32950,6 +32961,8 @@ module.exports = ZStream;
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => toLibrary(clip.assetId, clip.name) }, MC.icon('bookmark', 14), t('Guardar en la biblioteca', 'Save to the library')),
             h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', onClick: () => { p.clips = p.clips.filter((c) => c !== clip); S.cl = null; commit(); } }, MC.icon('trash', 14), t('Eliminar clip', 'Delete clip'))),
           a ? h('p', { class: 'cap' }, t('Duración original: ', 'Original length: ') + a.dur.toFixed(1) + ' s') : null]));
+        const ac = audioSecs[audioSecs.length - 1], nd = ac.nodes; ac.nodes = [nd[0], nd[1], nd[5], nd[6]];
+        audioSecs.push(sec('audio_vol', t('Volumen y fundidos', 'Volume and fades'), [nd[2], nd[3], nd[4]]));
       }
       const hasVoice = p.clips.some((c) => c.track === 'voz');
       mixv.mute = mixv.mute || {}; mixv.solo = mixv.solo || {};
@@ -33690,6 +33703,36 @@ module.exports = ZStream;
       return box;
     }
     function clearSel() { S.selKind = 'project'; S.li = -1; S.tx = null; S.cl = null; S.ov = null; S.sb = null; S.multi = []; S.mk = null; S.fxsel = null; S.pn = null; S.sp = null; renderPanels(); renderLayers(); renderTimeline(); S.dirty = true; }
+    /* ---------- propiedades con pestañas (una barra arriba, una a la vez, como en CapCut) ---------- */
+    const PTABS = {
+      shot: [['basic', ['Básico', 'Basic'], ['plano']], ['camera', ['Cámara', 'Camera'], ['camara', 'tray', 'pagina', 'tira']], ['trans', ['Transición', 'Transition'], ['transicion']], ['panel', ['Viñeta', 'Panel'], ['vineta']]],
+      layer: [['basic', ['Básico', 'Basic'], ['capa']], ['anim', ['Animación', 'Animation'], ['capa_anim', 'capa_rig', 'capa_kf']], ['time', ['Tiempo y gestos', 'Timing and gestures'], ['capa_time']], ['d3', ['3D y pivote', '3D and pivot'], ['capa_3d', 'capa_pivot']], ['crop', ['Recorte', 'Crop'], ['capa_crop']], ['look', ['Aspecto', 'Look'], ['capa_look']]],
+      text: [['basic', ['Texto', 'Text'], ['texto']], ['anim', ['Animación', 'Animation'], ['texto_kf']]],
+      clip: [['basic', ['Básico', 'Basic'], ['audio']], ['vol', ['Volumen y fundidos', 'Volume and fades'], ['audio_vol']]],
+      overlay: [['basic', ['Básico', 'Basic'], ['overlay']], ['anim', ['Animación', 'Animation'], ['overlay_anim', 'overlay_kf']], ['d3', ['3D', '3D'], ['overlay_3d']], ['crop', ['Recorte', 'Crop'], ['overlay_crop']], ['look', ['Aspecto', 'Look'], ['overlay_look']]],
+    };
+    S.ptab = (() => { try { return JSON.parse(MC.store.get('ptab', '{}')) || {}; } catch (e) { return {}; } })();
+    function setPtab(kind, id, keepScroll) { S.ptab[kind] = id; MC.store.set('ptab', JSON.stringify(S.ptab)); if (!keepScroll) el.inspBody.scrollTop = 0; renderPanels(); if (!keepScroll) el.inspBody.scrollTop = 0; }
+    function tabbedInspector(kind, DP) {
+      const defs = PTABS[kind]; if (!defs) return null;
+      const tabs = defs.map((q) => ({ id: q[0], lab: t(q[1][0], q[1][1]), secs: q[2].map((i) => (i === 'transicion' && S.si < 1 ? null : DP[i])).filter(Boolean) })).filter((q) => q.secs.length);
+      if (tabs.length < 2) return null;
+      let k = tabs.findIndex((q) => q.id === S.ptab[kind]); if (k < 0) k = 0;
+      const act = tabs[k], go = (d) => { const n = tabs[clamp(k + d, 0, tabs.length - 1)]; if (n && n !== act) { setPtab(kind, n.id); setTimeout(() => { const b = el.inspBody.querySelector('.ptab[aria-selected="true"]'); if (b) b.scrollIntoView({ inline: 'center', block: 'nearest' }); }, 0); } };
+      const bar = h('div', { class: 'ptabs' },
+        h('button', { class: 'ptnav', type: 'button', disabled: k === 0, 'aria-label': t('Pestaña anterior', 'Previous tab'), onClick: () => go(-1) }, MC.icon('back', 16)),
+        h('div', { class: 'ptabs-scroll', role: 'tablist', 'aria-label': t('Secciones de las propiedades', 'Property sections'), onKeydown: (e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); const d = e.key === 'ArrowRight' ? 1 : -1, n = tabs[clamp(k + d, 0, tabs.length - 1)]; if (n !== act) { setPtab(kind, n.id); setTimeout(() => { const b = el.inspBody.querySelector('.ptab[aria-selected="true"]'); if (b) b.focus(); }, 0); } }
+        } }, tabs.map((q) => h('button', { class: 'ptab', type: 'button', role: 'tab', id: 'pt-' + q.id, 'aria-selected': String(q === act), 'aria-controls': 'ptp', tabindex: q === act ? '0' : '-1', onClick: () => setPtab(kind, q.id) }, q.lab))),
+        h('button', { class: 'ptnav', type: 'button', disabled: k === tabs.length - 1, 'aria-label': t('Pestaña siguiente', 'Next tab'), onClick: () => go(1) }, MC.icon('chevron', 16)));
+      const single = act.secs.length === 1;
+      const body = h('div', { id: 'ptp', role: 'tabpanel', 'aria-labelledby': 'pt-' + act.id, class: 'ptp' }, act.secs.map((d) => (single ? h('div', { class: 'sec bare', 'data-id': d.id, 'data-open': 'true' }, h('div', { class: 'sb' }, d.nodes)) : secDom(d))));
+      /* deslizar con el dedo a izquierda o derecha pasa de pestaña */
+      let sw = null;
+      body.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch' || e.target.closest('input, select, textarea, canvas, .seg, .chips')) { sw = null; return; } sw = { x: e.clientX, y: e.clientY }; });
+      body.addEventListener('pointerup', (e) => { if (!sw) return; const dx = (e.clientX - sw.x) / MC.uz(), dy = (e.clientY - sw.y) / MC.uz(); sw = null; if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) go(dx < 0 ? 1 : -1); });
+      return { bar, body };
+    }
     function renderPanels() {
       const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
@@ -33704,7 +33747,8 @@ module.exports = ZStream;
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
         layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_time), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
-      MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
+      const tabbed = tabbedInspector(kind, DP);
+      MC.put(MC.clear(el.inspBody), crumbs(kind), tabbed ? tabbed.bar : null, h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, tabbed ? tabbed.body : pick[kind]())); el.inspBody.scrollTop = top;
     }
     function renderInspector() { renderPanels(); }
     function buildExportPanel() {
@@ -34980,7 +35024,7 @@ module.exports = ZStream;
       const it = T.it;
       if (T.k === 'layer') {
         const sh = shot(), loc = round2(tm - curStart()); it.segs = (it.segs || []).concat([{ id: MC.uid(), t: loc, assetId: MC.layerAsset(it, loc) }]); S.sg = layerRegions(it, sh).length - 1;
-        S.open.capa_time = true; commit(); MC.announce(t('Capa dividida: ahora puedes reemplazar la ilustración del nuevo tramo', 'Layer split: you can now replace the illustration of the new part')); return true;
+        S.open.capa_time = true; S.ptab.layer = 'time'; commit(); MC.announce(t('Capa dividida: ahora puedes reemplazar la ilustración del nuevo tramo', 'Layer split: you can now replace the illustration of the new part')); return true;
       }
       if (T.k === 'clip') { const b = Object.assign({}, it, { id: MC.uid(), start: tm, offset: it.offset + (tm - it.start), dur: it.start + it.dur - tm, fadeIn: 0 }); it.dur = tm - it.start; it.fadeOut = 0; p.clips.push(b); S.cl = b.id; }
       else if (T.k === 'text') {
@@ -35029,14 +35073,14 @@ module.exports = ZStream;
     function openCrop() {
       const T = tgt();
       if (!T || (T.k !== 'layer' && T.k !== 'overlay')) { MC.toast(t('Selecciona una capa o una superposición para recortarla.', 'Select a layer or an overlay to crop it.')); return; }
-      S.open[T.k === 'layer' ? 'capa_crop' : 'overlay_crop'] = true; renderPanels();
+      S.open[T.k === 'layer' ? 'capa_crop' : 'overlay_crop'] = true; S.ptab[T.k] = 'crop'; renderPanels();
       const n = el.inspBody.querySelector('[data-id="' + (T.k === 'layer' ? 'capa_crop' : 'overlay_crop') + '"]'); if (n) { n.scrollIntoView({ block: 'nearest' }); const f = n.querySelector('input'); if (f) f.focus(); }
     }
     const newKf = (it, local) => { const v = MC.kfValues(it.kf, local) || {}, q = { id: MC.uid(), t: round2(local), ease: 'smooth' }; MC.KF_PROPS.forEach((k) => { q[k] = v[k] == null ? (k === 'sc' || k === 'op' || k === 'sx' || k === 'sy' ? 1 : 0) : v[k]; }); return q; };
     function addKfHere() {
       const kt = kfTarget(); if (!kt) { MC.toast(t('Selecciona una capa, un texto o una superposición para añadir un fotograma clave.', 'Select a layer, a text or an overlay to add a keyframe.')); return; }
       const local = clamp(S.time - kt.start, 0, kt.dur), q = newKf(kt.it, local);
-      kt.it.kf = (kt.it.kf || []).filter((z) => Math.abs(z.t - q.t) > 0.01).concat([q]); S.kfid = q.id; commit(); MC.announce(t('Fotograma clave añadido', 'Keyframe added'));
+      kt.it.kf = (kt.it.kf || []).filter((z) => Math.abs(z.t - q.t) > 0.01).concat([q]); S.kfid = q.id; S.ptab[kt.kind] = 'anim'; commit(); MC.announce(t('Fotograma clave añadido', 'Keyframe added'));
     }
     function setTool(v) { S.tool = v; el.tlContent.classList.toggle('blade', v === 'blade'); refreshTlBar(); }
     function toggleSnap() { S.snapOn = !S.snapOn; MC.store.set('snapon', S.snapOn ? '1' : '0'); refreshTlBar(); MC.toast(S.snapOn ? t('Imán activado: se pega a cortes, marcadores y cabezal', 'Magnet on: snaps to cuts, markers and playhead') : t('Imán desactivado', 'Magnet off')); }

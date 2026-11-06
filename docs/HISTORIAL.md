@@ -159,3 +159,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Con la interfaz al 70–150 % el navegador entrega las posiciones del ratón y del dedo ya multiplicadas por la escala, mientras que la línea de tiempo, los menús y los tutoriales calculaban sin ella. Ahora hay un único factor medido (`MC.uz()`) que se aplica en la regla y el cabezal, los arrastres y recortes, la cuchilla, el soltar, el imán, el recuadro de selección, el pellizco y el desplazamiento táctil, el zoom y desplazamiento del visor y los tutoriales; el lienzo del visor también ajusta su resolución a la escala.
 - Pruebas automáticas a 70, 80, 90, 100, 115, 130 y 150 %: el cabezal cae donde haces clic, los clips se mueven y se estiran exactamente lo arrastrado y el foco del tutorial rodea el elemento.
+
+## Propiedades con pestañas
+
+- Barra de pestañas en Propiedades (plano, capa, texto, audio y superposición) con flechas anterior y siguiente, teclado y deslizamiento táctil; recuerda la última pestaña por tipo. El clip de audio separa el volumen y los fundidos.

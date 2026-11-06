@@ -732,3 +732,14 @@ html[data-touch="1"] .updcard .btn { min-height: 44px; }
 }
 html:not([data-compact="1"]) .tl-head [data-tb="more"] { display: none; }
 .sheetgrab { display: none; }
+
+/* ---------- propiedades con pestañas ---------- */
+.ptabs { position: sticky; top: 0; z-index: 6; display: flex; align-items: stretch; background: var(--panel); border-bottom: 1px solid var(--line); margin: 0 0 8px; }
+.ptabs-scroll { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; gap: 2px; } .ptabs-scroll::-webkit-scrollbar { display: none; }
+.ptab { flex: none; border: 0; background: transparent; color: var(--muted); padding: 11px 14px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; }
+.ptab:hover { color: var(--fg); } .ptab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.ptnav { flex: none; width: 34px; border: 0; background: transparent; color: var(--fg); cursor: pointer; display: grid; place-items: center; } .ptnav:disabled { opacity: .25; cursor: default; } .ptnav:hover:not(:disabled) { background: var(--raised); }
+.ptp { padding: 0 14px 16px; } .sec.bare > .sb { padding: 0; }
+html[data-touch="1"] .ptab { padding: 14px 18px; min-height: 48px; } html[data-touch="1"] .ptnav { width: 44px; }
+html[data-marks="1"] .ptab[aria-selected="true"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.p-props .pbody, .p-props > div { min-width: 0; } .ptabs { width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; }
