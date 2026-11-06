@@ -559,9 +559,15 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - **Imán del visor**: al arrastrar una capa, superposición o texto en la vista de salida, su centro y sus bordes se pegan al centro del encuadre, a los bordes, a los tercios, a los márgenes (5 %), a las zonas seguras en vertical y a los bordes y centros de los demás elementos, con una línea guía rosa discontinua. **Alt** lo desactiva mientras arrastras; en el menú *Superposiciones* hay un interruptor «Alineación automática» que se recuerda. Un elemento que ya cubre casi todo el encuadre (un fondo) solo pega su centro, porque sus bordes siempre rondan los del encuadre.
 - **Botones de alinear**: en los paneles de capa, superposición y texto (alinear dentro del encuadre) y en la selección múltiple (alinear entre sí): izquierda, centro, derecha, arriba, medio, abajo y, con tres o más elementos, repartir en horizontal y en vertical con huecos iguales. Si el elemento está animado o se está grabando, el cambio crea un fotograma clave.
 
+## Zonas seguras y posiciones de subtítulos (0.17)
+
+- **Zonas seguras por formato**: en vertical (TikTok, Reels, Shorts) se evita la barra de arriba (13 %), el pie con el nombre y la descripción (22 % de abajo) y la columna de botones de la derecha; en horizontal y cuadrado, un margen del 5 %. Son valores genéricos y aproximados: cada app los cambia de vez en cuando.
+- **Posición rápida de subtítulos**: Arriba (zona segura), Centro, Tercio inferior y Abajo (zona segura), con valores distintos según el formato del proyecto. Está en la pestaña Subtítulos (de cada capa) y en «Idiomas y subtítulos» del panel Proyecto (valor por defecto de todos).
+- **Aviso**: en la capa de subtítulos y en el panel de cada texto aparece si el texto se sale de la zona segura en ese instante (se recalcula al mover el cabezal o editar), diciendo qué invade. El botón «Llevar a la zona segura» lo recoloca (los subtítulos centrados se estrechan si invaden los botones de la derecha). Para comprobarlo hay que colocar el cabezal sobre el texto.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.16): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.17): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

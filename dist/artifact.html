@@ -912,6 +912,8 @@ a.btn { text-decoration: none; }
 .keycmpw thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; } .keycmpw tbody th { font-weight: 500; min-width: 190px; } .keycmpw kbd { margin: 0 3px 3px 0; display: inline-block; }
 .cap.warn { color: var(--fg); background: var(--accent-tint); padding: 6px 10px; border-left: 3px solid var(--accent); display: block; }
 
+.cap.ok { color: var(--muted); }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -30305,7 +30307,8 @@ module.exports = ZStream;
     MC.subActive(p, time).forEach((it) => {
       const cues = MC.subCues(it, lang, it.style); if (!cues.length) return;
       const cue = cues.find((c) => time >= c.s && time < c.e); if (!cue) return;
-      MC.drawSubCue(ctx, p, MC.subStyle(it.style), cue, time, W, H, it.style && it.style.y != null ? it.style.y : null);
+      const bd = MC.drawSubCue(ctx, p, MC.subStyle(it.style), cue, time, W, H, it.style && it.style.y != null ? it.style.y : null);
+      if (o.collect && bd) o.collect.push({ id: it.id, sub: true, bounds: bd }); /* para avisar si se sale de la zona segura */
     });
   };
   /* Miniatura de un estilo (para las tarjetas de presets). */
@@ -31468,7 +31471,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.16'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.17'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -34001,7 +34004,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           h('div', { style: { display: 'flex', gap: '8px' } }, h('select', { id: selSfx, class: 'input' }, lib.map((x) => h('option', { value: x.id }, t(x.es, x.en)))),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(lib.find((x) => x.id === document.getElementById(selSfx).value), MC.textSpan(tx, p).start); S.cl = c.id; S.tx = null; commit(); MC.toast(t('Sonido añadido en la pista SFX', 'Sound added to the SFX track')); } }, t('Añadir', 'Add')))));
         nodes.push(h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { p.texts = p.texts.filter((x) => x !== tx); S.tx = null; commit(); } }, MC.icon('trash', 14), t('Eliminar texto', 'Delete text')));
-        textSecs.push(sec('texto', t('Texto', 'Text') + ' · ' + ({ bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: t('onomatopeya', 'sound word'), sub: t('subtítulo', 'subtitle') })[tx.kind], nodes.concat([alignRow(false)])));
+        textSecs.push(sec('texto', t('Texto', 'Text') + ' · ' + ({ bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: t('onomatopeya', 'sound word'), sub: t('subtítulo', 'subtitle') })[tx.kind], nodes.concat([safeNote(tx.id), alignRow(false)])));
       }
       const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, id: 'f-font', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -34018,6 +34021,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         h('div', { class: 'field' }, h('label', { for: subFont }, t('Tipografía de los subtítulos', 'Subtitle font')), h('select', { id: subFont, class: 'input', onChange: (e) => { sub.font = e.target.value; commit(); } }, MC.FONTS.map((f) => ({ id: f.id, n: t(f.es, f.en) })).concat(p.fonts.map((f) => ({ id: f.id, n: f.name }))).map((f) => h('option', { value: f.id, selected: f.id === sub.font }, f.n)))),
         MC.ui.slider({ label: t('Tamaño de los subtítulos', 'Subtitle size'), min: 0.025, max: 0.09, step: 0.0025, value: sub.size, fmt: (v) => (v * 100).toFixed(1) + ' %', onInput: (v) => { sub.size = v; touch(); }, onChange: commit }),
         MC.ui.slider({ label: t('Altura de los subtítulos', 'Subtitle position'), min: -0.3, max: 0.48, step: 0.01, value: MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => { sub.y = v; touch(); }, onChange: commit }),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Posición rápida (según el formato)', 'Quick position (by format)')), MC.ui.chips([['top', t('Arriba (zona segura)', 'Top (safe)')], ['mid', t('Centro', 'Middle')], ['low', t('Tercio inferior', 'Lower third')], ['safe', t('Abajo (zona segura)', 'Bottom (safe)')]].map((q) => ({ v: q[0], l: q[1] })), (() => { const pr = subPresets(opts().W, opts().H), y0 = sub.y; return y0 == null ? 'safe' : Math.abs(y0 - pr.top) < 0.02 ? 'top' : Math.abs(y0) < 0.02 ? 'mid' : Math.abs(y0 - pr.low) < 0.02 ? 'low' : null; })(), (v) => { sub.y = subPresets(opts().W, opts().H)[v]; commit(); })),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: sub.bg !== false, onChange: (e) => { sub.bg = e.target.checked; commit(); } }), h('span', null, t('Fondo oscuro detrás del texto', 'Dark background behind the text'))),
         h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.clips.some((c) => c.track === 'voz'), onClick: () => { const made = MC.subsFromVoice(p); p.texts.push(...made); if (made.length) { S.tx = made[0].id; S.open.texto = true; } commit(); MC.toast(t(made.length + ' subtítulos creados. Escribe el texto de cada uno.', made.length + ' subtitles created. Type the text of each one.')); } }, t('Crear subtítulos desde la locución', 'Create subtitles from the voice-over')),
         h('p', { class: 'cap' }, t('Crea un subtítulo por frase, con su tiempo. El texto lo escribes tú: no hay reconocimiento de voz, tu voz no sale del equipo.', 'Creates one subtitle per phrase, with its timing. You type the text: there is no speech recognition, your voice never leaves the device.')),
@@ -34841,8 +34845,9 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           st.bg ? [sl('bgStroke', t('Borde del fondo', 'Background border'), 0, 0.3, 0.01, (v) => (v === 0 ? t('sin borde', 'none') : pc(v / 0.3))), st.bgStroke > 0 ? col('bgStrokeColor', t('Color del borde del fondo', 'Background border colour')) : null] : null,
           st.mode === 'karaoke' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Efectos de la palabra que suena', 'Spoken word effects')), h('div', { class: 'chips' }, [['hiPop', t('Salto al entrar', 'Pop in')], ['hiBounce', t('Rebote', 'Bounce')], ['hiUnder', t('Subrayado', 'Underline')], ['hiGlow', t('Brillo', 'Glow')]].map((q) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(!!st[q[0]]), onClick: () => setC(q[0], !st[q[0]]) }, q[1])))) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación de cada línea', 'Animation of each line')), MC.ui.chips([['none', t('Ninguna', 'None')], ['fade', t('Aparecer', 'Fade')], ['pop', 'Pop'], ['slide', t('Deslizar', 'Slide')], ['zoom', 'Zoom']].map((q) => ({ v: q[0], l: q[1] })), st.anim, (v) => setC('anim', v))),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Posición rápida', 'Quick position')), MC.ui.chips([['top', t('Arriba', 'Top'), -0.34], ['mid', t('Centro', 'Middle'), 0], ['low', t('Tercio inferior', 'Lower third'), 0.27], ['safe', t('Abajo (zona segura)', 'Bottom (safe)'), null]].map((q) => ({ v: q[0], l: q[1] })), (() => { const y0 = it.style && it.style.y; return y0 == null ? 'safe' : Math.abs(y0 + 0.34) < 0.02 ? 'top' : Math.abs(y0) < 0.02 ? 'mid' : Math.abs(y0 - 0.27) < 0.02 ? 'low' : null; })(), (v) => { const y = { top: -0.34, mid: 0, low: 0.27, safe: null }[v]; it.style = Object.assign(MC.subStyle(it.style), { y }); commit(); })),
-          MC.ui.slider({ label: t('Altura', 'Position'), min: -0.3, max: 0.48, step: 0.01, value: it.style && it.style.y != null ? it.style.y : MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => setS('y', v), onChange: commit }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Posición rápida', 'Quick position')), MC.ui.chips([['top', t('Arriba (zona segura)', 'Top (safe)')], ['mid', t('Centro', 'Middle')], ['low', t('Tercio inferior', 'Lower third')], ['safe', t('Abajo (zona segura)', 'Bottom (safe)')]].map((q) => ({ v: q[0], l: q[1] })), (() => { const y0 = it.style && it.style.y, pr = subPresets(opts().W, opts().H); return y0 == null ? 'safe' : Math.abs(y0 - pr.top) < 0.02 ? 'top' : Math.abs(y0) < 0.02 ? 'mid' : Math.abs(y0 - pr.low) < 0.02 ? 'low' : null; })(), (v) => { const y = subPresets(opts().W, opts().H)[v]; it.style = Object.assign(MC.subStyle(it.style), { y }); commit(); })),
+          safeNote(it.id),
+          MC.ui.slider({ label: t('Altura', 'Position'), min: -0.4, max: 0.48, step: 0.01, value: it.style && it.style.y != null ? it.style.y : MC.subY(p, opts().W, opts().H), fmt: (v) => (v >= 0 ? '↓ ' : '↑ ') + Math.abs(Math.round(v * 100)) + ' %', onInput: (v) => setS('y', v), onChange: commit }),
           sl('maxW', t('Ancho máximo', 'Maximum width'), 0.4, 0.95, 0.01, pc), sl('maxChars', t('Letras por línea', 'Letters per line'), 8, 60, 1, (v) => String(v)), sl('lines', t('Líneas a la vez', 'Lines at once'), 1, 4, 1, (v) => String(v)),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.subs.length < 2, onClick: () => { p.subs.forEach((q) => { if (q !== it) q.style = JSON.parse(JSON.stringify(it.style)); }); commit(); MC.toast(t('Estilo aplicado a todas las capas de subtítulos', 'Style applied to every subtitle layer')); } }, t('Aplicar a todos los subtítulos', 'Apply to all subtitles')),
@@ -35188,6 +35193,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       const c = el.canvas; if (!c.width) return;
       const hits = [], ctx = c.getContext('2d'); S.cropBoxes = {}; const o = opts({ collect: hits, cropBoxes: S.cropBoxes }), sh = shot();
       S.hits = hits;
+      if (S.safeEls) { S.safeEls = S.safeEls.filter((b) => b.isConnected); setTimeout(() => S.safeEls && S.safeEls.forEach(safeFill), 0); }
       el.empty.hidden = !!(sh && sh.layers.length);
       if (S.view === 'page' && !(sh && sh.page)) { S.view = 'out'; renderVbar(); }
       if (S.view === 'strip' && !(sh && sh.webtoon)) { S.view = 'out'; renderVbar(); }
@@ -35386,6 +35392,53 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     }
     /* interacción con el visor */
     let drag = null;
+    /* ---------- zonas seguras de subtítulos y textos ----------
+       Vertical (TikTok, Reels, Shorts): arriba 13 %, abajo 22 % y una columna de botones a la derecha (84 %–100 %, entre el 42 % y el 78 % de alto).
+       Horizontal o cuadrado: margen del 5 % (zona de título seguro). Son valores genéricos: cada app los cambia de vez en cuando. */
+    function safeRects(W, H) {
+      if (W / H < 0.8) return { portrait: true, top: 0.13, bottom: 0.78, right: 0.84, rY0: 0.42, rY1: 0.78, left: 0 };
+      return { portrait: false, top: 0.05, bottom: 0.95, right: 0.95, rY0: 0, rY1: 1, left: 0.05 };
+    }
+    /* posiciones rápidas de subtítulos y textos (desplazamiento desde el centro, en fracción del alto) según el formato */
+    function subPresets(W, H) {
+      const z = safeRects(W, H), pad = 0.13; /* deja sitio para unas tres líneas */
+      return z.portrait ? { top: z.top + pad - 0.5, mid: 0, low: 0.2, safe: null } : { top: -0.3, mid: 0, low: 0.3, safe: null };
+    }
+    /* ¿el texto se sale de la zona segura en este instante? Devuelve { msg, dy, dx } o null (usa los límites del visor, así que solo vale si se ve ahora) */
+    function safeCheck(id) {
+      const o = opts(), hit = (S.hits || []).find((x) => x.id === id); if (!hit || !hit.bounds) return null;
+      const z = safeRects(o.W, o.H), b = hit.bounds, W = o.W, H = o.H, why = [];
+      let dy = 0, dx = 0;
+      if (b.y0 < z.top * H) { dy = (z.top * H - b.y0) / H; why.push(z.portrait ? t('la barra superior de la app', 'the top bar of the app') : t('el margen superior', 'the top margin')); }
+      if (b.y1 > z.bottom * H) { dy = -(b.y1 - z.bottom * H) / H; why.push(z.portrait ? t('el pie con el nombre y la descripción', 'the footer with the name and caption') : t('el margen inferior', 'the bottom margin')); }
+      if (b.x1 > z.right * W && b.y1 > z.rY0 * H && b.y0 < z.rY1 * H) { dx = -(b.x1 - z.right * W) / W; why.push(z.portrait ? t('los botones de la derecha', 'the buttons on the right') : t('el margen derecho', 'the right margin')); }
+      if (b.x0 < z.left * W) { dx = (z.left * W - b.x0) / W; why.push(t('el margen izquierdo', 'the left margin')); }
+      return why.length ? { msg: why.join(t(' y ', ' and ')), dy, dx } : null;
+    }
+    /* El aviso se vuelve a calcular tras cada dibujo del visor (los límites del texto salen del dibujo), así que no va con retraso. */
+    function safeNote(id) {
+      const box = h('div', { class: 'safenote', 'data-safe': id }); box.sig = ''; (S.safeEls = S.safeEls || []).push(box); safeFill(box); return box;
+    }
+    function safeFill(box) {
+      const id = box.dataset.safe, isLayer = !!subById(id), it = isLayer ? subById(id) : txById(id); if (!it) return;
+      const sp = isLayer ? { start: it.start, dur: it.dur } : MC.textSpan(it, S.project), vis = S.time >= sp.start && S.time <= sp.start + sp.dur, r = vis ? safeCheck(id) : null;
+      const sig = !vis ? 'novis' : r ? 'bad' + r.msg + r.dy.toFixed(3) + r.dx.toFixed(3) : 'ok'; if (sig === box.sig) return; box.sig = sig; box.textContent = '';
+      if (!vis) { box.append(h('p', { class: 'cap' }, t('Zona segura: coloca el cabezal sobre este texto para comprobar que no se sale.', 'Safe zone: place the playhead over this text to check it stays inside.'))); return; }
+      if (!r) { box.append(h('p', { class: 'cap ok' }, t('✔ Dentro de la zona segura.', '✔ Inside the safe zone.'))); return; }
+      const sub = isLayer || it.kind === 'sub', canFix = true;
+      const fix = () => {
+        if (sub) {
+          const z = safeRects(opts().W, opts().H), st = MC.subStyle(it.style), patch = {};
+          if (r.dy) patch.y = (it.style && it.style.y != null ? it.style.y : MC.subY(S.project, opts().W, opts().H)) + r.dy;
+          if (r.dx) patch.maxW = Math.min(st.maxW, 2 * Math.min(z.right - 0.5, 0.5 - z.left)); /* el subtítulo va centrado: se estrecha */
+          it.style = Object.assign(MC.subStyle(it.style), patch);
+        }
+        else { if (r.dx) it.x = (it.x || 0) + r.dx; if (r.dy) it.y = (it.y || 0) + r.dy; }
+        commit(); MC.announce(t('Movido a la zona segura', 'Moved to the safe zone'));
+      };
+      box.append(h('div', { class: 'cap warn', role: 'status' }, t('Se sale de la zona segura: invade ', 'Leaves the safe zone: it overlaps ') + r.msg + '.',
+        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: fix }, sub && !r.dy ? t('Estrechar a la zona segura', 'Narrow to the safe zone') : t('Llevar a la zona segura', 'Move to the safe zone')))));
+    }
     /* ---------- alineación automática (imán del visor) y alinear / distribuir ----------
        Al arrastrar una capa, superposición o texto en el visor, sus bordes y su centro se pegan al centro del encuadre, a los bordes, a los tercios,
        a los márgenes y zonas seguras y a los bordes y centros de los demás elementos, con una línea guía. Alt la desactiva mientras arrastras. */
