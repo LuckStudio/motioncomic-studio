@@ -21,11 +21,11 @@
       const reduced = MC.store.get('motion', 'auto') === 'reduce' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
       let fx = null;
       if (fromEl && !reduced && p.thumb && fromEl.getBoundingClientRect) {
-        const r = fromEl.getBoundingClientRect();
+        const R0 = fromEl.getBoundingClientRect(), uz = MC.uz(), r = { left: R0.left / uz, top: R0.top / uz, width: R0.width / uz, height: R0.height / uz };
         fx = document.createElement('div'); fx.className = 'zoomfx';
         Object.assign(fx.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', backgroundImage: 'url(' + p.thumb + ')', backgroundSize: 'contain', backgroundRepeat: 'no-repeat' });
         document.body.append(fx);
-        fx.animate([{ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }, { left: '0px', top: '0px', width: innerWidth + 'px', height: innerHeight + 'px' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+        fx.animate([{ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }, { left: '0px', top: '0px', width: innerWidth / uz + 'px', height: innerHeight / uz + 'px' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
       }
       const full = (await MC.db.get('projects', p.id)) || p;
       const mounted = MC.mountStudio(root, full);

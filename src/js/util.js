@@ -57,6 +57,12 @@
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 8000);
   };
+  /* factor real de la escala de la interfaz (zoom): los ratones y las medidas del navegador vienen ya multiplicados por él, los estilos no */
+  MC.uz = () => MC._uz || 1;
+  MC.measureZoom = () => {
+    const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:1px;visibility:hidden;pointer-events:none';
+    document.body.append(d); const w = d.getBoundingClientRect().width; d.remove(); MC._uz = w > 0 ? w / 100 : 1; return MC._uz;
+  };
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {

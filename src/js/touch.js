@@ -8,7 +8,7 @@
   const nameOf = (n) => n.getAttribute('data-tip') || n.getAttribute('title') || n.getAttribute('aria-label') || '';
   function showTip(n, label) {
     hideTip();
-    const d = n.ownerDocument, z = parseFloat(getComputedStyle(d.documentElement).getPropertyValue('--ui-zoom')) || 1, r = n.getBoundingClientRect();
+    const d = n.ownerDocument, z = MC.uz(), r = n.getBoundingClientRect();
     tip = h('div', { class: 'tiptouch', role: 'tooltip' }, label);
     d.body.append(tip);
     const w = tip.offsetWidth, cx = (r.left + r.width / 2) / z, vw = d.defaultView.innerWidth / z;

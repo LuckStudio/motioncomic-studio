@@ -42,7 +42,7 @@
   /* ---------- ajustes de la interfaz ---------- */
   MC.applyPrefs = () => {
     const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
-    document.documentElement.style.setProperty('--ui-zoom', String(z));
+    document.documentElement.style.setProperty('--ui-zoom', String(z)); MC.measureZoom();
     document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
     MC.applyTheme();
     /* modo táctil: automático (pantalla táctil), siempre o nunca */
@@ -116,18 +116,19 @@
     const place = () => {
       const st = tour.steps[i], el = document.querySelector(st.sel);
       if (el && st.scrolled !== i) { st.scrolled = i; try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* sin desplazamiento */ } }
-      const r = el && el.getBoundingClientRect(), ok = r && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
+      const z = MC.uz(), R = el && el.getBoundingClientRect(), IW = innerWidth / z, IH = innerHeight / z;
+      const r = R && { left: R.left / z, top: R.top / z, width: R.width / z, height: R.height / z, bottom: R.bottom / z }, ok = r && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < IH;
       if (ok) {
         Object.assign(spot.style, { display: 'block', left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
-        const cw = Math.min(340, innerWidth - 24), below = r.bottom + 14 + 190 < innerHeight;
+        const cw = Math.min(340, IW - 24), below = r.bottom + 14 + 190 < IH;
         card.style.width = cw + 'px';
-        card.style.left = clamp(r.left, 12, innerWidth - cw - 12) + 'px';
+        card.style.left = clamp(r.left, 12, IW - cw - 12) + 'px';
         const above = r.top - 14 - 190 > 0;
-        card.style.top = below ? r.bottom + 14 + 'px' : above ? 'auto' : clamp(r.top + 12, 12, innerHeight - 220) + 'px';
-        card.style.bottom = below ? 'auto' : above ? innerHeight - r.top + 14 + 'px' : 'auto';
+        card.style.top = below ? r.bottom + 14 + 'px' : above ? 'auto' : clamp(r.top + 12, 12, IH - 220) + 'px';
+        card.style.bottom = below ? 'auto' : above ? IH - r.top + 14 + 'px' : 'auto';
         const ch = card.offsetHeight, tp = parseFloat(card.style.top);
-        if (card.style.top !== 'auto' && tp + ch > innerHeight - 12) card.style.top = Math.max(12, innerHeight - ch - 12) + 'px';
-      } else { spot.style.display = 'none'; card.style.width = Math.min(340, innerWidth - 24) + 'px'; card.style.left = Math.max(12, innerWidth / 2 - 170) + 'px'; card.style.top = innerHeight / 3 + 'px'; card.style.bottom = 'auto'; }
+        if (card.style.top !== 'auto' && tp + ch > IH - 12) card.style.top = Math.max(12, IH - ch - 12) + 'px';
+      } else { spot.style.display = 'none'; card.style.width = Math.min(340, IW - 24) + 'px'; card.style.left = Math.max(12, IW / 2 - 170) + 'px'; card.style.top = IH / 3 + 'px'; card.style.bottom = 'auto'; }
     };
     const draw = () => {
       const st = tour.steps[i];

@@ -154,3 +154,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Tablet en vertical
 
 - Disposición para pantallas estrechas: visor arriba, línea de tiempo siempre visible, hoja inferior con Panel, Capas y Propiedades, barra de herramientas compacta con menú de más herramientas, y cabecera y barra del visor en una sola fila.
+
+## Escala de la interfaz sin descuadres
+
+- Con la interfaz al 70–150 % el navegador entrega las posiciones del ratón y del dedo ya multiplicadas por la escala, mientras que la línea de tiempo, los menús y los tutoriales calculaban sin ella. Ahora hay un único factor medido (`MC.uz()`) que se aplica en la regla y el cabezal, los arrastres y recortes, la cuchilla, el soltar, el imán, el recuadro de selección, el pellizco y el desplazamiento táctil, el zoom y desplazamiento del visor y los tutoriales; el lienzo del visor también ajusta su resolución a la escala.
+- Pruebas automáticas a 70, 80, 90, 100, 115, 130 y 150 %: el cabezal cae donde haces clic, los clips se mueven y se estiran exactamente lo arrastrado y el foco del tutorial rodea el elemento.

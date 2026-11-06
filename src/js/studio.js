@@ -2008,7 +2008,7 @@
       if (el.playhead) el.playhead.style.left = S.time * S.pps + 'px';
       if (el.simBar) el.simBar.style.width = (S.time / Math.max(0.1, total)) * 100 + '%';
     }
-    const dprNow = () => ((el.stage && el.stage.ownerDocument.defaultView) || window).devicePixelRatio || 1;
+    const dprNow = () => (((el.stage && el.stage.ownerDocument.defaultView) || window).devicePixelRatio || 1) * MC.uz();
     function fit() {
       const c = el.canvas, st = el.stage, o = opts();
       const A = o.W / o.H, pw = st.clientWidth - 24, ph = st.clientHeight - 12;
@@ -2039,7 +2039,7 @@
     /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
     function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); positionSim(); }
     function setViewZoom(z, cx, cy) {
-      const v = S.vz, nz = clamp(z, 0.25, 8), r = el.stage.getBoundingClientRect(), mx = (cx == null ? r.left + r.width / 2 : cx) - (r.left + r.width / 2), my = (cy == null ? r.top + r.height / 2 : cy) - (r.top + r.height / 2), k = nz / v.z;
+      const v = S.vz, nz = clamp(z, 0.25, 8), r = el.stage.getBoundingClientRect(), mx = ((cx == null ? r.left + r.width / 2 : cx) - (r.left + r.width / 2)) / MC.uz(), my = ((cy == null ? r.top + r.height / 2 : cy) - (r.top + r.height / 2)) / MC.uz(), k = nz / v.z;
       v.x = mx - (mx - v.x) * k; v.y = my - (my - v.y) * k; v.z = nz; if (nz === 1) { v.x = 0; v.y = 0; } applyViewXf(); S.dirty = true;
     }
     const resetViewZoom = () => { S.vz = { z: 1, x: 0, y: 0 }; applyViewXf(); S.dirty = true; };
@@ -2354,7 +2354,7 @@
         { const r0 = c.getBoundingClientRect(), s0 = c.width / r0.width; S.mouse = { x: (e.clientX - r0.left) * s0, y: (e.clientY - r0.top) * s0 }; if (S.rulers && !drag) S.dirty = true; }
         if (!drag && S.view === 'page' && S.poly) { const M = S.pageMap, q = px(e); if (M) { S.polyCur = [clamp((q.x - M.ox) / (M.img.w * M.kp), 0, 1), clamp((q.y - M.oy) / (M.img.h * M.kp), 0, 1)]; S.dirty = true; } return; }
         if (!drag) return;
-        if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0); S.vz.y = drag.vy + (e.clientY - drag.y0); applyViewXf(); return; }
+        if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0) / MC.uz(); S.vz.y = drag.vy + (e.clientY - drag.y0) / MC.uz(); applyViewXf(); return; }
         const p = px(e), sh = shot();
         if (drag.m === 'orbit') { S.v3.yaw = drag.yaw + (p.x - drag.p0.x) * 0.35; S.v3.pitch = clamp(drag.pitch - (p.y - drag.p0.y) * 0.3, -85, 85); S.dirty = true; return; }
         if (drag.m === 'depthz') { const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, vl = Math.hypot(drag.vx, drag.vy); let dz; if (vl > 4 * S.dpr) dz = ((dx * drag.vx + dy * drag.vy) / (vl * vl)) * 0.1 / V3.span; else dz = dx / (c.width * 0.4); drag.l.z = clamp(Math.round((drag.z0 + dz) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
@@ -2540,7 +2540,7 @@
       if (S.snapExtra) S.snapExtra.forEach((x) => pts.push(x));
       return pts;
     }
-    const snapThr = () => (document.documentElement.dataset.touch === '1' ? 16 : 10) / S.pps;
+    const snapThr = () => (document.documentElement.dataset.touch === '1' ? 16 : 10) / MC.uz() / S.pps;
     function snapGuide(tm) {
       if (tm == null) { if (el.tlGuide) el.tlGuide.style.display = 'none'; return; }
       if (!el.tlGuide || !el.tlGuide.isConnected) { el.tlGuide = h('div', { class: 'snapguide', 'aria-hidden': 'true' }); el.tlContent.append(el.tlGuide); }
@@ -2724,7 +2724,7 @@
               /* aparece / desaparece: estirar un borde de la capa */
               let mvd = false;
               const mvE = (ev) => {
-                mvd = true; const raw = sStart + (edge.classList.contains('lrzl') ? ts0 : te0) + (ev.clientX - e.clientX) / S.pps, v = snapMove(raw, 0, l.id) - sStart;
+                mvd = true; const raw = sStart + (edge.classList.contains('lrzl') ? ts0 : te0) + (ev.clientX - e.clientX) / MC.uz() / S.pps, v = snapMove(raw, 0, l.id) - sStart;
                 if (edge.classList.contains('lrzl')) l.ts = v <= 0.02 ? 0 : clamp(round2(v), 0, te0 - 0.2); else { const nv = clamp(round2(v), ts0 + 0.2, sh.duration); l.te = nv >= sh.duration - 0.02 ? null : nv; }
                 layoutClips(); S.dirty = true; touch();
               };
@@ -2737,9 +2737,9 @@
               if (!mode && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) mode = Math.abs(dx) > Math.abs(dy) ? 'time' : 'order';
               if (!mode || l.locked) return; moved = true;
               if (mode === 'time') {
-                const span = te0 - ts0, abs = snapMove(sStart + ts0 + dx / S.pps, span, l.id), ns = clamp(round2(abs - sStart), 0, sh.duration - span), d = ns - ts0;
+                const span = te0 - ts0, abs = snapMove(sStart + ts0 + dx / MC.uz() / S.pps, span, l.id), ns = clamp(round2(abs - sStart), 0, sh.duration - span), d = ns - ts0;
                 l.ts = ns <= 0.001 ? 0 : ns; l.te = ns + span >= sh.duration - 0.02 ? null : round2(ns + span); (l.segs || []).forEach((q, k2) => { q.t = round2(segs0[k2] + d); }); layoutClips(); S.dirty = true; touch();
-              } else { tgt = clamp(li - Math.round(dy / LHx), 0, sh.layers.length - 1); R.shots.querySelectorAll('.lyrbar[data-si="' + i + '"]').forEach((n) => n.classList.toggle('tgt', +n.dataset.li === tgt && tgt !== li)); }
+              } else { tgt = clamp(li - Math.round(dy / MC.uz() / LHx), 0, sh.layers.length - 1); R.shots.querySelectorAll('.lyrbar[data-si="' + i + '"]').forEach((n) => n.classList.toggle('tgt', +n.dataset.li === tgt && tgt !== li)); }
             };
             const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); if (moved && mode === 'time') commit(); else if (moved && tgt !== li && !l.locked) { S.li = reorderLayer(sh, li, tgt); commit(); } else { renderLayers(); renderInspector(); R.shots.querySelectorAll('.lyrbar').forEach((n) => { const on = +n.dataset.si === S.si && +n.dataset.li === S.li; n.classList.toggle('on', on); n.querySelectorAll('.lseg').forEach((q) => q.classList.toggle('on', on && +q.dataset.r === S.sg)); }); S.dirty = true; } };
             bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
@@ -2923,7 +2923,7 @@
         R.kf.append(d);
       });
       if (kft && R.kf) R.kf.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.kfd')) return; const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps - kft.start, 0, kft.dur);
+        if (e.target.closest('.kfd')) return; const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps - kft.start, 0, kft.dur);
         const q = newKf(kft.it, local); kft.it.kf = (kft.it.kf || []).concat([q]); S.kfid = q.id; commit();
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
@@ -2954,7 +2954,7 @@
     }
     function dropInfo(e) {
       const row = e.target.closest && e.target.closest('.tl-track'); if (!row) return null; const key = row.dataset.k, p = S.project, pps = S.pps;
-      const time = Math.max(0, Math.round(((e.clientX - el.tlContent.getBoundingClientRect().left) / pps) * 100) / 100);
+      const time = Math.max(0, Math.round(((e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / pps) * 100) / 100);
       const bar = e.target.closest('.lyrbar'), clip = e.target.closest('.clip[data-i]'), xclip = e.target.closest('.clip[data-xs]');
       return { row, key, time, bar, clip, xclip, si: bar ? +bar.dataset.si : clip ? +clip.dataset.i : null };
     }
@@ -2993,7 +2993,7 @@
       el.tlContent.addEventListener('dragover', (e) => { if (!okDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; const info = dropInfo(e); el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); if (info) { (info.bar || info.clip || info.row).classList.add('dropt'); } });
       el.tlContent.addEventListener('dragleave', (e) => { if (!el.tlContent.contains(e.relatedTarget)) el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); });
       el.tlContent.addEventListener('drop', (e) => { if (!okDrag(e)) return; e.preventDefault(); el.tlContent.querySelectorAll('.dropt').forEach((n) => n.classList.remove('dropt')); dropOnTimeline(e); });
-      const at = (e) => (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps;
+      const at = (e) => (e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps;
       /* selección múltiple (Mayús o Ctrl + clic), mover varios a la vez y grupos: se atiende antes que los controladores de cada clip */
       el.tlContent.addEventListener('pointerdown', (e) => {
         const c = e.target.closest('.clip[data-c], .clip[data-x], .clip[data-o]');
@@ -3031,7 +3031,7 @@
       });
       el.tlContent.addEventListener('pointermove', (e) => {
         if (marq) {
-          const box = el.tlContent.getBoundingClientRect(), x = Math.min(e.clientX, marq.x0) - box.left, y = Math.min(e.clientY, marq.y0) - box.top, w = Math.abs(e.clientX - marq.x0), hh = Math.abs(e.clientY - marq.y0);
+          const box = el.tlContent.getBoundingClientRect(), uzz = MC.uz(), x = (Math.min(e.clientX, marq.x0) - box.left) / uzz, y = (Math.min(e.clientY, marq.y0) - box.top) / uzz, w = Math.abs(e.clientX - marq.x0) / uzz, hh = Math.abs(e.clientY - marq.y0) / uzz;
           Object.assign(marq.n.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: hh + 'px' }); return;
         }
         if (down) setTime(at(e));
@@ -3318,7 +3318,7 @@
       /* cuchilla: pulsar sobre un clip lo corta justo ahí */
       el.tlContent.addEventListener('pointerdown', (e) => {
         if (S.tool !== 'blade' || e.button) return; const c = e.target.closest && e.target.closest('.clip'); if (!c) return;
-        const d = c.dataset; let tm = (e.clientX - el.tlContent.getBoundingClientRect().left) / S.pps; if (S.snapOn) tm = snapT(tm);
+        const d = c.dataset; let tm = (e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps; if (S.snapOn) tm = snapT(tm);
         if (d.c) { S.cl = d.c; S.selKind = 'clip'; } else if (d.x) { S.tx = d.x; S.selKind = 'text'; } else if (d.o) { S.ov = d.o; S.selKind = 'overlay'; } else if (d.i != null) { S.si = +d.i; S.li = -1; S.selKind = 'shot'; } else return;
         e.preventDefault(); e.stopPropagation(); splitAt(tm);
       }, true);
@@ -3426,7 +3426,7 @@
     /* ---------- precisión, aviso de deshacer, gestos y menú contextual ---------- */
     S.fine = false;
     /* arrastre fino: con el modo «precisión» o con Mayús, el cursor o el dedo mueven una cuarta parte */
-    const fineDx = (ev, x0) => (ev.clientX - x0) * (S.fine || ev.shiftKey ? 0.25 : 1);
+    const fineDx = (ev, x0) => ((ev.clientX - x0) / MC.uz()) * (S.fine || ev.shiftKey ? 0.25 : 1);
     const undoToast = (msg) => MC.toast(msg, { label: t('Deshacer', 'Undo'), onClick: () => undo(), ms: 7000 });
     const askName = (title, cur, cb) => {
       const inp = h('input', { class: 'input', value: cur || '', 'aria-label': title }); let m = null;
@@ -3454,7 +3454,7 @@
     /* qué hay bajo el cursor o el dedo y lo selecciona */
     function ctxFor(e) {
       const n0 = e.target; if (!n0 || !n0.closest) return null;
-      const rc = el.tlContent.getBoundingClientRect(), tm = clamp((e.clientX - rc.left) / S.pps, 0, MC.totalTime(S.project));
+      const rc = el.tlContent.getBoundingClientRect(), tm = clamp((e.clientX - rc.left) / MC.uz() / S.pps, 0, MC.totalTime(S.project));
       let n;
       if ((n = n0.closest('.kfd')) && kfTarget()) { S.kfid = n.dataset.kf; return { k: 'kf', tm }; }
       if ((n = n0.closest('.lyrbar'))) { const si = +n.dataset.si, li = +n.dataset.li, sg = n0.closest('.lseg'); if (S.si !== si) selectShot(si, false); S.li = li; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; if (sg) S.sg = +sg.dataset.r; return { k: 'layer', tm, bar: true }; }
@@ -3526,17 +3526,17 @@
     function wireGestures() {
       const sc = el.tlContent.parentNode, body = sc.parentNode; let tz = null, raf = 0, pan = null;
       /* línea de tiempo */
-      wirePinch(sc, (m) => { tz = { pps: S.pps, anchor: (m.x - el.tlContent.getBoundingClientRect().left) / S.pps, sl: sc.scrollLeft, st: body.scrollTop, m0x: m.x, m0y: m.y }; },
-        (m, ratio) => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (!tz) return; S.pps = clamp(tz.pps * ratio, 6, 400); renderTimeline(); const r = sc.getBoundingClientRect(); sc.scrollLeft = tz.anchor * S.pps - (m.x - r.left); body.scrollTop = tz.st - (m.y - tz.m0y); refreshTlBar(); }); },
+      wirePinch(sc, (m) => { tz = { pps: S.pps, anchor: (m.x - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps, sl: sc.scrollLeft, st: body.scrollTop, m0x: m.x, m0y: m.y }; },
+        (m, ratio) => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (!tz) return; S.pps = clamp(tz.pps * ratio, 6, 400); renderTimeline(); const r = sc.getBoundingClientRect(); sc.scrollLeft = tz.anchor * S.pps - (m.x - r.left) / MC.uz(); body.scrollTop = tz.st - (m.y - tz.m0y) / MC.uz(); refreshTlBar(); }); },
         () => { tz = null; });
       /* un dedo sobre el fondo vacío de la línea de tiempo la desplaza */
       sc.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch' || e.target.closest('.clip, .lyrbar, .kfd, .tl-ruler, .rz, .lrz, .playhead, button')) return; pan = { x: e.clientX, y: e.clientY, sl: sc.scrollLeft, st: body.scrollTop, on: false, id: e.pointerId }; });
-      sc.addEventListener('pointermove', (e) => { if (!pan || pan.id !== e.pointerId) return; const dx = e.clientX - pan.x, dy = e.clientY - pan.y; if (!pan.on && Math.hypot(dx, dy) > 8) pan.on = true; if (pan.on) { sc.scrollLeft = pan.sl - dx; body.scrollTop = pan.st - dy; } });
+      sc.addEventListener('pointermove', (e) => { if (!pan || pan.id !== e.pointerId) return; const dx = e.clientX - pan.x, dy = e.clientY - pan.y; if (!pan.on && Math.hypot(dx, dy) > 8) pan.on = true; if (pan.on) { sc.scrollLeft = pan.sl - dx / MC.uz(); body.scrollTop = pan.st - dy / MC.uz(); } });
       const pe = () => { pan = null; }; sc.addEventListener('pointerup', pe); sc.addEventListener('pointercancel', pe);
       /* visor */
       let vz = null;
       wirePinch(el.stage, (m) => { vz = { z: S.vz.z, x: S.vz.x, y: S.vz.y, m0x: m.x, m0y: m.y }; },
-        (m, ratio) => { if (!vz) return; S.vz = { z: vz.z, x: vz.x, y: vz.y }; setViewZoom(vz.z * ratio, m.x, m.y); S.vz.x += m.x - vz.m0x; S.vz.y += m.y - vz.m0y; applyViewXf(); },
+        (m, ratio) => { if (!vz) return; S.vz = { z: vz.z, x: vz.x, y: vz.y }; setViewZoom(vz.z * ratio, m.x, m.y); S.vz.x += (m.x - vz.m0x) / MC.uz(); S.vz.y += (m.y - vz.m0y) / MC.uz(); applyViewXf(); },
         () => { vz = null; });
     }
 
