@@ -243,8 +243,8 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .lrow { display: flex; gap: 2px; padding: 2px 0 6px 8px; }
 .sec { border-top: 1px solid var(--line); }
 .sec:first-child { border-top: 0; }
-.sec > button.sh { display: flex; width: 100%; justify-content: space-between; align-items: center; background: none; border: 0; padding: 12px 0 8px; cursor: pointer; color: var(--muted); }
-.sec > button.sh:hover { color: var(--fg); }
+.sec button.sh { display: flex; width: 100%; justify-content: space-between; align-items: center; background: none; border: 0; padding: 12px 0 8px; cursor: pointer; color: var(--muted); }
+.sec button.sh:hover { color: var(--fg); }
 .sec .sb { display: grid; gap: 12px; padding: 4px 0 14px; }
 .sec[data-open="false"] .sb { display: none; }
 .box { display: grid; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
@@ -816,3 +816,13 @@ html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol
 @media (max-width: 640px) { .sp-card { grid-template-columns: 1fr; grid-template-rows: 36% 1fr; height: min(560px, calc(100vh - 32px)); } .sp-img { order: -1; } .sp-copy { padding: 20px; } .sp-brand { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .splash, .sp-card { transition: none; animation: none; } }
 a.btn { text-decoration: none; }
+
+/* ayuda integrada: botón «?» y ventanita */
+.hq { display: inline-grid; place-items: center; width: 22px; height: 22px; min-width: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 12px/1 inherit; cursor: help; padding: 0; }
+.hq:hover, .hq:focus-visible { color: var(--fg); border-color: var(--accent); }
+.hqw { display: inline-flex; align-items: center; margin-left: 6px; }
+.shw { display: flex; align-items: center; gap: 6px; padding-right: 8px; } .shw .sh { flex: 1; min-width: 0; }
+.helppop { position: fixed; z-index: 450; background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; box-shadow: 0 16px 48px rgba(0,0,0,.45); display: grid; gap: 8px; max-height: calc(100vh - 24px); overflow: auto; }
+.helppop h3 { margin: 0; font-size: 16px; } .helppop p { margin: 0; font-size: 13px; line-height: 1.5; }
+.helppop .row-end { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+.bhq { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0 2px; }

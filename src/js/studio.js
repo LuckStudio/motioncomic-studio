@@ -856,7 +856,7 @@
 
     /* ---------- inspector ---------- */
     const secDom = (d) => { const open = S.open[d.id] !== false; return h('div', { class: 'sec', 'data-id': d.id, 'data-open': String(open) },
-      h('button', { class: 'sh', type: 'button', 'aria-expanded': String(open), onClick: () => { S.open[d.id] = !open; renderPanels(); } }, h('span', { class: 'eyebrow' }, d.title), MC.icon(open ? 'up' : 'down', 14)),
+      h('div', { class: 'shw' }, h('button', { class: 'sh', type: 'button', 'aria-expanded': String(open), onClick: () => { S.open[d.id] = !open; renderPanels(); } }, h('span', { class: 'eyebrow' }, d.title), MC.icon(open ? 'up' : 'down', 14)), MC.HELP.has(d.id) ? MC.helpBtn(d.id) : null),
       h('div', { class: 'sb' }, d.nodes)); };
     const boxDom = (d) => h('div', { class: 'box', 'data-id': d.id }, h('div', { class: 'eyebrow' }, d.title), d.nodes);
     const nameIn = (label, value, fn) => { const id = 'n-' + MC.uid(); return MC.ui.field(label, h('input', { class: 'input', id, value, onChange: (e) => fn(e.target.value.trim()) }), id); };
@@ -1945,7 +1945,7 @@
         } }, tabs.map((q) => h('button', { class: 'ptab', type: 'button', role: 'tab', id: 'pt-' + q.id, 'aria-selected': String(q === act), 'aria-controls': 'ptp', tabindex: q === act ? '0' : '-1', onClick: () => setPtab(kind, q.id) }, q.lab))),
         h('button', { class: 'ptnav', type: 'button', disabled: k === tabs.length - 1, 'aria-label': t('Pestaña siguiente', 'Next tab'), onClick: () => go(1) }, MC.icon('chevron', 16)));
       const single = act.secs.length === 1;
-      const body = h('div', { id: 'ptp', role: 'tabpanel', 'aria-labelledby': 'pt-' + act.id, class: 'ptp' }, act.secs.map((d) => (single ? h('div', { class: 'sec bare', 'data-id': d.id, 'data-open': 'true' }, h('div', { class: 'sb' }, d.nodes)) : secDom(d))));
+      const body = h('div', { id: 'ptp', role: 'tabpanel', 'aria-labelledby': 'pt-' + act.id, class: 'ptp' }, act.secs.map((d) => (single ? h('div', { class: 'sec bare', 'data-id': d.id, 'data-open': 'true' }, MC.HELP.has(d.id) ? h('div', { class: 'bhq' }, h('span', { class: 'cap' }, d.title), MC.helpBtn(d.id)) : null, h('div', { class: 'sb' }, d.nodes)) : secDom(d))));
       /* deslizar con el dedo a izquierda o derecha pasa de pestaña */
       let sw = null;
       body.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch' || e.target.closest('input, select, textarea, canvas, .seg, .chips')) { sw = null; return; } sw = { x: e.clientX, y: e.clientY }; });
@@ -1967,6 +1967,10 @@
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
         layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_time), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
+      { const KH = { project: 'proyecto', shot: 'plano', layer: 'capa', text: 'texto', clip: 'audio', overlay: 'overlay', fx: 'efecto', panel: 'pagina', stop: 'tira', subs: 'subs' };
+        if (MC.helpClose) MC.helpClose();
+        MC.clear(el.leftHelp); if (tab && MC.HELP.has(tab)) el.leftHelp.append(MC.helpBtn(tab));
+        MC.clear(el.propsHelp); if (KH[kind] && MC.HELP.has(KH[kind])) el.propsHelp.append(MC.helpBtn(KH[kind])); }
       const tabbed = tabbedInspector(kind, DP);
       MC.put(MC.clear(el.inspBody), crumbs(kind), tabbed ? tabbed.bar : null, h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, tabbed ? tabbed.body : pick[kind]())); el.inspBody.scrollTop = top;
     }
@@ -3117,13 +3121,13 @@
     el.rail = h('div', { class: 'rail', role: 'tablist', 'aria-label': t('Paneles', 'Panels'), 'aria-orientation': 'vertical' });
     el.leftTitle = h('h3', null, '');
     el.leftBody = h('div', { class: 'pbody' });
-    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle, dockCtl('tools')), el.leftBody, el.hTools = handle('left', 'r', t('Ancho del panel izquierdo', 'Left panel width')));
+    el.leftEl = h('div', { class: 'panel-col leftpanel' }, h('div', { class: 'ph' }, el.leftTitle, el.leftHelp = h('span', { class: 'hqw' }), dockCtl('tools')), el.leftBody, el.hTools = handle('left', 'r', t('Ancho del panel izquierdo', 'Left panel width')));
     el.propsTitle = h('h3', null, '');
     el.exportHost = h('div', { class: 'exp-panel' });
     const layersPanel = h('div', { class: 'panel-col p-layers' },
       h('div', { class: 'ph' }, h('h3', null, t('Capas', 'Layers')), h('span', { class: 'vwrap' }, el.impBtn = h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => { S.impOpen = !S.impOpen; el.impBtn.setAttribute('aria-expanded', String(S.impOpen)); renderImpMenu(); } }, MC.icon('plus', 14), t('Importar', 'Import'), MC.icon('down', 12))), dockCtl('layers')),
       h('div', { style: { display: 'contents' }, onClick: (e) => { if (e.target === e.currentTarget || e.target === el.layersBody) { S.selKind = 'shot'; S.li = -1; renderLayers(); renderPanels(); S.dirty = true; } } }, el.layersBody));
-    const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle, dockCtl('props')), el.inspBody);
+    const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle, el.propsHelp = h('span', { class: 'hqw' }), dockCtl('props')), el.inspBody);
     el.colL = h('div', { class: 'sidecol colL' }, el.hCl = handle('cl', 'l', t('Ancho de la columna izquierda', 'Left column width')));
     el.colR = el.rightEl = h('div', { class: 'sidecol colR' }, layersPanel, propsPanel, el.hCr = handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
     el.zBL = h('div', { class: 'sidecol zb zbl' }, el.hBl = handle('bl', 'r', t('Ancho de la zona izquierda junto a la línea de tiempo', 'Width of the zone left of the timeline')));

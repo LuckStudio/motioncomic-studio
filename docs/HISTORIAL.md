@@ -211,3 +211,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Bloque 2 del plan: clic derecho en toda la interfaz
 
 - Menú contextual general: herramientas de la barra, pestañas laterales y espacio «Efectos y audio» se pueden ocultar con clic derecho (con confirmación y «Deshacer») y recuperar desde el mismo menú; cabecera de panel, visor y cabecera de pista tienen su menú; cualquier hueco ofrece personalizar y ayuda. Los menús de la línea de tiempo (plano, capa, clip, etc.) no cambian.
+
+## Bloque 3 del plan: ayuda integrada
+
+- Icono «?» en el título de cada pestaña lateral, en las propiedades y en cada sección con cabecera (y en las pestañas de una sola sección): ventanita con para qué sirve y cómo se usa, y botón para ver el tutorial. 40 temas en español e inglés (`src/js/helptopics.js`).
+- Siete tutoriales nuevos (Rack focus, Curvas, Fotogramas clave, Viñetas, Mi estilo, Superposiciones, Texto); los pasos pueden cambiar de espacio y pestaña solos. Probado que todos los pasos encuentran su elemento.
