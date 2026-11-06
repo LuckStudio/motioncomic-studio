@@ -930,6 +930,7 @@ a.btn { text-decoration: none; }
 @keyframes lpulse { 50% { outline-color: transparent; } }
 .gloss { display: grid; gap: 4px; margin: 0; } .gloss dt { font-weight: 600; margin-top: 6px; } .gloss dd { margin: 0; color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .learn-pulse { animation: none; } }
+.lc-head { cursor: grab; touch-action: none; } .learn-coach.min > :not(.lc-head) { display: none; } .lc-min { width: 28px; padding: 0; }
 
 </style>
 <div id="app"></div>
@@ -31488,7 +31489,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.19'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.20'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -32656,6 +32657,11 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
   const cams = (p) => p.shots.map((s) => (s.camera && s.camera.preset) || 'none').join(',');
   const subY = (p) => (p.subs || []).map((q) => (q.style && q.style.y != null ? q.style.y : 'x')).join(',');
 
+  const fxN = (p) => p.shots.reduce((n, s2) => n + (s2.fx || []).length, 0);
+  const trs = (p) => p.shots.map((s2) => (s2.transition && s2.transition.type) || 'cut').join(',');
+  const clipsOf = (p, tr) => (p.clips || []).filter((c) => tr.includes(c.track)).length;
+  const lookKey = (p) => JSON.stringify(p.look || {});
+
   const COURSE = [
     { id: 'm1', title: 'Tu primer vídeo', intro: 'De tus ilustraciones a un vídeo que se mueve: importar, dar profundidad, mover la cámara, montar planos, poner texto y exportar.',
       lessons: [
@@ -32675,7 +32681,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         ] },
         { id: 'm1l4', title: 'Texto y bocadillos', why: 'El texto cuenta lo que la imagen no dice. Cada texto aparece en un momento y dura lo que tú decidas.', steps: [
           { text: 'Coloca el cabezal donde quieras que entre el texto y añade un texto o un bocadillo desde el panel «Efectos y audio» → Texto.', where: '.leftpanel', init: (c) => { c.mem.n = c.p.texts.length; }, check: (c) => c.p.texts.length > c.mem.n },
-          { text: 'Escribe el texto en el panel de propiedades y arrástralo en el visor hasta su sitio.', where: '.stage', check: (c) => c.p.texts.some((q) => Object.values(q.t || {}).some((v) => String(v || '').trim().length > 1)) },
+          { text: 'Escribe el texto en el panel de propiedades y arrástralo en el visor hasta su sitio.', where: '.stage', init: (c) => { c.mem.t = JSON.stringify(c.p.texts.map((q) => q.t)); }, check: (c) => JSON.stringify(c.p.texts.map((q) => q.t)) !== c.mem.t && c.p.texts.some((q) => Object.values(q.t || {}).some((v) => String(v || '').trim().length > 1)) },
         ] },
         { id: 'm1l5', title: 'Exporta tu vídeo', why: 'Exportar convierte tu proyecto en un archivo que puedes subir. Elige la plataforma y el programa ajusta formato y calidad.', steps: [
           { text: 'Abre la pestaña «Exportar» (arriba). Es un espacio propio: puedes seguir editando mientras exporta.', where: '.s-tabs button:last-child', check: (c) => c.st.ws === 'exportar' },
@@ -32689,15 +32695,54 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           { text: 'En la fila «Fotogramas clave» de la línea de tiempo pulsa «Avanzada» para ver una fila por propiedad.', where: '.kfadv', check: (c) => c.st.kfAdv },
         ] },
         { id: 'm2l2', title: 'Alinear con precisión', why: 'Lo bien alineado se ve profesional. El imán del visor y los botones de alinear te ahorran ojear.', steps: [
-          { text: 'Arrastra una capa o texto por el visor cerca del centro: se pega solo y aparece una línea guía rosa. (Alt desactiva el imán.)', where: '.stage', check: (c) => c.ev.align > 0 || c.ev.snap > 0 },
+          { text: 'Arrastra una capa o texto por el visor cerca del centro: se pega solo y aparece una línea guía rosa. (Alt desactiva el imán.)', where: '.stage', check: (c) => c.ev.snap > 0 },
           { text: 'En el panel de propiedades de una capa, pulsa uno de los botones de «Alinear» (por ejemplo, «Centro»).', where: '.alignrow', check: (c) => c.ev.align > 0 },
         ], skipHint: 'El imán se comprueba al soltar el ratón sobre una guía.' },
         { id: 'm2l3', title: 'Subtítulos y zonas seguras', why: 'En TikTok, Reels y Shorts la interfaz tapa parte de la imagen. Los subtítulos deben quedar fuera.', steps: [
-          { text: 'Activa «Zonas seguras» en el menú Superposiciones del visor para ver qué tapa la interfaz.', where: '.vbar', check: (c) => c.st.safe },
+          { text: 'Activa «Zonas seguras» en el menú Superposiciones del visor para ver qué tapa la interfaz. Solo está disponible en proyectos verticales (9:16): si el tuyo es horizontal, cambia la proporción en Proyecto o pulsa «Saltar».', where: '.vbar', check: (c) => c.st.safe },
           { text: 'Crea una capa de subtítulos con el «+» de su fila en la línea de tiempo y escribe su texto.', where: '.tl-labels', init: (c) => { c.mem.n = (c.p.subs || []).length; }, check: (c) => (c.p.subs || []).length > c.mem.n },
           { text: 'En «Efectos y audio» → Subtítulos elige una «Posición rápida» y comprueba que el aviso dice «Dentro de la zona segura».', where: '.leftpanel', init: (c) => { c.mem.y = subY(c.p); }, check: (c) => (c.p.subs || []).length > 0 && subY(c.p) !== c.mem.y },
         ] },
       ], challenge: { title: 'Reto: movimiento con intención', text: 'Anima una capa con al menos 3 fotogramas clave y añade subtítulos.', check: (c) => sumKf(c.p) >= 3 && (c.p.subs || []).length >= 1 } },
+    { id: 'm3', title: 'Sonido y voz', intro: 'Un vídeo suena tanto como se ve: música, efectos de sonido y la voz que cuenta la historia.',
+      lessons: [
+        { id: 'm3l1', title: 'Música y efectos de sonido', why: 'La música marca el ánimo y los efectos subrayan los golpes. Cada sonido es un clip en su pista de la línea de tiempo.', steps: [
+          { text: 'Abre la pestaña «Música» (Efectos y audio) y añade una pista a tu vídeo, o importa tu propio audio con el «+» de la pista de música.', open: ['creativo', 'musica'], where: '.leftpanel', init: (c) => { c.mem.n = clipsOf(c.p, ['musica']); }, check: (c) => clipsOf(c.p, ['musica']) > c.mem.n },
+          { text: 'Ahora añade un efecto de sonido desde la pestaña «SFX» (un golpe, un viento…) en el momento que quieras.', open: ['creativo', 'sfx'], where: '.leftpanel', init: (c) => { c.mem.n = clipsOf(c.p, ['sfx']); }, check: (c) => clipsOf(c.p, ['sfx']) > c.mem.n },
+          { text: 'Abre el «Mezclador» y mira los volúmenes de cada pista: la música suele ir bastante más baja que la voz.', open: ['creativo', 'mezclador'], where: '.leftpanel', check: (c) => c.st.tab === 'mezclador' },
+        ] },
+        { id: 'm3l2', title: 'La voz en off', why: 'La locución da el ritmo: los planos y los textos se ajustan a ella, no al revés.', steps: [
+          { text: 'Importa un audio de voz con el «+» de la pista «Locución» de la línea de tiempo (o grábalo con el micrófono: tu voz no sale del equipo).', where: '.tl-labels', init: (c) => { c.mem.n = clipsOf(c.p, ['voz']); }, check: (c) => clipsOf(c.p, ['voz']) > c.mem.n },
+          { text: 'En el «Mezclador» usa «Marcar pausas de la voz» y luego «Ajustar planos a la voz» para repartir la duración de los planos.', open: ['creativo', 'mezclador'], where: '.leftpanel', init: (c) => { c.mem.d = c.p.shots.map((q) => q.duration).join(','); }, check: (c) => c.p.shots.map((q) => q.duration).join(',') !== c.mem.d },
+        ] },
+      ], challenge: { title: 'Reto: que suene', text: 'Pon música, un efecto de sonido y una voz en tu proyecto.', check: (c) => clipsOf(c.p, ['musica']) >= 1 && clipsOf(c.p, ['sfx']) >= 1 && clipsOf(c.p, ['voz']) >= 1 } },
+    { id: 'm4', title: 'Transiciones, efectos y estilo', intro: 'El paso de un plano a otro, los golpes visuales y el aspecto general de tu cómic en movimiento.',
+      lessons: [
+        { id: 'm4l1', title: 'Transiciones entre planos', why: 'Un corte seco es una decisión; un fundido o un deslizamiento cuentan otra cosa. Cada transición entra en el plano al que se aplica.', steps: [
+          { text: 'Selecciona el segundo plano (necesitas al menos dos) en la línea de tiempo o en el panel de planos.', where: '.p-timeline', check: (c) => c.p.shots.length >= 2 && c.st.shot >= 1 },
+          { text: 'Abre la pestaña «Transiciones» (Efectos y audio) y elige una distinta del corte. Pasa el ratón por encima para verla en el visor.', open: ['creativo', 'transiciones'], where: '.leftpanel', init: (c) => { c.mem.t = trs(c.p); }, check: (c) => trs(c.p) !== c.mem.t },
+        ] },
+        { id: 'm4l2', title: 'Efectos visuales', why: 'Temblor, impacto, lluvia, velocidad… Los efectos duran un tramo del plano y se colocan donde los necesites.', steps: [
+          { text: 'Abre la pestaña «Efectos» (Efectos y audio) y añade un efecto al plano seleccionado.', open: ['creativo', 'efectos'], where: '.leftpanel', init: (c) => { c.mem.n = fxN(c.p); }, check: (c) => fxN(c.p) > c.mem.n },
+          { text: 'Mueve el cabezal por el plano y comprueba en el visor cómo actúa el efecto en su tramo.', where: '.tl-ruler', init: (c) => { c.mem.tm = c.st.time; }, check: (c) => Math.abs(c.st.time - c.mem.tm) > 0.3 },
+        ] },
+        { id: 'm4l3', title: 'El aspecto de todo el vídeo', why: 'Viñeta, grano, trama de puntos o un tinte unifican las capas y le dan carácter al conjunto.', steps: [
+          { text: 'Abre la pestaña «Aspecto» (Montaje) y cambia algo: viñeta, grano, trama de puntos o tinte.', open: ['montaje', 'aspecto'], where: '.leftpanel', init: (c) => { c.mem.k = lookKey(c.p); }, check: (c) => lookKey(c.p) !== c.mem.k },
+          { text: 'Abre «Estilo» (Montaje) para ver el estilo del proyecto: ahí puedes guardarlo como «Mi estilo» y reutilizarlo.', open: ['montaje', 'estilo'], where: '.leftpanel', check: (c) => c.st.tab === 'estilo' },
+        ] },
+      ], challenge: { title: 'Reto: un montaje con carácter', text: 'Que tu proyecto tenga al menos una transición distinta del corte y un efecto visual.', check: (c) => trs(c.p).split(',').some((x) => x !== 'cut') && fxN(c.p) >= 1 } },
+    { id: 'm5', title: 'Publicar donde quieras', intro: 'Elegir el formato correcto, comprobar cómo se verá dentro de cada red social y exportar con idiomas.',
+      lessons: [
+        { id: 'm5l1', title: 'Formato y plataforma', why: 'Cada plataforma pide su proporción: 9:16 vertical para TikTok, Reels y Shorts; 16:9 para YouTube. Decidirlo al principio ahorra rehacer.', steps: [
+          { text: 'Abre el panel «Proyecto» (Montaje) y mira la proporción y la resolución. Cámbialas si tu plataforma pide otra.', open: ['montaje', 'proyecto'], where: '.leftpanel', init: (c) => { c.mem.r = c.p.ratio + c.p.res; }, check: (c) => c.p.ratio + c.p.res !== c.mem.r || c.st.tab === 'proyecto' },
+          { text: 'En un proyecto vertical activa «Simulador» en el menú Superposiciones del visor para ver el vídeo con la interfaz de la red encima.', where: '.vbar', check: (c) => c.st.sim },
+          { text: 'Abre la pestaña «Exportar»: elige una plataforma y el programa ajusta formato, resolución y calidad.', open: ['exportar'], where: '.s-tabs button:last-child', check: (c) => c.st.ws === 'exportar' },
+        ] },
+        { id: 'm5l2', title: 'Varios idiomas', why: 'Cada idioma tiene su propio texto y se exporta por separado, sin duplicar el proyecto.', steps: [
+          { text: 'En el panel «Proyecto» → «Idiomas y subtítulos» activa un idioma más (por ejemplo, inglés).', open: ['montaje', 'proyecto'], where: '.leftpanel', init: (c) => { c.mem.n = c.p.langs.length; }, check: (c) => c.p.langs.length > c.mem.n },
+          { text: 'Pulsa «Tabla de traducción» y escribe la traducción de un texto.', where: '.leftpanel', init: (c) => { c.mem.t = JSON.stringify(c.p.texts.map((q) => q.t)); }, check: (c) => JSON.stringify(c.p.texts.map((q) => q.t)) !== c.mem.t },
+        ] },
+      ], challenge: { title: 'Reto: listo para publicar', text: 'Proyecto con al menos 2 idiomas y un texto traducido.', check: (c) => c.p.langs.length >= 2 && c.p.texts.some((q) => Object.values(q.t || {}).filter((v) => String(v || '').trim()).length >= 2) } },
   ];
 
   const GLOSSARY = [
@@ -32709,6 +32754,8 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     ['Zona segura', 'La parte de la imagen que la interfaz de la red social no tapa.'], ['Bocadillo', 'Texto con globo de cómic que puede tener cola.'],
     ['Subtítulo', 'Texto sincronizado con las palabras de la voz.'], ['Locución', 'La voz en off del vídeo.'], ['Imán', 'Ajuste automático que pega lo que arrastras a bordes, centros y guías.'],
     ['Proporción', 'La relación ancho:alto del vídeo (9:16 vertical, 16:9 horizontal, 1:1 cuadrado).'], ['Resolución', 'El tamaño en píxeles del vídeo exportado.'], ['FPS', 'Fotogramas por segundo: 24 es cine, 30 y 60 son fluidos.'],
+    ['Mezclador', 'Donde se ajusta el volumen de cada pista de sonido.'], ['SFX', 'Efectos de sonido: golpes, viento, pasos…'], ['Pista', 'Una fila de la línea de tiempo con su tipo de contenido: planos, texto, voz, música…'],
+    ['Viñeta (aspecto)', 'Oscurecimiento de los bordes de la imagen para dirigir la mirada al centro.'], ['Grano', 'Ruido fino que da textura de película.'], ['Trama de puntos', 'Efecto de cómic impreso: la imagen se ve hecha de puntos.'], ['Simulador', 'Vista del vídeo con la interfaz de una red social encima para ver qué tapa.'], ['Idioma del proyecto', 'Cada idioma tiene su propio texto y se exporta por separado.'],
     ['Exportar', 'Convertir el proyecto en un archivo de vídeo, imagen o audio.'], ['Transición', 'El paso de un plano a otro: corte, fundido, deslizamiento…'], ['Rack focus', 'Cambio de enfoque entre capas para dirigir la mirada.'],
   ];
 
@@ -32728,6 +32775,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
   /* ---------- panel del curso dentro del estudio ---------- */
   let coach = null, timer = 0, run = null; // run: { lesson, i, ok, mem }
   const ctx = () => ({ p: MC.studioApi.project(), st: MC.studioApi.learn(), ev, mem: run.mem });
+  function place(x, y) { if (!coach) return; const w = coach.offsetWidth || 360, hh = coach.offsetHeight || 120; coach.style.right = 'auto'; coach.style.bottom = 'auto'; coach.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; coach.style.top = Math.max(4, Math.min(innerHeight - 40, y)) + 'px'; }
   function stopCoach() { clearInterval(timer); timer = 0; if (coach) { coach.remove(); coach = null; } run = null; }
   function pulse(sel) {
     const e = sel && document.querySelector(sel); if (!e) { MC.toast('Esta parte no está a la vista ahora; cambia de panel o abre la pestaña que indica el paso.'); return; }
@@ -32740,14 +32788,15 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     if (!run) return; const L = run.lesson, s = L.steps[run.i], last = run.i === L.steps.length - 1;
     MC.clear(coach);
     coach.append(
-      h('div', { class: 'lc-head' }, h('b', null, L.m.title + ' · ' + L.title), h('span', { class: 'cap' }, 'Paso ' + (run.i + 1) + ' de ' + L.steps.length),
+      h('div', { class: 'lc-head', title: 'Arrastra para mover este panel' }, h('b', null, L.m.title + ' · ' + L.title), h('span', { class: 'cap' }, 'Paso ' + (run.i + 1) + ' de ' + L.steps.length),
+        h('button', { class: 'btn btn-g btn-sm lc-min', type: 'button', 'aria-label': coach.classList.contains('min') ? 'Desplegar el curso' : 'Plegar el curso', title: coach.classList.contains('min') ? 'Desplegar' : 'Plegar (se queda solo la cabecera)', onClick: () => { coach.classList.toggle('min'); draw(); } }, coach.classList.contains('min') ? '▢' : '–'),
         h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-label': 'Cerrar el curso (se guarda por dónde vas)', title: 'Cerrar el curso (se guarda por dónde vas)', onClick: () => { persistPos(); stopCoach(); } }, '✕')),
       run.i === 0 ? h('p', { class: 'cap lc-why' }, L.why) : null,
       h('p', { class: 'lc-text' }, s.text),
       h('div', { class: 'lc-status', role: 'status', 'aria-live': 'polite', 'data-ok': String(run.ok) }, run.ok ? '✔ ¡Hecho! Ya puedes pasar al siguiente paso.' : 'Esperando a que lo hagas… (se comprueba solo)'),
       h('div', { class: 'lc-acts' },
         h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: run.i === 0, onClick: () => { run.i--; enterStep(); persistPos(); draw(); } }, 'Atrás'),
-        s.where ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => pulse(s.where) }, 'Mostrar dónde') : null,
+        s.where || s.open ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { if (s.open && MC.studioApi) { MC.studioApi.openWs(s.open[0], s.open[1]); setTimeout(() => pulse(s.where), 350); } else pulse(s.where); } }, s.open ? 'Llevarme allí' : 'Mostrar dónde') : null,
         h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => next(true) }, 'Saltar'),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', disabled: !run.ok, onClick: () => next(false) }, last ? 'Terminar la lección' : 'Siguiente')));
   }
@@ -32765,11 +32814,19 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     const go = () => {
       stopCoach(); run = { lesson: L, i: Math.min(i || 0, L.steps.length - 1), ok: false, mem: {} };
       coach = h('aside', { class: 'learn-coach', 'aria-label': 'Curso: Edita tu propio vídeo' }); document.body.append(coach);
+      try { const q = JSON.parse(MC.store.get('learnpos', 'null')); if (q) place(q.x, q.y); } catch (e) { /* posición por defecto */ }
+      /* se puede arrastrar por la cabecera para que no tape lo que estás haciendo; se recuerda la posición */
+      coach.addEventListener('pointerdown', (e) => {
+        if (!e.target.closest('.lc-head') || e.target.closest('button')) return; const r = coach.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+        coach.setPointerCapture(e.pointerId);
+        const mv = (ev) => place(ev.clientX - dx, ev.clientY - dy), up = () => { coach.removeEventListener('pointermove', mv); coach.removeEventListener('pointerup', up); const b = coach.getBoundingClientRect(); MC.store.set('learnpos', JSON.stringify({ x: b.left, y: b.top })); };
+        coach.addEventListener('pointermove', mv); coach.addEventListener('pointerup', up);
+      });
       enterStep(); persistPos(); draw(); timer = setInterval(tick, 500);
     };
     if (MC.studioApi) go(); else { MC.pendingLearn = { id, i: i || 0 }; MC.toast('Primero hace falta un proyecto: abre el tuyo o el de ejemplo.'); closeCur(); MC.app.openSample(); }
   }
-  MC.learn = { active: () => !!load().pos, resume: () => { const q = MC.pendingLearn || (load().pos && { id: load().pos.l, i: load().pos.i }); MC.pendingLearn = null; if (q && MC.lang === 'es') openLesson(q.id, q.i); }, stop: stopCoach, pct };
+  MC.learn = { course: COURSE, open: openLesson, active: () => !!load().pos, resume: () => { const q = MC.pendingLearn || (load().pos && { id: load().pos.l, i: load().pos.i }); MC.pendingLearn = null; if (q && MC.lang === 'es') openLesson(q.id, q.i); }, stop: stopCoach, pct };
 
   /* ---------- glosario ---------- */
   function openGlossary() {
@@ -35720,7 +35777,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         mv.set(b, [edge === 'l' ? grp.x0 - b.x0 : edge === 'c' ? (grp.x0 + grp.x1) / 2 - cx : edge === 'r' ? grp.x1 - b.x1 : 0, edge === 't' ? grp.y0 - b.y0 : edge === 'm' ? (grp.y0 + grp.y1) / 2 - cy : edge === 'b' ? grp.y1 - b.y1 : 0]);
       });
       let n = 0; mv.forEach((d, b) => { if (Math.abs(d[0]) > 0.5 || Math.abs(d[1]) > 0.5) { nudgeDev(b.it, b.kind, d[0], d[1]); n++; } });
-      if (n && MC.learnEvent) MC.learnEvent('align');
+      if (MC.learnEvent) MC.learnEvent('align'); /* cuenta aunque ya estuviera alineado */
       commit(); MC.announce(n ? t('Alineado', 'Aligned') : t('Ya estaba alineado', 'Already aligned'));
     }
     function alignRow(multi) {
@@ -37524,7 +37581,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
-      learn: () => ({ li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
+      learn: () => ({ tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
