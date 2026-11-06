@@ -910,6 +910,12 @@
         h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: p.shots.length < 3, onClick: () => { p.shots.forEach((x, i) => { if (i > 0 && x !== sh) x.transition = JSON.parse(JSON.stringify(tr)); }); commit(); MC.toast(t('Transición aplicada a todos los planos', 'Transition applied to every shot')); } }, t('Aplicar a todos', 'Apply to all'))));
       return nodes;
     }
+    /* vista previa de una transición con tus propios planos: se prueba en el visor sin aplicarla */
+    function trHover(x, tile) {
+      if (S.si < 1) return tile;
+      return hoverable(tile, 'trans', (sh) => { sh.transition = Object.assign({}, sh.transition, { type: x.v }); },
+        { label: tile.getAttribute('title') || x.v, snap: () => { const o0 = shot().transition; return () => { shot().transition = o0; }; }, win: () => { const st = curStart(), d = Math.max(0.2, Object.assign({ dur: 1 }, shot().transition).dur || 1); return [Math.max(0, st - 0.7), st + d + 0.7]; } });
+    }
     function transPanel(onlyFav) {
       const p = S.project, sh = shot(), can = S.si > 0;
       const cur = can ? sh.transition : null;
@@ -917,10 +923,10 @@
         h('p', { class: 'cap' }, can ? t('Elige cómo entra este plano. Pasa el ratón por encima para verlas moverse.', 'Choose how this shot comes in. Hover to see them move.') : t('El primer plano no tiene transición de entrada: selecciona otro plano en la línea de tiempo.', 'The first shot has no entry transition: pick another shot on the timeline.')),
         p.shots.length > 1 && !can ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => selectShot(1, true) }, t('Ir al plano 2', 'Go to shot 2')) : null)];
       const favTr = MC.TRANSITIONS.filter((x) => MC.fav.has('tr', x.v));
-      const trMk = (x) => favWrap('tr', x.v, trTile({ type: x.v, dir: cur && cur.type === x.v ? cur.dir : 'l', color: cur && cur.type === x.v ? cur.color : undefined, gap: cur && cur.type === x.v ? cur.gap : undefined, ease: cur && cur.type === x.v ? cur.ease : undefined }, cur && cur.type === x.v, () => {
+      const trMk = (x) => favWrap('tr', x.v, trHover(x, trTile({ type: x.v, dir: cur && cur.type === x.v ? cur.dir : 'l', color: cur && cur.type === x.v ? cur.color : undefined, gap: cur && cur.type === x.v ? cur.gap : undefined, ease: cur && cur.type === x.v ? cur.ease : undefined }, cur && cur.type === x.v, () => {
             if (!can) { MC.toast(t('Selecciona un plano a partir del segundo.', 'Select a shot from the second one on.')); return; }
-            sh.transition.type = x.v; if (!x.color) delete sh.transition.color; commit(); renderPanels();
-          }), () => true);
+            hoverStop(); sh.transition.type = x.v; if (!x.color) delete sh.transition.color; commit(); renderPanels();
+          })), () => true);
       if (onlyFav) return favTr.length ? [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Transiciones favoritas', '★ Favourite transitions')), h('div', { class: 'trgrid' }, favTr.map(trMk)))] : [];
       if (favTr.length) out.push(h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Favoritas', '★ Favourites')), h('div', { class: 'trgrid' }, favTr.map(trMk))));
       MC.TRANSITION_GROUPS.forEach((g) => {
@@ -1408,16 +1414,16 @@
         const ensure = () => (it.anim = it.anim || { in: null, out: null, loop: null });
         const part = (key, list, label) => {
           const cur = it.anim && it.anim[key];
-          return [h('div', { class: 'field' }, h('span', { class: 'cap' }, label), MC.ui.chips(list.map((q) => ({ v: q.v, l: t(q.es, q.en) })), (cur && cur.type) || '', (v) => { const a = ensure(); a[key] = v ? Object.assign({ dur: 0.5 }, a[key] || {}, { type: v }) : null; commit(); })),
+          return [h('div', { class: 'field' }, h('span', { class: 'cap' }, label), (() => { const ch = MC.ui.chips(list.map((q) => ({ v: q.v, l: t(q.es, q.en) })), (cur && cur.type) || '', (v) => { hoverStop(); const a = ensure(); a[key] = v ? Object.assign({ dur: 0.5 }, a[key] || {}, { type: v }) : null; commit(); }); [...ch.children].forEach((b, i) => { const v = list[i].v; animHover(b, it, key, () => (v ? Object.assign({ dur: 0.5 }, cur || {}, { type: v }) : null)); }); return ch; })()),
             cur && cur.type ? MC.ui.slider({ label: t('Duración de ', 'Length of ') + label.toLowerCase(), min: 0.1, max: Math.max(0.2, durOf()), step: 0.05, value: cur.dur || 0.5, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { cur.dur = v; S.dirty = true; touch(); }, onChange: commit }) : null,
             cur && cur.type && ['left', 'right', 'up', 'down', 'drop', 'zoom'].includes(cur.type) ? MC.ui.slider({ label: t('Recorrido', 'Distance'), min: 0.2, max: 2, step: 0.05, value: cur.dist == null ? 1 : cur.dist, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { cur.dist = v; S.dirty = true; touch(); }, onChange: commit }) : null];
         };
         const L = it.anim && it.anim.loop;
         return [].concat(part('in', MC.ANIM_IN, t('Entrada', 'Entrance')), part('out', MC.ANIM_OUT, t('Salida', 'Exit')),
-          [h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Bucle (movimiento continuo)', 'Loop (continuous motion)')), MC.ui.chips(MC.ANIM_LOOP.map((q) => ({ v: q.v, l: t(q.es, q.en) })), (L && L.type) || '', (v) => { const a = ensure(); a.loop = v ? Object.assign({ amp: 1, speed: 1 }, a.loop || {}, { type: v }) : null; commit(); })),
+          [h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Bucle (movimiento continuo)', 'Loop (continuous motion)')), (() => { const ch = MC.ui.chips(MC.ANIM_LOOP.map((q) => ({ v: q.v, l: t(q.es, q.en) })), (L && L.type) || '', (v) => { hoverStop(); const a = ensure(); a.loop = v ? Object.assign({ amp: 1, speed: 1 }, a.loop || {}, { type: v }) : null; commit(); }); [...ch.children].forEach((b, i) => { const v = MC.ANIM_LOOP[i].v; animHover(b, it, 'loop', () => (v ? Object.assign({ amp: 1, speed: 1 }, L || {}, { type: v }) : null)); }); return ch; })()),
             L && L.type ? MC.ui.slider({ label: t('Fuerza', 'Amount'), min: 0.1, max: 3, step: 0.05, value: L.amp == null ? 1 : L.amp, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { L.amp = v; S.dirty = true; touch(); }, onChange: commit }) : null,
             L && L.type ? MC.ui.slider({ label: t('Velocidad', 'Speed'), min: 0.1, max: 4, step: 0.05, value: L.speed == null ? 1 : L.speed, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { L.speed = v; S.dirty = true; touch(); }, onChange: commit }) : null,
-            h('p', { class: 'cap' }, t('Muévete por la línea de tiempo para ver el resultado.', 'Move through the timeline to see the result.'))]);
+            h('p', { class: 'cap' }, t('Pasa el ratón por encima de una opción (o enfócala con Tab, o mantenla pulsada en táctil) para verla en el visor antes de aplicarla; haz clic para aplicarla.', 'Hover over an option (or focus it with Tab, or long-press on touch) to see it in the viewer before applying it; click to apply it.'))]);
       };
       const rigNodes = (l2) => {
         const r = l2.rig, others = sh.layers.filter((q) => q.id !== l2.id), set = (k, v) => { l2.rig = Object.assign({}, l2.rig || {}, { [k]: v }); S.dirty = true; touch(); };
@@ -2056,18 +2062,53 @@
 
     /* vista previa al pasar el cursor: aplica el preset a modo de prueba, reproduce el plano y lo deshace al salir */
     let hov = null;
+    function hoverTag(msg) { if (!el.hovTag) return; el.hovTag.hidden = !msg; el.hovTag.textContent = msg || ''; }
     function hoverStop() {
-      if (!hov) return; const h0 = hov; hov = null; clearInterval(h0.iv);
+      if (!hov) return; const h0 = hov; hov = null; clearInterval(h0.iv); clearInterval(h0.wd);
       const sh = S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fx) sh.fx = JSON.parse(h0.fx); }
-      S.view = h0.view; setTime(h0.time); renderVbar(); S.dirty = true;
+      if (h0.restore) h0.restore();
+      hoverTag(''); S.view = h0.view; setTime(h0.time); renderVbar(); S.dirty = true;
     }
-    function hoverStart(kind, apply) {
+    /* o = { label, snap(): () => restaurar, win(): [desde, hasta] } para las vistas previas de animaciones y transiciones */
+    function hoverStart(kind, apply, o) {
       if (S.playing || hov || S.view === 'page' || S.view === 'strip') return; const sh = shot(); if (!sh) return;
-      const st = curStart(); hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view };
+      const st = curStart(); hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view, node: o && o.node };
+      /* si el panel se redibuja y desaparece el botón sobre el que estaba el ratón, la vista previa se cierra sola */
+      hov.wd = setInterval(() => { if (hov && hov.node && !hov.node.isConnected) hoverStop(); }, 150);
+      if (kind === 'anim' || kind === 'trans') {
+        hov.restore = o.snap(); apply(sh, st); S.view = 'out'; const win = o.win(), t0 = performance.now(), span = Math.max(0.5, win[1] - win[0]);
+        hoverTag(t('Vista previa: ', 'Preview: ') + o.label + t(' · clic para aplicar', ' · click to apply'));
+        /* se mueve solo el cabezal: sin cambiar de plano ni de selección aunque la animación cruce un corte */
+        const go = (x) => { S.time = clamp(x, 0, Math.max(0, MC.totalTime(S.project) - 0.001)); S.dirty = true; updateTime(); };
+        hov.iv = setInterval(() => go(win[0] + (((performance.now() - t0) / 1000) % span)), 33); go(win[0]); renderVbar(); return;
+      }
       apply(sh, st); S.view = 'out'; const t0 = performance.now(), from = kind === 'fx' ? clamp(S.time - st, 0, Math.max(0, sh.duration - 0.2)) : 0;
+      hoverTag(t('Vista previa · clic para aplicar', 'Preview · click to apply'));
       hov.iv = setInterval(() => { const el2 = ((performance.now() - t0) / 1000); setTime(st + (kind === 'fx' ? from + (el2 % Math.max(0.5, sh.duration - from)) : el2 % sh.duration)); }, 33);
     }
-    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') hoverStart(kind, apply); }); if (MC.touch) MC.touch.hold(node, () => hoverStart(kind, apply), hoverStop); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
+    const hoverable = (node, kind, apply, o0) => {
+      const o = Object.assign({ node }, o0 || {});
+      node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') hoverStart(kind, apply, o); });
+      if (MC.touch) MC.touch.hold(node, () => hoverStart(kind, apply, o), hoverStop);
+      node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true);
+      /* con teclado: al enfocar con Tab se ve la vista previa; al pulsar Intro o Espacio se aplica */
+      node.addEventListener('focus', () => { if (node.matches && node.matches(':focus-visible')) hoverStart(kind, apply, o); }); node.addEventListener('blur', hoverStop);
+      node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') hoverStop(); }, true);
+      return node;
+    };
+    /* en qué momento se ve una animación de entrada, salida o bucle de una capa, superposición o texto */
+    function animWin(it, key, def) {
+      const p = S.project, sh = shot(), st = curStart(); let a, b;
+      if (sh && sh.layers.includes(it)) { a = st + (it.ts || 0); b = st + (it.te == null ? sh.duration : it.te); }
+      else if (p.overlays.includes(it)) { a = it.start; b = it.start + it.dur; }
+      else { const sp = MC.textSpan(it, p); a = sp.start; b = sp.start + sp.dur; }
+      const d = Math.max(0.1, (def && def.dur) || 0.5);
+      if (key === 'in') return [Math.max(0, a - 0.3), a + d + 0.7];
+      if (key === 'out') return [Math.max(0, b - d - 0.7), b + 0.3];
+      return [a, Math.min(b, a + 3.2)];
+    }
+    const animHover = (btn, it, key, mk) => hoverable(btn, 'anim', () => { it.anim = Object.assign({}, it.anim || {}, { [key]: mk() }); },
+      { label: btn.textContent, snap: () => { const o0 = it.anim; return () => { if (o0) it.anim = o0; else delete it.anim; }; }, win: () => animWin(it, key, mk()) });
     /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
     function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); positionSim(); }
     function setViewZoom(z, cx, cy) {
@@ -3103,7 +3144,8 @@
       h('div', null, S.project.mode === 'page' ? t('Arrastra aquí tus páginas (PNG, JPEG, WebP, PSD o PDF). Se detectan las viñetas.', 'Drag your pages here (PNG, JPEG, WebP, PSD or PDF). Panels are detected.') : S.project.mode === 'webtoon' ? t('Arrastra aquí tu tira vertical, o varias imágenes para apilarlas.', 'Drag your vertical strip here, or several images to stack them.') : t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileLayers.click() }, MC.icon('upload', 15), t('Importar', 'Import'))));
     el.sim = h('div', { class: 'sim', hidden: true, 'aria-hidden': 'true' });
-    el.stage = h('div', { class: 'stage' }, el.canvas, el.empty, el.sim);
+    el.hovTag = h('div', { class: 'hovtag', hidden: true, role: 'status' });
+    el.stage = h('div', { class: 'stage' }, el.canvas, el.empty, el.sim, el.hovTag);
     el.play = h('button', { class: 'play', type: 'button', onClick: () => togglePlay() });
     el.loop = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Repetir', 'Loop'), 'aria-label': t('Repetir', 'Loop'), onClick: () => { S.loop = !S.loop; updateTransport(); } }, MC.icon('loop'));
     el.time = h('div', { class: 'num' });
@@ -4003,7 +4045,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
-      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
+      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };

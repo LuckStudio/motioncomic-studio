@@ -224,3 +224,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Bloque 5 del plan: vistas previas por plataforma
 
 - Nueva ventana «Vista previa en plataforma» (`src/js/platforms.js`) con el vídeo copiado en directo dentro de TikTok, Reels, YouTube Shorts (9:16), YouTube, Twitch y Vimeo (16:9), YouTube y Twitch (2:1) y LinkedIn, Instagram y TikTok (4:5, 3:4, 1:1). La proporción decide qué plataformas se ofrecen. El simulador sobre el visor reutiliza las pantallas verticales rehechas (columna lateral, avatar, barra inferior, progreso), con Shorts ya diferenciado de Reels.
+
+## Bloque 6 del plan: previsualizar antes de aplicar
+
+- Las vistas previas al pasar el cursor (que ya existían para cámara y efectos) se generalizan: entradas, salidas y bucles de capas, superposiciones y textos, y transiciones entre planos. Se reproducen en el visor con los planos reales, mueven solo el cabezal (sin cambiar de plano ni de selección), restauran el proyecto al salir sin tocar el historial y se cierran solas si el botón desaparece. Funcionan con ratón, con Tab y con pulsación larga. Etiqueta «Vista previa» sobre el visor.
+- `MC.studioApi.project()` y `time()` para pruebas y para la conexión con IA.
