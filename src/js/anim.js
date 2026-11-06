@@ -78,8 +78,17 @@
   const bounce = (x) => { const n1 = 7.5625, d1 = 2.75; if (x < 1 / d1) return n1 * x * x; if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75; if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375; return n1 * (x -= 2.625 / d1) * x + 0.984375; };
 
   /* Interpolación de los fotogramas clave de un elemento: ángulos y desplazamientos relativos a su posición base. */
-  MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry', 'sx', 'sy'];
-  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
+  MC.KF_CORE = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry', 'sx', 'sy'];
+  MC.KF_CROP = ['cl', 'ct', 'cr', 'cb']; // recorte izquierda, arriba, derecha y abajo, como cambio sobre el recorte base
+  MC.KF_PROPS = MC.KF_CORE.concat(MC.KF_CROP);
+  const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1, cl: 0, ct: 0, cr: 0, cb: 0 };
+  /* recorte efectivo de un elemento: el base más lo animado, siempre dejando algo visible; null si no recorta */
+  MC.effCrop = (it, an) => {
+    const c = it.crop || {}, q = { l: (c.l || 0) + (an ? an.cl || 0 : 0), t: (c.t || 0) + (an ? an.ct || 0 : 0), r: (c.r || 0) + (an ? an.cr || 0 : 0), b: (c.b || 0) + (an ? an.cb || 0 : 0) };
+    Object.keys(q).forEach((k) => { q[k] = Math.max(0, Math.min(0.95, q[k])); });
+    if (q.l + q.r > 0.98) { const f = 0.98 / (q.l + q.r); q.l *= f; q.r *= f; } if (q.t + q.b > 0.98) { const f = 0.98 / (q.t + q.b); q.t *= f; q.b *= f; }
+    return q.l || q.t || q.r || q.b ? q : null;
+  };
   /* Cada fotograma clave puede llevar solo las propiedades que anima (una pista por propiedad); los antiguos las llevan todas. */
   MC.kfValues = (kfs, local) => {
     if (!kfs || !kfs.length) return null;
@@ -99,8 +108,8 @@
   /* Estado de movimiento de un elemento en el instante local (0 = inicio). Devuelve { dx, dy, sc, rot, op } o null si no se mueve. */
   MC.itemAnim = (item, local, dur) => {
     const A = item.anim, kf = item.kf; if (!A && !(kf && kf.length)) return null;
-    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
-    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; st.sx *= v.sx; st.sy *= v.sy; }
+    const st = { dx: 0, dy: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1, cl: 0, ct: 0, cr: 0, cb: 0 };
+    if (kf && kf.length) { const v = MC.kfValues(kf, local); st.dx += v.x; st.dy += v.y; st.sc *= v.sc; st.rot += v.rot; st.op *= v.op; st.rx += v.rx; st.ry += v.ry; st.sx *= v.sx; st.sy *= v.sy; st.cl += v.cl; st.ct += v.ct; st.cr += v.cr; st.cb += v.cb; }
     if (A) {
       const din = A.in && A.in.type ? clamp(A.in.dur || 0.5, 0.05, dur) : 0, dout = A.out && A.out.type ? clamp(A.out.dur || 0.5, 0.05, dur) : 0;
       if (din && local < din) { const u = clamp(local / din, 0, 1); let e = MC.ease(easeFor(A.in.type), u); if (A.in.type === 'drop') e = bounce(u); rise(A.in.type, e, st, A.in.dist == null ? 1 : A.in.dist); }
