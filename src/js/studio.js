@@ -1188,7 +1188,14 @@
       } });
       const saved = MC.myStyle.get();
       const styleNodes = [
-        h('p', { class: 'cap' }, saved ? t('Guardado en este equipo: transición ', 'Saved on this device: transition ') + saved.transition.type + ', ' + t('parallax ', 'parallax ') + saved.parallax + ', ' + t('tipografía ', 'font ') + saved.textFont + '.' : t('Aún no has guardado tu estilo.', 'You have not saved your style yet.')),
+        h('p', null, t('«Mi estilo» es tu receta: guarda cómo montas (transiciones, curva de cámara, ritmo de las viñetas, parallax, viñeta y tipografías) para repetirlo en proyectos nuevos y en el borrador en un clic, sin empezar de cero. No guarda tus dibujos.', '“My style” is your recipe: it saves how you edit (transitions, camera curve, panel pacing, parallax, panel look and fonts) so you can repeat it on new projects and on the one-click draft without starting over. It does not save your drawings.')),
+        saved ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Guardado el ', 'Saved on ') + (MC.myStyle.savedAt() ? new Date(MC.myStyle.savedAt()).toLocaleString(MC.lang === 'en' ? 'en-GB' : 'es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : t('(antes de que se anotara la fecha)', '(before dates were recorded)'))),
+          h('ul', { class: 'cap' }, MC.styleLines(saved).map((q) => h('li', null, h('b', null, q[0] + ': '), q[1]))),
+          (() => { const d = MC.styleDiff(saved, MC.styleFromProject(p)); return d.length ? h('div', null, h('p', { class: 'cap' }, h('b', null, t('Este proyecto se diferencia de Mi estilo en:', 'This project differs from My style in:'))), h('ul', { class: 'cap' }, d.map((x) => h('li', null, x)))) : h('p', { class: 'cap' }, t('✔ Este proyecto coincide con Mi estilo.', '✔ This project matches My style.')); })())
+          : h('p', { class: 'cap' }, t('Aún no has guardado tu estilo. Monta un proyecto a tu gusto y pulsa «Guardar como Mi estilo».', 'You have not saved your style yet. Build a project the way you like and press “Save as My style”.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.styleGuideDialog() }, MC.icon('edit', 14), t('Mi guía de estilo (notas)', 'My style guide (notes)')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.copyForAI() }, MC.icon('copy', 14), t('Copiar para una IA', 'Copy for an AI'))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.myStyle.set(MC.styleFromProject(p)); renderInspector(); MC.toast(t('Este proyecto es ahora tu estilo', 'This project is now your style')); } }, t('Guardar como Mi estilo', 'Save as My style')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !saved, onClick: () => { MC.applyStyle(p, saved); commit(); S.dirty = true; MC.toast(t('Mi estilo aplicado al proyecto', 'My style applied to the project')); } }, t('Aplicar al proyecto', 'Apply to project')),

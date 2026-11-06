@@ -892,6 +892,12 @@ a.btn { text-decoration: none; }
 .sp-card.static { width: 100%; height: auto; min-height: 330px; box-shadow: none; animation: none; margin: 8px 0; } .sp-card.static .sp-img { min-height: 220px; }
 .fxadv summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
 
+/* guía de estilo */
+.sg-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: center; border: 1px solid var(--line); background: var(--panel); padding: 20px 24px; animation: rise .8s .45s both; }
+.sg-card h2 { margin: 0 0 6px; font-size: 20px; } .sg-card p { margin: 4px 0; } .sg-acts { display: grid; gap: 8px; } .sg-snip { opacity: .8; border-left: 3px solid var(--accent); padding-left: 10px; }
+.sg-ta { width: 100%; min-height: 320px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; box-sizing: border-box; }
+@media (max-width: 760px) { .sg-card { grid-template-columns: 1fr; } }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -30363,8 +30369,9 @@ module.exports = ZStream;
     DEFAULT,
     saved() { try { return JSON.parse(MC.store.get('mystyle', '')) || null; } catch (e) { return null; } },
     get() { return this.saved(); },
-    set(st) { MC.store.set('mystyle', JSON.stringify(st)); },
-    clear() { MC.store.set('mystyle', ''); },
+    set(st) { MC.store.set('mystyle', JSON.stringify(st)); MC.store.set('mystyleAt', String(Date.now())); },
+    savedAt() { return +MC.store.get('mystyleAt', '0') || 0; },
+    clear() { MC.store.set('mystyle', ''); MC.store.set('mystyleAt', ''); },
   };
 
   /* Lee los ajustes que definen la dirección visual del proyecto. */
@@ -30388,6 +30395,161 @@ module.exports = ZStream;
       else if (isDraft) sh.transition = { type: 'cut', dur: 0.6 };
       if (sh.page) Object.assign(sh.page, { mode: st.mode, travel: st.travel, dim: st.dim });
     });
+  };
+
+  /* Descripción en palabras de un estilo: lista de [concepto, valor] que se enseña en pantalla y se da a la IA. */
+  MC.styleLines = (st) => {
+    if (!st) return [];
+    const t = MC.t, L = [], tr = st.transition || {}, info = MC.trInfo ? MC.trInfo(tr.type) : null, cv = (MC.CURVES || []).find((x) => x.v === st.curve), fo = (id) => { const f = (MC.FONTS || []).find((x) => x.id === id); return f ? t(f.es, f.en) : id; };
+    const PX = { subtle: t('sutil', 'subtle'), normal: t('normal', 'normal'), wild: t('exagerado', 'exaggerated') };
+    L.push([t('Transición entre planos', 'Transition between shots'), (info ? t(info.es, info.en) : tr.type) + (tr.dur ? ' · ' + tr.dur + ' s' : '') + (tr.dir ? ' · ' + tr.dir : '')]);
+    L.push([t('Curva de la cámara', 'Camera curve'), cv ? t(cv.es, cv.en) : st.curve]);
+    L.push([t('Intensidad de la cámara', 'Camera intensity'), '×' + (+st.intensity || 1).toFixed(2)]);
+    L.push([t('Parallax', 'Parallax'), PX[st.parallax] || st.parallax]);
+    if (st.frame) { const sh = (MC.FRAME_SHAPES || []).find((x) => x.v === st.frame.shape), stk = (MC.FRAME_STROKES || []).find((x) => x.v === st.frame.style); L.push([t('Viñeta', 'Panel'), (sh ? t(sh.es, sh.en) : st.frame.shape) + ' · ' + t('trazo ', 'stroke ') + (stk ? t(stk.es, stk.en) : st.frame.style) + ' ' + (st.frame.color || '') + ' · ' + t('calle ', 'gutter ') + (st.frame.bg || '') + ' ' + Math.round((st.frame.gutter || 0) * 1000) / 10 + ' %' + (st.frame.bgGrad && st.frame.bgGrad !== 'none' ? ' (' + t('degradado', 'gradient') + ')' : '')]); }
+    L.push([t('Páginas', 'Pages'), (st.mode === 'pan' ? t('paneo suave', 'smooth pan') : st.mode === 'cut' ? t('salto', 'jump') : st.mode) + ' · ' + t('recorrido ', 'travel ') + st.travel + ' · ' + t('resto atenuado ', 'rest dimmed ') + Math.round((st.dim || 0) * 100) + ' %']);
+    L.push([t('Tipografía de los textos', 'Text font'), fo(st.textFont)]);
+    if (st.sub) L.push([t('Subtítulos', 'Subtitles'), fo(st.sub.font) + ' · ' + Math.round((st.sub.size || 0) * 1000) / 10 + ' % · ' + (st.sub.color || '') + (st.sub.bg ? ' · ' + t('con fondo', 'with background') : '')]);
+    return L;
+  };
+  /* En qué se diferencia el proyecto actual de Mi estilo (lista de textos; vacía si coinciden) */
+  MC.styleDiff = (saved, cur) => {
+    const a = MC.styleLines(saved), b = MC.styleLines(cur), out = [];
+    a.forEach((q, i) => { if (b[i] && b[i][1] !== q[1]) out.push(q[0] + ': ' + q[1] + ' → ' + b[i][1]); });
+    return out;
+  };
+
+  /* Guía de estilo: notas en Markdown que escribe la persona (cuándo usa cada transición, el ritmo, lo que nunca hace…). Plantilla editable. */
+  const TPL = () => MC.lang === 'en' ? `# My style guide
+
+Write here how you work, so you (and any AI helping you) always follow the same criteria. Replace the dots with your own rules.
+
+## When I use each transition
+- Cut: …
+- Fade to black: …
+- Dissolve: …
+- Wipe or push: …
+- Comic transitions (ink, burst, panel mosaic): …
+
+## Pace and camera
+- How long a shot lasts: …
+- Camera moves I like (and the ones I avoid): …
+
+## Parallax and depth
+- How strong, and in which scenes: …
+
+## Panels and layout
+- Panel style, gutter colour, shapes: …
+
+## Text and subtitles
+- Fonts, sizes, where bubbles go: …
+
+## Effects and sound
+- Effects I use (and when): …
+- Music and sound effects: …
+
+## What I never do
+- …
+` : `# Mi guía de estilo
+
+Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis siempre el mismo criterio. Sustituye los puntos suspensivos por tus propias reglas.
+
+## Cuándo uso cada transición
+- Corte: …
+- Fundido a negro: …
+- Encadenado: …
+- Barrido o empuje: …
+- Transiciones de cómic (tinta, estallido, mosaico de viñetas): …
+
+## Ritmo y cámara
+- Cuánto dura un plano: …
+- Movimientos de cámara que me gustan (y los que evito): …
+
+## Parallax y profundidad
+- Cuánta intensidad y en qué escenas: …
+
+## Viñetas y maquetación
+- Estilo de viñeta, color de la calle, formas: …
+
+## Texto y subtítulos
+- Tipografías, tamaños, dónde van los bocadillos: …
+
+## Efectos y sonido
+- Efectos que uso (y cuándo): …
+- Música y efectos de sonido: …
+
+## Lo que nunca hago
+- …
+`;
+  MC.styleGuide = {
+    template: TPL,
+    raw() { return MC.store.get('styleguide', ''); },
+    has() { return !!MC.store.get('styleguide', ''); },
+    get() { return MC.store.get('styleguide', '') || TPL(); },
+    set(md) { MC.store.set('styleguide', String(md || '').slice(0, 60000)); MC.store.set('styleguideAt', String(Date.now())); },
+    reset() { MC.store.set('styleguide', ''); MC.store.set('styleguideAt', ''); },
+    savedAt() { return +MC.store.get('styleguideAt', '0') || 0; },
+    /* texto completo para dárselo a una IA o exportarlo: las notas de la persona más los ajustes guardados en Mi estilo */
+    full() {
+      const t = MC.t, st = MC.myStyle.get(), lines = MC.styleLines(st), head = t('# Guía de estilo de MotionComic Studio\n\nUsa esto como referencia al crear o montar un proyecto: respeta estas decisiones y estas notas.\n\n', '# MotionComic Studio style guide\n\nUse this as a reference when creating or assembling a project: respect these decisions and notes.\n\n');
+      const notes = MC.store.get('styleguide', '') ? this.get() : t('(La persona aún no ha escrito notas en su guía de estilo.)\n', '(The person has not written notes in their style guide yet.)\n');
+      const set = lines.length ? lines.map((q) => '- **' + q[0] + ':** ' + q[1]).join('\n') : t('(Aún no hay un «Mi estilo» guardado.)', '(There is no saved “My style” yet.)');
+      return head + notes.trim() + '\n\n---\n\n## ' + t('Ajustes guardados en «Mi estilo»', 'Settings saved in “My style”') + '\n\n' + set + '\n';
+    },
+  };
+})();
+
+/* Guía de estilo: tarjeta de la pantalla de inicio y editor. Son notas en Markdown que escribe la persona (cuándo usa cada transición, el ritmo…),
+   junto a los ajustes guardados en «Mi estilo». Se puede copiar para una IA, exportar e importar. Todo en este equipo. */
+(function () {
+  'use strict';
+  const MC = window.MC, h = MC.h, t = MC.t;
+  const when = (ms) => (ms ? new Date(ms).toLocaleString(MC.lang === 'en' ? 'en-GB' : 'es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '');
+  const copy = async (text) => {
+    try { await navigator.clipboard.writeText(text); MC.toast(t('Copiado. Pégalo en el chat de tu IA.', 'Copied. Paste it into your AI chat.')); }
+    catch (e) {
+      const ta = h('textarea', { style: { position: 'fixed', left: '-9999px' } }, text); document.body.append(ta); ta.select();
+      try { document.execCommand('copy'); MC.toast(t('Copiado. Pégalo en el chat de tu IA.', 'Copied. Paste it into your AI chat.')); } catch (e2) { MC.toast(t('No se pudo copiar; usa «Exportar».', 'Could not copy; use “Export”.')); }
+      ta.remove();
+    }
+  };
+  MC.copyForAI = () => copy(MC.styleGuide.full());
+
+  /* editor de la guía */
+  MC.styleGuideDialog = () => {
+    const ta = h('textarea', { class: 'input sg-ta', rows: 18, spellcheck: 'true', 'aria-label': t('Guía de estilo en Markdown', 'Style guide in Markdown'), value: MC.styleGuide.get() });
+    ta.value = MC.styleGuide.get();
+    const status = h('span', { class: 'cap', role: 'status', 'aria-live': 'polite' }, MC.styleGuide.savedAt() ? t('Guardado ', 'Saved ') + when(MC.styleGuide.savedAt()) : t('Es la plantilla: edítala y se guarda sola.', 'This is the template: edit it and it saves itself.'));
+    let tm = 0; const save = () => { MC.styleGuide.set(ta.value); status.textContent = t('Guardado ', 'Saved ') + when(Date.now()); };
+    ta.addEventListener('input', () => { status.textContent = t('Guardando…', 'Saving…'); clearTimeout(tm); tm = setTimeout(save, 500); });
+    const file = h('input', { type: 'file', accept: '.md,.markdown,.txt,text/markdown,text/plain', hidden: true, onChange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; ta.value = (await f.text()).slice(0, 60000); save(); MC.toast(t('Guía importada', 'Guide imported')); } });
+    const lines = MC.styleLines(MC.myStyle.get());
+    const body = h('div', { style: { display: 'grid', gap: '10px', minWidth: 0 } },
+      h('p', { class: 'cap' }, t('Escribe con tus palabras cómo trabajas: cuándo usas cada transición y por qué, el ritmo, lo que nunca haces… Es Markdown (títulos con #, listas con -). Se guarda en este equipo, la ve cualquier IA conectada por MCP y puedes copiarla para dársela en un chat. Debajo se añaden solos los ajustes de «Mi estilo».', 'Write in your own words how you work: when you use each transition and why, the pace, what you never do… It is Markdown (headings with #, lists with -). It is stored on this device, any AI connected through MCP can read it and you can copy it to give it in a chat. The settings of “My style” are added below automatically.')),
+      ta, status,
+      h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { save(); MC.copyForAI(); } }, MC.icon('copy', 14), t('Copiar para una IA', 'Copy for an AI')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { save(); MC.download(new Blob([MC.styleGuide.full()], { type: 'text/markdown' }), 'guia-de-estilo-motioncomic.md'); } }, MC.icon('download', 14), t('Exportar .md', 'Export .md')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => file.click() }, MC.icon('upload', 14), t('Importar .md', 'Import .md')),
+        h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { if (confirm(t('¿Volver a la plantilla? Se pierde lo que has escrito.', 'Go back to the template? What you wrote is lost.'))) { MC.styleGuide.reset(); ta.value = MC.styleGuide.get(); status.textContent = t('Plantilla restaurada.', 'Template restored.'); } } }, t('Restaurar la plantilla', 'Restore the template')), file),
+      h('details', null, h('summary', null, t('Ajustes guardados en «Mi estilo» (se añaden solos al copiar o exportar)', 'Settings saved in “My style” (added automatically when copying or exporting)')),
+        lines.length ? h('ul', { class: 'cap' }, lines.map((q) => h('li', null, h('b', null, q[0] + ': '), q[1]))) : h('p', { class: 'cap' }, t('Aún no hay un «Mi estilo» guardado: ábrelo en un proyecto, pestaña Estilo → «Guardar como Mi estilo».', 'There is no saved “My style” yet: open a project, Style tab → “Save as My style”.'))));
+    MC.modal(t('Mi guía de estilo', 'My style guide'), body, (close) => [h('button', { class: 'btn btn-p', type: 'button', onClick: () => { clearTimeout(tm); save(); close(); if (MC.app && !MC.studioApi) MC.app.render(); } }, t('Cerrar', 'Close'))], { wide: true });
+    setTimeout(() => ta.focus(), 50);
+  };
+
+  /* tarjeta de la pantalla de inicio */
+  MC.styleGuideCard = () => {
+    const raw = MC.styleGuide.raw(), has = !!raw, lines = MC.styleLines(MC.myStyle.get());
+    const snippet = has ? raw.split('\n').filter((l) => l.trim() && !/^#/.test(l.trim())).map((l) => l.trim().replace(/^[-*]\s*/, '')).slice(0, 3).join(' · ').slice(0, 220) : '';
+    return h('section', { class: 'sg-card', 'aria-label': t('Mi guía de estilo', 'My style guide') },
+      h('div', null, h('h2', null, t('Mi guía de estilo', 'My style guide')),
+        h('p', { class: 'cap' }, t('Una plantilla editable para documentar cómo trabajas: cuándo usas cada transición, el ritmo, las viñetas, lo que nunca haces… Junto a «Mi estilo» sirve de referencia para ti y para cualquier IA que te ayude.', 'An editable template to document how you work: when you use each transition, the pace, the panels, what you never do… Together with “My style” it is a reference for you and for any AI helping you.')),
+        h('p', { class: 'cap' }, h('b', null, t('Mi estilo: ', 'My style: ')), lines.length ? t('guardado el ', 'saved on ') + when(MC.myStyle.savedAt()) + ' · ' + lines.slice(0, 3).map((q) => q[1]).join(' · ') : t('aún sin guardar (pestaña Estilo de un proyecto).', 'not saved yet (Style tab of a project).')),
+        snippet ? h('p', { class: 'cap sg-snip' }, snippet) : h('p', { class: 'cap' }, t('Todavía no has escrito nada: abre la guía y rellena la plantilla.', 'You have not written anything yet: open the guide and fill in the template.'))),
+      h('div', { class: 'sg-acts' },
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => MC.styleGuideDialog() }, MC.icon('edit', 14), has ? t('Abrir y editar', 'Open and edit') : t('Abrir la plantilla', 'Open the template')),
+        h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.copyForAI() }, MC.icon('copy', 14), t('Copiar para una IA', 'Copy for an AI'))));
   };
 })();
 
@@ -31524,7 +31686,7 @@ module.exports = ZStream;
     biblioteca: [['Biblioteca', 'Recursos guardados que comparten todos tus proyectos: personajes, fondos, sonidos. Se quedan aunque borres un proyecto.', 'Añade un recurso desde su menú, organízalo en carpetas y etiquetas, y arrástralo a cualquier proyecto.'], ['Library', 'Saved assets shared by all your projects: characters, backgrounds, sounds. They stay even if you delete a project.', 'Add an asset from its menu, organise it in folders and tags, and drag it into any project.']],
     proyecto: [['Proyecto', 'Ajustes generales: formato y resolución del vídeo, intensidad y curva del parallax, duración y resumen de lo que hay.', 'Cambia el formato desde el botón de proporción de la barra superior; el parallax (sutil, normal, intensa) afecta a todo el proyecto.'], ['Project', 'General settings: video format and resolution, parallax strength, length and a summary of what is in it.', 'Change the format from the aspect-ratio button in the top bar; parallax (subtle, normal, strong) affects the whole project.'], 'parallax'],
     aspecto: [['Aspecto global', 'Retoques de imagen para todo el vídeo: viñeta oscura, grano, trama de puntos, tinte, saturación y contraste.', 'Mueve los deslizadores y mira el visor. Cada ajuste vuelve a su valor neutro con el botón de restablecer.'], ['Global look', 'Image touches for the whole video: dark vignette, grain, halftone, tint, saturation and contrast.', 'Move the sliders and watch the viewer. Each setting returns to neutral with the reset button.']],
-    estilo: [['Mi estilo y presets', '«Mi estilo» es tu receta personal: guarda cómo montas (transiciones, curva de cámara, ritmo de las viñetas, parallax y tipografías) para repetirlo sin empezar de cero. Los presets guardan movimientos de cámara y pilas de efectos con nombre.', 'Monta un proyecto a tu gusto y pulsa «Guardar como Mi estilo»; se aplica solo a proyectos nuevos y al borrador en un clic, o a mano con «Aplicar al proyecto». «Exportar» e «Importar» lo llevan a otro equipo en un archivo. No guarda tus dibujos, solo los ajustes.'], ['My style and presets', '“My style” is your personal recipe: it saves how you edit (transitions, camera curve, panel pacing, parallax and fonts) so you can repeat it without starting over. Presets save named camera moves and effect stacks.', 'Build a project the way you like and press “Save as My style”; it is applied to new projects and to the one-click draft, or by hand with “Apply to project”. “Export” and “Import” take it to another device in a file. It saves settings, never your drawings.'], 'estilo'],
+    estilo: [['Mi estilo y presets', '«Mi estilo» es tu receta personal: guarda cómo montas (transiciones, curva de cámara, ritmo de las viñetas, parallax, viñeta y tipografías) para repetirlo sin empezar de cero. Aquí ves qué está guardado, cuándo se guardó y en qué se diferencia el proyecto actual. Los presets guardan movimientos de cámara y pilas de efectos con nombre.', 'Monta un proyecto a tu gusto y pulsa «Guardar como Mi estilo»; se aplica solo a proyectos nuevos y al borrador en un clic, o a mano con «Aplicar al proyecto». «Exportar» e «Importar» lo llevan a otro equipo en un archivo. «Mi guía de estilo» (también en el inicio) es un documento tuyo en Markdown donde explicas cuándo usas cada transición y por qué; «Copiar para una IA» junta tus notas y tus ajustes en un texto para pegar en un chat, y una IA conectada por MCP puede leerlo con «leer_estilo». No guarda tus dibujos, solo los ajustes.'], ['My style and presets', '“My style” is your personal recipe: it saves how you edit (transitions, camera curve, panel pacing, parallax, panel look and fonts) so you can repeat it without starting over. Here you see what is saved, when it was saved and how the current project differs. Presets save named camera moves and effect stacks.', 'Build a project the way you like and press “Save as My style”; it is applied to new projects and to the one-click draft, or by hand with “Apply to project”. “Export” and “Import” take it to another device in a file. “My style guide” (also on the home screen) is your own Markdown document where you explain when you use each transition and why; “Copy for an AI” joins your notes and your settings into a text to paste into a chat, and an AI connected through MCP can read it with “leer_estilo”. It saves settings, never your drawings.'], 'estilo'],
     favs: [['Favoritos', 'Los sonidos, transiciones y estilos de subtítulos que marcas con la estrella ★, juntos en un solo sitio.', 'Pulsa la estrella de cualquier elemento; aquí aparece para usarlo rápido.'], ['Favourites', 'The sounds, transitions and subtitle styles you mark with the star ★, together in one place.', 'Press the star on any item; it shows up here for quick use.']],
     texto: [['Texto', 'Bocadillos, cajas de texto y onomatopeyas sobre la imagen. Pueden vincularse a la voz para que aparezcan cuando suena su línea.', 'Pulsa para añadir un texto en el cabezal, escribe, y elige tipografía, color y forma. Su duración se ajusta en la línea de tiempo y se anima con entradas, salidas y fotogramas clave.'], ['Text', 'Speech bubbles, text boxes and sound effects over the picture. They can be linked to the voice so they appear when their line plays.', 'Press to add text at the playhead, type, and choose font, colour and shape. Its length is set on the timeline and it is animated with entries, exits and keyframes.'], 'texto'],
     subtitulos: [['Subtítulos', 'Subtítulos hechos de palabras con tiempo propio, con estilos (resaltado de la palabra que suena) e importación de tiempos o SRT.', 'Escribe o pega el texto, ajusta los tiempos de cada palabra y elige un estilo. Cada línea es un clip de la pista de subtítulos.'], ['Subtitles', 'Subtitles built from words with their own timing, with styles (highlighting the word being spoken) and timing or SRT import.', 'Type or paste the text, adjust each word’s timing and pick a style. Each line is a clip on the subtitle track.']],
@@ -32156,6 +32318,8 @@ module.exports = ZStream;
   }
   const HANDLERS = {
     async status() { const api = MC.studioApi; return { conectado: true, proyecto: api && api.info ? api.info() : null, pantalla: api ? 'estudio' : 'inicio' }; },
+    /* el estilo de la persona: sus notas (guía de estilo en Markdown) y los ajustes guardados en «Mi estilo». Solo lectura. */
+    async get_style() { const st = MC.myStyle.get(); return { guia_markdown: MC.styleGuide.full(), mi_estilo_guardado: !!st, guia_escrita: MC.styleGuide.has(), ajustes: st }; },
     async list_projects() { return (await MC.db.all('projects')).map((p) => ({ id: p.id, nombre: p.name, formato: p.ratio, planos: (p.shots || []).length })); },
     async new_project(a) {
       if (!(await confirmAction(t('Crear el proyecto «' + a.name + '» (' + a.ratio + ', ' + a.res + ')', 'Create project “' + a.name + '” (' + a.ratio + ', ' + a.res + ')')))) throw new Error('El usuario rechazó la acción.');
@@ -32163,7 +32327,7 @@ module.exports = ZStream;
       const style = MC.myStyle && MC.myStyle.get(); if (style) MC.applyStyle(p, style);
       await MC.db.put('projects', p); document.querySelectorAll('.scrim').forEach((n) => n.remove());
       await MC.app.openProject(p); await waitStudio(p.id);
-      return { id: p.id, nombre: p.name };
+      return { id: p.id, nombre: p.name, mi_estilo_aplicado: !!style };
     },
     async open_project(a) {
       const all = await MC.db.all('projects'), q = String(a.project).toLowerCase();
@@ -32652,6 +32816,7 @@ module.exports = ZStream;
           tile('sparkle', t('Borrador en un clic', 'One-click draft'), t('Sube las páginas y sale un primer montaje.', 'Upload the pages and get a first assembly.'), MC.draftDialog),
           tile('upload', t('Importar una copia', 'Import a backup'), t('Recupera un proyecto exportado desde otro equipo.', 'Recover a project exported from another device.'), () => fileIn.click()))),
       fileIn,
+      MC.styleGuideCard ? MC.styleGuideCard() : null,
       h('footer', { class: 'foot' },
         h('span', null, MC.db.persistent ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.') : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar.', 'This browser does not allow saving here: changes will be lost on close.')),
         h('span', null, usage ? [h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)] : null),
@@ -33884,7 +34049,14 @@ module.exports = ZStream;
       } });
       const saved = MC.myStyle.get();
       const styleNodes = [
-        h('p', { class: 'cap' }, saved ? t('Guardado en este equipo: transición ', 'Saved on this device: transition ') + saved.transition.type + ', ' + t('parallax ', 'parallax ') + saved.parallax + ', ' + t('tipografía ', 'font ') + saved.textFont + '.' : t('Aún no has guardado tu estilo.', 'You have not saved your style yet.')),
+        h('p', null, t('«Mi estilo» es tu receta: guarda cómo montas (transiciones, curva de cámara, ritmo de las viñetas, parallax, viñeta y tipografías) para repetirlo en proyectos nuevos y en el borrador en un clic, sin empezar de cero. No guarda tus dibujos.', '“My style” is your recipe: it saves how you edit (transitions, camera curve, panel pacing, parallax, panel look and fonts) so you can repeat it on new projects and on the one-click draft without starting over. It does not save your drawings.')),
+        saved ? h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Guardado el ', 'Saved on ') + (MC.myStyle.savedAt() ? new Date(MC.myStyle.savedAt()).toLocaleString(MC.lang === 'en' ? 'en-GB' : 'es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : t('(antes de que se anotara la fecha)', '(before dates were recorded)'))),
+          h('ul', { class: 'cap' }, MC.styleLines(saved).map((q) => h('li', null, h('b', null, q[0] + ': '), q[1]))),
+          (() => { const d = MC.styleDiff(saved, MC.styleFromProject(p)); return d.length ? h('div', null, h('p', { class: 'cap' }, h('b', null, t('Este proyecto se diferencia de Mi estilo en:', 'This project differs from My style in:'))), h('ul', { class: 'cap' }, d.map((x) => h('li', null, x)))) : h('p', { class: 'cap' }, t('✔ Este proyecto coincide con Mi estilo.', '✔ This project matches My style.')); })())
+          : h('p', { class: 'cap' }, t('Aún no has guardado tu estilo. Monta un proyecto a tu gusto y pulsa «Guardar como Mi estilo».', 'You have not saved your style yet. Build a project the way you like and press “Save as My style”.')),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.styleGuideDialog() }, MC.icon('edit', 14), t('Mi guía de estilo (notas)', 'My style guide (notes)')),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.copyForAI() }, MC.icon('copy', 14), t('Copiar para una IA', 'Copy for an AI'))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.myStyle.set(MC.styleFromProject(p)); renderInspector(); MC.toast(t('Este proyecto es ahora tu estilo', 'This project is now your style')); } }, t('Guardar como Mi estilo', 'Save as My style')),
           h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !saved, onClick: () => { MC.applyStyle(p, saved); commit(); S.dirty = true; MC.toast(t('Mi estilo aplicado al proyecto', 'My style applied to the project')); } }, t('Aplicar al proyecto', 'Apply to project')),

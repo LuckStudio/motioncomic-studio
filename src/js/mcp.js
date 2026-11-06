@@ -32,6 +32,8 @@
   }
   const HANDLERS = {
     async status() { const api = MC.studioApi; return { conectado: true, proyecto: api && api.info ? api.info() : null, pantalla: api ? 'estudio' : 'inicio' }; },
+    /* el estilo de la persona: sus notas (guía de estilo en Markdown) y los ajustes guardados en «Mi estilo». Solo lectura. */
+    async get_style() { const st = MC.myStyle.get(); return { guia_markdown: MC.styleGuide.full(), mi_estilo_guardado: !!st, guia_escrita: MC.styleGuide.has(), ajustes: st }; },
     async list_projects() { return (await MC.db.all('projects')).map((p) => ({ id: p.id, nombre: p.name, formato: p.ratio, planos: (p.shots || []).length })); },
     async new_project(a) {
       if (!(await confirmAction(t('Crear el proyecto «' + a.name + '» (' + a.ratio + ', ' + a.res + ')', 'Create project “' + a.name + '” (' + a.ratio + ', ' + a.res + ')')))) throw new Error('El usuario rechazó la acción.');
@@ -39,7 +41,7 @@
       const style = MC.myStyle && MC.myStyle.get(); if (style) MC.applyStyle(p, style);
       await MC.db.put('projects', p); document.querySelectorAll('.scrim').forEach((n) => n.remove());
       await MC.app.openProject(p); await waitStudio(p.id);
-      return { id: p.id, nombre: p.name };
+      return { id: p.id, nombre: p.name, mi_estilo_aplicado: !!style };
     },
     async open_project(a) {
       const all = await MC.db.all('projects'), q = String(a.project).toLowerCase();

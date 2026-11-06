@@ -97,6 +97,8 @@ const TOOLS = [
       return ok ? 'Estudio abierto y conectado.' : (opened ? 'He abierto el estudio en el navegador, pero el usuario aún no ha pulsado «Permitir». Pídeselo y vuelve a llamar a «estado».' : 'No pude abrir el navegador. Pide al usuario que abra esta dirección: ' + url); } },
   { name: 'estado', description: 'Dice si el estudio está conectado y qué proyecto tiene abierto.', inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     run: async () => { if (!connected) return 'No conectado. Usa «abrir_estudio».'; return JSON.stringify(await sendCmd('status', {}), null, 1); } },
+  { name: 'leer_estilo', description: 'Devuelve el estilo de la persona: su guía de estilo escrita (cuándo usa cada transición, ritmo, lo que nunca hace…) y los ajustes guardados en «Mi estilo». Léelo antes de crear o montar un proyecto y respétalo. Solo lectura.', inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    run: async () => { const r = await sendCmd('get_style', {}); return r.guia_markdown + '\n\n' + JSON.stringify({ mi_estilo_guardado: r.mi_estilo_guardado, guia_escrita: r.guia_escrita, ajustes: r.ajustes }, null, 1); } },
   { name: 'listar_proyectos', description: 'Lista los proyectos guardados en el estudio del usuario (nombre, formato, planos).', inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     run: async () => JSON.stringify(await sendCmd('list_projects', {}), null, 1) },
   { name: 'nuevo_proyecto', description: 'Crea un proyecto nuevo en el estudio y lo abre. El usuario tendrá que confirmarlo en el estudio.', inputSchema: { type: 'object', properties: { nombre: { type: 'string', description: 'Nombre del proyecto' }, formato: { type: 'string', enum: FMT, description: 'Proporción del vídeo (por defecto 9:16)' }, resolucion: { type: 'string', enum: ['720p', '1080p', '1440p', '2160p'], description: 'Por defecto 1080p' }, modo: { type: 'string', enum: ['libre', 'pagina', 'webtoon'], description: 'Libre (por capas), Página (viñetas) o Tira vertical' } }, required: ['nombre'], additionalProperties: false },
@@ -117,7 +119,7 @@ const fail = (id, code, message) => send({ jsonrpc: '2.0', id, error: { code, me
 async function handle(m) {
   const { id, method, params } = m;
   try {
-    if (method === 'initialize') return reply(id, { protocolVersion: (params && params.protocolVersion) || '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'motioncomic-studio', version: VERSION }, instructions: 'Controla MotionComic Studio, un estudio de vídeo-cómic en el navegador del usuario. Llama primero a «abrir_estudio». Cada acción que cambia algo pide confirmación al usuario en el estudio.' });
+    if (method === 'initialize') return reply(id, { protocolVersion: (params && params.protocolVersion) || '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'motioncomic-studio', version: VERSION }, instructions: 'Controla MotionComic Studio, un estudio de vídeo-cómic en el navegador del usuario. Llama primero a «abrir_estudio». Antes de crear o montar nada, lee el estilo de la persona con «leer_estilo» y respétalo (los proyectos nuevos ya aplican su «Mi estilo»). Cada acción que cambia algo pide confirmación al usuario en el estudio.' });
     if (method === 'ping') return reply(id, {});
     if (method === 'tools/list') return reply(id, { tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) });
     if (method === 'tools/call') {

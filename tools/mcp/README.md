@@ -7,3 +7,5 @@ Pequeño programa de Node.js 18+ sin dependencias que permite a un asistente de 
 ```
 
 Variables opcionales: `MOTIONCOMIC_URL` (dirección del estudio, por defecto la publicada) y `MOTIONCOMIC_PORT` (puerto local, por defecto 47821). Más información en el README principal, sección «Conexión con una IA (MCP)».
+
+Herramientas: `abrir_estudio`, `estado`, `leer_estilo` (guía de estilo y «Mi estilo» de la persona), `listar_proyectos`, `nuevo_proyecto`, `abrir_proyecto`, `anadir_recursos` y `crear_planos`.

@@ -258,3 +258,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Siete efectos de post-proceso en `fx.js` (`pixelate`, `posterize`, `duotone`, `glitch`, `vhs`, `edges`, `htone`) que retocan la zona dibujada del plano con lienzos intermedios, con parámetros propios por efecto. Ajustes comunes a todos los efectos (`speed`, `opacity`, `fadeIn`, `fadeOut`, `seed`, `scale`, `blend`).
 - Corregido: la entrada y salida (y ahora la opacidad) no afectaban a las partículas, que fijaban su propia opacidad; ahora todas respetan `FXA`.
+
+## Bloque 12 del plan: estilos explicados y exportables
+
+- `MC.styleLines` / `MC.styleDiff` describen en palabras «Mi estilo» y su diferencia con el proyecto abierto; la pestaña Estilo enseña la fecha de guardado (`mystyleAt`), el contenido y las diferencias.
+- «Mi guía de estilo» (`src/js/styleguide.js`, `MC.styleGuide`): notas en Markdown con plantilla editable, tarjeta en el inicio, editor con autoguardado, importar/exportar `.md` y «Copiar para una IA» (notas + ajustes). Idea abierta: valorar más adelante si conviene otro formato o campos guiados por transición.
+- MCP: herramienta `leer_estilo` (solo lectura) y los proyectos nuevos informan de si aplicaron «Mi estilo».
