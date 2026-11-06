@@ -99,7 +99,7 @@
   /* Memoria de las imágenes (RGBA sin comprimir): en edición y al exportar. */
   MC.memEstimate = (p) => {
     let edit = 0, full = 0;
-    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
+    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.flatMap((l) => MC.layerAssetIds(l)))).forEach((id) => {
       const a = cache.get(id); if (!a) return;
       full += a.w * a.h * 4; edit += (a.proxy ? a.bitmap.width * a.bitmap.height : a.w * a.h) * 4;
     });
@@ -108,7 +108,7 @@
 
   MC.projectAssetIds = (p) => {
     const ids = new Set();
-    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => MC.layerAssetIds(l).forEach((q) => ids.add(q))));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
     (p.overlays || []).forEach((o) => ids.add(o.assetId));
     (p.fonts || []).forEach((f) => ids.add(f.id));
@@ -116,7 +116,7 @@
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
-    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.flatMap((l) => MC.layerAssetIds(l))))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.overlays || []).map((o) => o.assetId))].map((id) => MC.assets.load(id).catch(() => null)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);

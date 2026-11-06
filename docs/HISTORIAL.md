@@ -117,3 +117,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Montaje reúne cámara y capas y profundidad; Efectos y audio incluye las transiciones y separa efectos de sonido y música.
 - Barra de iconos de la línea de tiempo (cuchilla, recortar principio y final, reflejar, recorte, imán, zoom, fotogramas clave), eliminación de planos arreglada, fotogramas clave en textos y con ancho y alto, editor de curvas con tiradores Bézier y favoritos.
+
+## Imán por bordes y capas con tiempo propio
+
+- Imán con línea guía: inicio y final de lo que mueves o estiras se pegan a bordes de otros clips, cortes, marcadores y cabezal; Alt lo desactiva al arrastrar.
+- Cada capa tiene aparición y desaparición propias dentro del plano (filas movibles al desplegar el plano), y se puede dividir en tramos que muestran otra ilustración, con fundido opcional y reemplazo por botón o arrastrando.

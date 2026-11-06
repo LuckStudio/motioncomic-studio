@@ -58,6 +58,18 @@
     return cam;
   };
 
+  /* tiempo propio de una capa dentro del plano: aparece en «ts» y desaparece en «te»; y sus «cortes» cambian la ilustración (gestos) */
+  MC.layerOn = (l, tl) => tl >= (l.ts || 0) - 1e-6 && (l.te == null || tl < l.te);
+  MC.layerSegs = (l) => (l.segs || []).slice().sort((a, b) => a.t - b.t);
+  MC.layerAsset = (l, tl) => { let id = l.assetId; MC.layerSegs(l).forEach((q) => { if (tl >= q.t) id = q.assetId; }); return id; };
+  MC.layerAssetIds = (l) => [l.assetId].concat((l.segs || []).map((q) => q.assetId));
+  /* ilustración que toca en un instante; con fundido («xf»), la anterior queda debajo mientras entra la nueva */
+  MC.layerAssetAt = (l, tl) => {
+    const sg = MC.layerSegs(l); let id = l.assetId, prev = null, k = 1, last = null;
+    sg.forEach((q) => { if (tl >= q.t) { prev = id; id = q.assetId; last = q; } });
+    if (last && l.xf > 0 && tl - last.t < l.xf && prev !== id) k = Math.max(0.001, (tl - last.t) / l.xf); else prev = null;
+    return { id, prev, k };
+  };
   /* Caja de la capa: escala base y centro. Una capa de PSD recortada (layer.doc) conserva su sitio dentro del documento. */
   MC.layerBox = (layer, img, o, s) => {
     const doc = layer.doc;
@@ -135,16 +147,22 @@
     const k0 = ctx.getTransform().a;
     const shotStart = shot.xtrack != null && shot.start != null ? shot.start : (o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0);
     const drawLayer = (layer) => {
-      const img = o.getImg(layer.assetId);
+      if (!MC.layerOn(layer, tl)) return;
+      const A = MC.layerAssetAt(layer, tl);
+      if (A.prev) drawLayer1(layer, A.prev, 1);
+      drawLayer1(layer, A.id, A.k);
+    };
+    const drawLayer1 = (layer, aid, amul) => {
+      const img = o.getImg(aid);
       if (!img) return;
       if (MC.rigShow && !MC.rigShow(shot, layer, tl, shotStart, o.project)) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
       const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.f, -lim, lim) : (cam.x + cam.sx) * g.f, cys = lim ? clamp((cam.y + cam.sy) * g.f, -lim, lim) : (cam.y + cam.sy) * g.f;
       const camx = W / 2 + cxs * W, camy = H / 2 + cys * H;
-      const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl, shot.duration) : null;
+      const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl - (layer.ts || 0), (layer.te == null ? shot.duration : layer.te) - (layer.ts || 0)) : null;
       ctx.save();
-      ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1);
+      ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1) * amul;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
       if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
@@ -162,7 +180,7 @@
       if (layer.flipX || layer.flipY) { const fcx = ix + iw / 2, fcy = iy + ih / 2; ctx.translate(fcx, fcy); ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1); ctx.translate(-fcx, -fcy); }
       if (layer.crop) { const cr = layer.crop; ctx.beginPath(); ctx.rect(ix + iw * (cr.l || 0), iy + ih * (cr.t || 0), iw * (1 - (cr.l || 0) - (cr.r || 0)), ih * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       let src = img.bitmap;
-      if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
+      if (img.video) { src = MC.video.el(layer.id + (aid !== layer.assetId ? ':' + aid : ''), img); if (src.readyState < 2) { ctx.restore(); return; } }
       const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);
       if (MC.draw3D && MC.has3D(rx3, ry3) && o.fx !== false) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: ix, y: iy, w: iw, h: ih }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, layer.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);

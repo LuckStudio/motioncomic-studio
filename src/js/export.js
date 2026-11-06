@@ -102,7 +102,7 @@
     if (opt.ratio) p.ratio = opt.ratio;
     p.res = opt.res || p.res;
     MC.finalizePages(p);
-    await MC.assets.useFull([...new Set(p.shots.concat(p.xshots || []).flatMap((sh) => sh.layers.map((l) => l.assetId)))]);
+    await MC.assets.useFull([...new Set(p.shots.concat(p.xshots || []).flatMap((sh) => sh.layers.flatMap((l) => MC.layerAssetIds(l))))]);
     try { return await runOne(p, opt, onProgress, signal); } finally { MC.assets.useProxy(); }
   };
 

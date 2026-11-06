@@ -551,7 +551,7 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 /* ---------- arrastrar recursos a la línea de tiempo y capas desplegadas ---------- */
 .tl-track.dropt, .clip.dropt, .lyrbar.dropt { outline: 2px solid var(--accent); outline-offset: -2px; background-color: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
 .clip .cvx { flex: none; width: 16px; height: 18px; padding: 0; margin-right: 4px; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; cursor: pointer; z-index: 3; }
-.lyrbar { position: absolute; display: flex; align-items: center; gap: 6px; padding: 0 6px; background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border: 1px solid var(--line); border-left: 3px solid var(--accent); color: var(--fg); font-size: 11px; overflow: hidden; cursor: grab; touch-action: none; }
+.lyrbar { position: absolute; display: block; padding: 0; background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border: 1px solid var(--line); border-left: 3px solid var(--accent); color: var(--fg); font-size: 11px; overflow: hidden; cursor: grab; touch-action: none; }
 .lyrbar img { height: 70%; width: auto; max-width: 28px; object-fit: cover; }
 .lyrbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lyrbar.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 38%, var(--panel)); font-weight: 600; }
@@ -625,6 +625,22 @@ body.pop { margin: 0; height: 100vh; overflow: hidden; background: var(--bg); }
 .grchips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .grchip { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 3px 8px; font-size: 12px; cursor: pointer; border-left: 3px solid var(--c); }
 .grchip[aria-pressed="true"] { background: var(--raised); color: var(--fg); font-weight: 700; }
+
+/* ---------- imán: línea guía ---------- */
+.snapguide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid #FFD43B; z-index: 40; pointer-events: none; box-shadow: 0 0 8px rgba(255,212,59,.6); display: none; }
+
+/* ---------- capas con tiempo propio y tramos (gestos) ---------- */
+.lseg { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 6px; padding: 0 6px; overflow: hidden; border-right: 2px solid var(--bg); min-width: 0; }
+.lseg + .lseg { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lseg.on { box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 30%, var(--panel)); }
+.lyrbar > i { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.lrz { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 3; background: transparent; } .lrz::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 3px; width: 2px; background: var(--accent); opacity: .5; }
+.lrzl { left: 0; } .lrzr { right: 0; } .lrz:hover::after { opacity: 1; }
+.segs { display: grid; gap: 4px; margin-top: 4px; }
+.segrow { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); padding: 3px; } .segrow.on { border-color: var(--accent); background: var(--raised); }
+.segpick { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center; background: none; border: 0; color: var(--fg); text-align: left; cursor: pointer; padding: 2px; }
+.segpick img, .segpick i { width: 42px; height: 30px; object-fit: cover; flex: none; background: var(--bg); } .segpick span { display: grid; min-width: 0; } .segpick small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lseg + .lseg { border-left: 2px solid var(--accent); }
 
 </style>
 <div id="app"></div>
@@ -27166,7 +27182,7 @@ module.exports = ZStream;
   /* Memoria de las imágenes (RGBA sin comprimir): en edición y al exportar. */
   MC.memEstimate = (p) => {
     let edit = 0, full = 0;
-    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId))).forEach((id) => {
+    new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.flatMap((l) => MC.layerAssetIds(l)))).forEach((id) => {
       const a = cache.get(id); if (!a) return;
       full += a.w * a.h * 4; edit += (a.proxy ? a.bitmap.width * a.bitmap.height : a.w * a.h) * 4;
     });
@@ -27175,7 +27191,7 @@ module.exports = ZStream;
 
   MC.projectAssetIds = (p) => {
     const ids = new Set();
-    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => ids.add(l.assetId)));
+    p.shots.concat(p.xshots || []).forEach((s) => s.layers.forEach((l) => MC.layerAssetIds(l).forEach((q) => ids.add(q))));
     (p.clips || []).forEach((c) => ids.add(c.assetId));
     (p.overlays || []).forEach((o) => ids.add(o.assetId));
     (p.fonts || []).forEach((f) => ids.add(f.id));
@@ -27183,7 +27199,7 @@ module.exports = ZStream;
     return ids;
   };
   MC.loadProjectAssets = (p) => Promise.all([
-    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.map((l) => l.assetId)))].map((id) => MC.assets.load(id)),
+    ...[...new Set(p.shots.concat(p.xshots || []).flatMap((s) => s.layers.flatMap((l) => MC.layerAssetIds(l))))].map((id) => MC.assets.load(id)),
     ...[...new Set((p.overlays || []).map((o) => o.assetId))].map((id) => MC.assets.load(id).catch(() => null)),
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
@@ -27664,6 +27680,18 @@ module.exports = ZStream;
     return cam;
   };
 
+  /* tiempo propio de una capa dentro del plano: aparece en «ts» y desaparece en «te»; y sus «cortes» cambian la ilustración (gestos) */
+  MC.layerOn = (l, tl) => tl >= (l.ts || 0) - 1e-6 && (l.te == null || tl < l.te);
+  MC.layerSegs = (l) => (l.segs || []).slice().sort((a, b) => a.t - b.t);
+  MC.layerAsset = (l, tl) => { let id = l.assetId; MC.layerSegs(l).forEach((q) => { if (tl >= q.t) id = q.assetId; }); return id; };
+  MC.layerAssetIds = (l) => [l.assetId].concat((l.segs || []).map((q) => q.assetId));
+  /* ilustración que toca en un instante; con fundido («xf»), la anterior queda debajo mientras entra la nueva */
+  MC.layerAssetAt = (l, tl) => {
+    const sg = MC.layerSegs(l); let id = l.assetId, prev = null, k = 1, last = null;
+    sg.forEach((q) => { if (tl >= q.t) { prev = id; id = q.assetId; last = q; } });
+    if (last && l.xf > 0 && tl - last.t < l.xf && prev !== id) k = Math.max(0.001, (tl - last.t) / l.xf); else prev = null;
+    return { id, prev, k };
+  };
   /* Caja de la capa: escala base y centro. Una capa de PSD recortada (layer.doc) conserva su sitio dentro del documento. */
   MC.layerBox = (layer, img, o, s) => {
     const doc = layer.doc;
@@ -27741,16 +27769,22 @@ module.exports = ZStream;
     const k0 = ctx.getTransform().a;
     const shotStart = shot.xtrack != null && shot.start != null ? shot.start : (o.project && MC.shotStarts ? (MC.shotStarts(o.project)[o.project.shots.indexOf(shot)] || 0) : 0);
     const drawLayer = (layer) => {
-      const img = o.getImg(layer.assetId);
+      if (!MC.layerOn(layer, tl)) return;
+      const A = MC.layerAssetAt(layer, tl);
+      if (A.prev) drawLayer1(layer, A.prev, 1);
+      drawLayer1(layer, A.id, A.k);
+    };
+    const drawLayer1 = (layer, aid, amul) => {
+      const img = o.getImg(aid);
       if (!img) return;
       if (MC.rigShow && !MC.rigShow(shot, layer, tl, shotStart, o.project)) return;
       const g = MC.layerGeom(layer, img, cam, o);
       const box = MC.layerBox(layer, img, o, MC.effScale(layer, img, shot, o));
       const lim = layer.maxShift ? layer.maxShift : 0, cxs = lim ? clamp((cam.x + cam.sx) * g.f, -lim, lim) : (cam.x + cam.sx) * g.f, cys = lim ? clamp((cam.y + cam.sy) * g.f, -lim, lim) : (cam.y + cam.sy) * g.f;
       const camx = W / 2 + cxs * W, camy = H / 2 + cys * H;
-      const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl, shot.duration) : null;
+      const ia = !o.noClip && MC.itemAnim ? MC.itemAnim(layer, tl - (layer.ts || 0), (layer.te == null ? shot.duration : layer.te) - (layer.ts || 0)) : null;
       ctx.save();
-      ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1);
+      ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1) * amul;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
       if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
@@ -27768,7 +27802,7 @@ module.exports = ZStream;
       if (layer.flipX || layer.flipY) { const fcx = ix + iw / 2, fcy = iy + ih / 2; ctx.translate(fcx, fcy); ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1); ctx.translate(-fcx, -fcy); }
       if (layer.crop) { const cr = layer.crop; ctx.beginPath(); ctx.rect(ix + iw * (cr.l || 0), iy + ih * (cr.t || 0), iw * (1 - (cr.l || 0) - (cr.r || 0)), ih * (1 - (cr.t || 0) - (cr.b || 0))); ctx.clip(); }
       let src = img.bitmap;
-      if (img.video) { src = MC.video.el(layer.id, img); if (src.readyState < 2) { ctx.restore(); return; } }
+      if (img.video) { src = MC.video.el(layer.id + (aid !== layer.assetId ? ':' + aid : ''), img); if (src.readyState < 2) { ctx.restore(); return; } }
       const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);
       if (MC.draw3D && MC.has3D(rx3, ry3) && o.fx !== false) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: ix, y: iy, w: iw, h: ih }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, layer.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);
@@ -30279,7 +30313,7 @@ module.exports = ZStream;
     if (opt.ratio) p.ratio = opt.ratio;
     p.res = opt.res || p.res;
     MC.finalizePages(p);
-    await MC.assets.useFull([...new Set(p.shots.concat(p.xshots || []).flatMap((sh) => sh.layers.map((l) => l.assetId)))]);
+    await MC.assets.useFull([...new Set(p.shots.concat(p.xshots || []).flatMap((sh) => sh.layers.flatMap((l) => MC.layerAssetIds(l))))]);
     try { return await runOne(p, opt, onProgress, signal); } finally { MC.assets.useProxy(); }
   };
 
@@ -31205,7 +31239,7 @@ module.exports = ZStream;
     let p = (await MC.db.all('projects')).find((q) => q.sampleV === 4 && !q.samplePage);
     if (!p || !canvas.isConnected) return;
     MC.normalizeProject(p);
-    await Promise.all(p.shots[0].layers.map((l) => MC.assets.load(l.assetId)));
+    await Promise.all(p.shots[0].layers.flatMap((l) => MC.layerAssetIds(l)).map((id) => MC.assets.load(id)));
     const sh = p.shots[0], o = MC.renderOpts(p, { W: 1280, H: 720, fx: false, noLook: true, frames: false }), ctx = canvas.getContext('2d');
     let mx = 0, my = 0, tx = 0, ty = 0, raf = 0;
     const move = (e) => { const r = canvas.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; };
@@ -31602,7 +31636,7 @@ module.exports = ZStream;
     const kfTarget = () => {
       const sel = S.selKind;
       if (sel === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { it, start: it.start, dur: it.dur, kind: 'overlay' }; }
-      if (sel === 'layer' && layer()) { const sh = shot(); return { it: layer(), start: curStart(), dur: sh.duration, kind: 'layer' }; }
+      if (sel === 'layer' && layer()) { const sh = shot(), l = layer(), ts = l.ts || 0; return { it: l, start: curStart() + ts, dur: (l.te == null ? sh.duration : l.te) - ts, kind: 'layer' }; }
       if (sel === 'text' && S.tx && txById(S.tx) && !txById(S.tx).link) { const it = txById(S.tx), sp = MC.textSpan(it, S.project); return { it, start: sp.start, dur: sp.dur, kind: 'text' }; }
       return null;
     };
@@ -32071,7 +32105,7 @@ module.exports = ZStream;
     /* selector: recursos del proyecto, de la biblioteca o del equipo */
     async function openAssetPicker(opts) {
       const p = S.project; await loadLib(false);
-      const ids = new Set(); p.shots.forEach((sh) => sh.layers.forEach((l) => ids.add(l.assetId))); (p.overlays || []).forEach((o) => ids.add(o.assetId));
+      const ids = new Set(); p.shots.forEach((sh) => sh.layers.forEach((l) => MC.layerAssetIds(l).forEach((q) => ids.add(q)))); (p.overlays || []).forEach((o) => ids.add(o.assetId));
       const proj = [...ids].map((id) => MC.assets.get(id)).filter(Boolean), lib = (S.libItems || []).filter((x) => x.kind !== 'audio'), chosen = new Set();
       const btnAdd = h('button', { class: 'btn btn-p', type: 'button', disabled: true }, t('Añadir', 'Add'));
       const card = (id, thumb, name, meta) => { const b2 = h('button', { type: 'button', class: 'pickcard', 'aria-pressed': 'false', draggable: 'true', title: name, onClick: () => { if (chosen.has(id)) chosen.delete(id); else chosen.add(id); b2.setAttribute('aria-pressed', String(chosen.has(id))); btnAdd.disabled = !chosen.size; btnAdd.textContent = chosen.size ? t('Añadir ', 'Add ') + chosen.size : t('Añadir', 'Add'); } }, thumb ? h('img', { src: thumb, alt: '' }) : h('span', { class: 'ph0' }), h('b', null, name), h('small', null, meta || ''));
@@ -32079,7 +32113,7 @@ module.exports = ZStream;
       const body = h('div', { class: 'picker' },
         h('div', { class: 'eyebrow' }, t('En este proyecto · ', 'In this project · ') + proj.length), proj.length ? h('div', { class: 'pickgrid' }, proj.map((a) => card(a.id, a.thumb, a.name, a.video ? t('vídeo', 'video') : a.w + '×' + a.h))) : h('p', { class: 'cap' }, t('Aún no hay imágenes en el proyecto.', 'There are no images in the project yet.')),
         h('div', { class: 'eyebrow', style: { marginTop: '10px' } }, t('En la biblioteca · ', 'In the library · ') + lib.length), lib.length ? h('div', { class: 'pickgrid' }, lib.map((x) => card(x.id, x.thumb, x.name, x.kind === 'video' ? t('vídeo', 'video') : t('imagen', 'image')))) : h('p', { class: 'cap' }, t('La biblioteca está vacía.', 'The library is empty.')));
-      MC.modal(opts.title || t('Elegir imágenes', 'Choose images'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { close(); fileLayers.click(); } }, MC.icon('upload', 14), t('Desde el equipo…', 'From this device…')), h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
+      MC.modal(opts.title || t('Elegir imágenes', 'Choose images'), body, (close) => [opts.noDevice ? null : h('button', { class: 'btn btn-s', type: 'button', onClick: () => { close(); fileLayers.click(); } }, MC.icon('upload', 14), t('Desde el equipo…', 'From this device…')), h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
         (() => { btnAdd.addEventListener('click', () => { const sel = [...chosen]; close(); opts.onPick(sel); }); return btnAdd; })()], { wide: true });
     }
     const BLENDS = [['', t('Normal', 'Normal')], ['multiply', t('Multiplicar', 'Multiply')], ['screen', t('Pantalla', 'Screen')], ['overlay', t('Superponer', 'Overlay')], ['soft-light', t('Luz suave', 'Soft light')], ['hard-light', t('Luz fuerte', 'Hard light')], ['lighten', t('Aclarar', 'Lighten')], ['darken', t('Oscurecer', 'Darken')], ['color-dodge', t('Sobreexponer color', 'Colour dodge')], ['color-burn', t('Subexponer color', 'Colour burn')], ['difference', t('Diferencia', 'Difference')], ['exclusion', t('Exclusión', 'Exclusion')]];
@@ -32820,7 +32854,26 @@ module.exports = ZStream;
             it.crop ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; commit(); } }, t('Quitar recorte', 'Remove crop')) : null)];
       };
       if (tx && !tx.link) { const tsp = MC.textSpan(tx, p); textSecs.push(sec('texto_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(tx, tsp.start, tsp.dur))); }
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart(), sh.duration))] : [];
+      const timeNodes = (l) => {
+        const dur = sh.duration, ts = l.ts || 0, te = l.te == null ? dur : l.te, rg = layerRegions(l, sh), upd = () => { layoutClips(); S.dirty = true; touch(); };
+        const nodes = [h('p', { class: 'cap' }, t('Cada capa puede aparecer y desaparecer cuando quieras dentro del plano. Con «Dividir» el cabezal parte la capa en tramos, y a cada tramo le pones otra ilustración: así cambias de gesto sin perder la posición, la escala ni la animación.', 'Each layer can appear and disappear whenever you like within the shot. “Split” cuts the layer at the playhead into parts, and each part can show a different illustration: you change gesture without losing position, scale or animation.')),
+          MC.ui.slider({ label: t('Aparece en', 'Appears at'), min: 0, max: Math.max(0.2, dur), step: 0.05, value: ts, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { l.ts = v <= 0.02 ? 0 : Math.min(round2(v), te - 0.2); upd(); }, onChange: commit }),
+          MC.ui.slider({ label: t('Desaparece en', 'Disappears at'), min: 0.2, max: Math.max(0.3, dur), step: 0.05, value: te, fmt: (v) => (v >= dur - 0.02 ? t('el final del plano', 'end of shot') : v.toFixed(2) + ' s'), onInput: (v) => { l.te = v >= dur - 0.02 ? null : Math.max(round2(v), ts + 0.2); upd(); }, onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !!l.locked, onClick: () => { if (!splitAt(S.time)) return; } }, MC.icon('cut', 14), t('Dividir en el cabezal', 'Split at the playhead')))];
+        if (rg.length > 1) nodes.push(MC.ui.slider({ label: t('Fundido entre gestos', 'Fade between gestures'), min: 0, max: 1, step: 0.05, value: l.xf || 0, fmt: (v) => (v ? v.toFixed(2) + ' s' : t('corte seco', 'hard cut')), onInput: (v) => { l.xf = v; S.dirty = true; touch(); }, onChange: commit }));
+        nodes.push(h('div', { class: 'segs', role: 'listbox', 'aria-label': t('Tramos de la capa', 'Layer parts') }, rg.map((r) => {
+          const a = MC.assets.get(r.assetId);
+          return h('div', { class: 'segrow' + (S.sg === r.k ? ' on' : ''), role: 'option', 'aria-selected': String(S.sg === r.k) },
+            h('button', { type: 'button', class: 'segpick', onClick: () => { S.sg = r.k; setTime(curStart() + Math.min(sh.duration - 0.01, r.t0 + 0.01)); renderInspector(); renderTimeline(); } },
+              a && a.thumb ? h('img', { src: a.thumb, alt: '' }) : h('i', null), h('span', null, h('b', null, t('Tramo ', 'Part ') + (r.k + 1)), h('small', null, r.t0.toFixed(2) + ' – ' + r.t1.toFixed(2) + ' s · ' + (a ? a.name : '')))),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !!l.locked, onClick: () => pickReplace(l, r.k) }, t('Reemplazar', 'Replace')),
+            r.k > 0 ? h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Quitar este corte (se une con el tramo anterior)', 'Remove this cut (merges with the previous part)'), 'aria-label': t('Quitar corte', 'Remove cut'), onClick: () => { l.segs = l.segs.filter((q) => q.id !== r.seg.id); S.sg = Math.max(0, r.k - 1); commit(); } }, MC.icon('trash', 14)) : null);
+        })));
+        if (l.ts || l.te != null || (l.segs && l.segs.length)) nodes.push(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l.ts; l.te = null; l.segs = []; delete l.xf; S.sg = 0; commit(); } }, t('Quitar todos los cortes y tiempos', 'Remove all cuts and timing')));
+        return nodes;
+      };
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
       const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
@@ -33246,7 +33299,7 @@ module.exports = ZStream;
       /* propiedades según la selección */
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
-        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
+        layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_time), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
       el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       MC.put(MC.clear(el.inspBody), crumbs(kind), h('div', { class: 'pbody', style: { padding: 0, overflow: 'visible' } }, pick[kind]())); el.inspBody.scrollTop = top;
     }
@@ -33767,8 +33820,10 @@ module.exports = ZStream;
         c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
       });
       el.tlContent.querySelectorAll('.lyrbar').forEach((c) => {
-        const i = +c.dataset.si, sh = p.shots[i]; if (!sh) return;
-        c.style.left = starts[i] * pps + 'px'; c.style.width = Math.max(8, sh.duration * pps - 2) + 'px';
+        const i = +c.dataset.si, sh = p.shots[i], l = sh && sh.layers[+c.dataset.li]; if (!sh || !l) return;
+        const ts = l.ts || 0, te = l.te == null ? sh.duration : l.te;
+        c.style.left = (starts[i] + ts) * pps + 'px'; c.style.width = Math.max(10, (te - ts) * pps - 2) + 'px';
+        const rg = layerRegions(l, sh); c.querySelectorAll('.lseg').forEach((q, k) => { const r = rg[k]; if (!r) return; q.style.left = (r.t0 - ts) * pps + 'px'; q.style.width = Math.max(4, (r.t1 - r.t0) * pps) + 'px'; });
       });
       el.tlContent.querySelectorAll('.clip[data-tr]').forEach((c) => {
         const i = +c.dataset.tr, sh = p.shots[i]; if (!sh) return;
@@ -33838,13 +33893,46 @@ module.exports = ZStream;
         MC.video.strip(a).then((u) => { a.strip = u; a._stripBusy = false; if (S.alive) layoutClips(); }).catch(() => { a._stripBusy = false; });
       });
     }
-    function snapT(tm, ignore) {
-      if (!S.snapOn) return Math.max(0, Math.round(tm * 100) / 100);
-      const pts = [0, S.time].concat(MC.shotStarts(S.project), (S.project.notes || []).map((n) => n.t), S.project.clips.filter((c) => c.id !== ignore).flatMap((c) => [c.start, c.start + c.dur]), S.project.overlays.flatMap((o) => [o.start, o.start + o.dur]));
-      let best = tm; const thr = 8 / S.pps;
-      pts.forEach((x) => { if (Math.abs(x - tm) < thr && Math.abs(x - tm) <= Math.abs(best - tm)) best = x; });
-      return Math.max(0, Math.round(best * 100) / 100);
+    /* ---------- imán: inicio y final de lo que mueves se pegan a bordes de otros elementos ---------- */
+    S.altSnap = false;
+    function snapPoints(ignore, noShots) {
+      const p = S.project, pts = [0, S.time], add = (a, d) => { pts.push(a); if (d != null) pts.push(a + d); };
+      if (!noShots) { const st = MC.shotStarts(p); st.forEach((x, i) => add(x, p.shots[i].duration)); }
+      (p.notes || []).forEach((n) => pts.push(n.t));
+      p.clips.forEach((c) => { if (c.id !== ignore) add(c.start, c.dur); });
+      p.overlays.forEach((o) => { if (o.id !== ignore) add(o.start, o.dur); });
+      p.texts.forEach((x) => { if (x.id !== ignore && !x.link) add(x.start, x.dur); });
+      (p.xshots || []).forEach((x) => { if (x.id !== ignore) add(x.start, x.duration); });
+      (p.subs || []).forEach((x) => { if (x.id !== ignore && x.dur) add(x.start, x.dur); });
+      if (S.snapExtra) S.snapExtra.forEach((x) => pts.push(x));
+      return pts;
     }
+    const snapThr = () => (matchMedia('(pointer: coarse)').matches ? 16 : 10) / S.pps;
+    function snapGuide(tm) {
+      if (tm == null) { if (el.tlGuide) el.tlGuide.style.display = 'none'; return; }
+      if (!el.tlGuide || !el.tlGuide.isConnected) { el.tlGuide = h('div', { class: 'snapguide', 'aria-hidden': 'true' }); el.tlContent.append(el.tlGuide); }
+      el.tlGuide.style.display = 'block'; el.tlGuide.style.left = tm * S.pps + 'px';
+    }
+    /* mueve un elemento que empieza en «start» y dura «dur»: el borde que quede más cerca de otro se pega */
+    function snapMove(start, dur, ignore, noShots) {
+      const r2 = (v) => Math.max(0, Math.round(v * 100) / 100);
+      if (!S.snapOn || S.altSnap) { snapGuide(null); return r2(start); }
+      const thr = snapThr(); let best = null, hit = null;
+      snapPoints(ignore, noShots).forEach((x) => {
+        [[x - start, x], [x - (start + (dur || 0)), x]].forEach((q) => { if (Math.abs(q[0]) < thr && (best === null || Math.abs(q[0]) < Math.abs(best))) { best = q[0]; hit = q[1]; } });
+      });
+      if (best === null) { snapGuide(null); return r2(start); }
+      snapGuide(hit); return r2(start + best);
+    }
+    /* estira un borde final: devuelve el instante final ya pegado */
+    function snapEnd(end, ignore, noShots) {
+      if (!S.snapOn || S.altSnap) { snapGuide(null); return end; }
+      const thr = snapThr(); let best = null, hit = null;
+      snapPoints(ignore, noShots).forEach((x) => { const d = x - end; if (Math.abs(d) < thr && (best === null || Math.abs(d) < Math.abs(best))) { best = d; hit = x; } });
+      if (best === null) { snapGuide(null); return end; }
+      snapGuide(hit); return end + best;
+    }
+    function snapT(tm, ignore) { return snapMove(tm, 0, ignore); }
     /* ---------- línea de tiempo avanzada: ripple, selección múltiple, grupos y marcadores ---------- */
     S.ripple = MC.store.get('ripple', '0') === '1'; S.expand = S.expand || {};
     const rippleBegin = (fromT) => {
@@ -33985,20 +34073,42 @@ module.exports = ZStream;
         else rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = sh.duration; clip._moved = true; const rp = S.ripple ? rippleBegin(MC.shotStarts(p)[i] + sh.duration) : null;
-          const mv = (ev) => { sh.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 60); if (rp) rippleApply(rp, sh.duration - d0); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
+          const st0 = MC.shotStarts(p)[i]; const mv = (ev) => { const raw = st0 + d0 + (ev.clientX - x0) / S.pps, e2 = snapEnd(raw, null, true); sh.duration = clamp(e2 !== raw ? Math.round((e2 - st0) * 100) / 100 : Math.round((raw - st0) * 10) / 10, 0.5, 60); if (rp) rippleApply(rp, sh.duration - d0); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
           const endd = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', endd); rz.removeEventListener('pointercancel', endd); setTimeout(() => { clip._moved = false; }, 0); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', endd); rz.addEventListener('pointercancel', endd);
         });
         R.shots.append(clip);
         if (expd) sh.layers.forEach((l, li) => {
-          const a = MC.assets.get(l.assetId);
           const bar = h('div', { class: 'lyrbar' + (i === S.si && li === S.li ? ' on' : '') + (l.visible === false ? ' off' : ''), 'data-si': i, 'data-li': li, role: 'button', tabindex: '0', title: l.name + ' · z ' + l.z.toFixed(2), 'aria-label': l.name + ', ' + t('capa ', 'layer ') + (sh.layers.length - li) + t(' de ', ' of ') + sh.layers.length },
-            a && a.thumb ? h('img', { src: a.thumb, alt: '' }) : null, h('span', null, l.name), l.locked ? h('i', null, '🔒') : null);
+            ...layerRegions(l, sh).map((r) => { const a = MC.assets.get(r.assetId); return h('div', { class: 'lseg' + (i === S.si && li === S.li && S.sg === r.k ? ' on' : ''), 'data-r': r.k, title: t('Tramo ', 'Part ') + (r.k + 1) + ' · ' + r.t0.toFixed(1) + '–' + r.t1.toFixed(1) + ' s' }, a && a.thumb ? h('img', { src: a.thumb, alt: '' }) : null, r.k === 0 ? h('span', null, l.name) : null); }),
+            l.locked ? h('i', null, '🔒') : null, h('div', { class: 'lrz lrzl', 'aria-label': t('Cuándo aparece la capa', 'When the layer appears') }), h('div', { class: 'lrz lrzr', 'aria-label': t('Cuándo desaparece la capa', 'When the layer disappears') }));
           bar.addEventListener('pointerdown', (e) => {
             e.stopPropagation(); bar.setPointerCapture(e.pointerId); if (S.si !== i) selectShot(i, false); S.li = li; S.tx = null; S.ov = null; S.cl = null; S.multi = [];
-            const y0 = e.clientY, LHx = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34; let moved = false, tgt = li;
-            const mv = (ev) => { if (Math.abs(ev.clientY - y0) > 4) moved = true; if (!moved || l.locked) return; tgt = clamp(li - Math.round((ev.clientY - y0) / LHx), 0, sh.layers.length - 1); R.shots.querySelectorAll('.lyrbar[data-si="' + i + '"]').forEach((n) => n.classList.toggle('tgt', +n.dataset.li === tgt && tgt !== li)); };
-            const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); if (moved && tgt !== li && !l.locked) { S.li = reorderLayer(sh, li, tgt); commit(); } else { renderLayers(); renderInspector(); R.shots.querySelectorAll('.lyrbar').forEach((n) => n.classList.toggle('on', +n.dataset.si === S.si && +n.dataset.li === S.li)); S.dirty = true; } };
+            const segEl = e.target.closest && e.target.closest('.lseg'); if (segEl) S.sg = +segEl.dataset.r;
+            const sStart = MC.shotStarts(p)[i], ts0 = l.ts || 0, te0 = l.te == null ? sh.duration : l.te, segs0 = (l.segs || []).map((q) => q.t);
+            const edge = e.target.closest && e.target.closest('.lrz');
+            if (edge && !l.locked) {
+              /* aparece / desaparece: estirar un borde de la capa */
+              let mvd = false;
+              const mvE = (ev) => {
+                mvd = true; const raw = sStart + (edge.classList.contains('lrzl') ? ts0 : te0) + (ev.clientX - e.clientX) / S.pps, v = snapMove(raw, 0, l.id) - sStart;
+                if (edge.classList.contains('lrzl')) l.ts = v <= 0.02 ? 0 : clamp(round2(v), 0, te0 - 0.2); else { const nv = clamp(round2(v), ts0 + 0.2, sh.duration); l.te = nv >= sh.duration - 0.02 ? null : nv; }
+                layoutClips(); S.dirty = true; touch();
+              };
+              const upE = () => { bar.removeEventListener('pointermove', mvE); bar.removeEventListener('pointerup', upE); bar.removeEventListener('pointercancel', upE); if (mvd) commit(); };
+              bar.addEventListener('pointermove', mvE); bar.addEventListener('pointerup', upE); bar.addEventListener('pointercancel', upE); return;
+            }
+            const x0 = e.clientX, y0 = e.clientY, LHx = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34; let moved = false, mode = '', tgt = li;
+            const mv = (ev) => {
+              const dx = ev.clientX - x0, dy = ev.clientY - y0;
+              if (!mode && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) mode = Math.abs(dx) > Math.abs(dy) ? 'time' : 'order';
+              if (!mode || l.locked) return; moved = true;
+              if (mode === 'time') {
+                const span = te0 - ts0, abs = snapMove(sStart + ts0 + dx / S.pps, span, l.id), ns = clamp(round2(abs - sStart), 0, sh.duration - span), d = ns - ts0;
+                l.ts = ns <= 0.001 ? 0 : ns; l.te = ns + span >= sh.duration - 0.02 ? null : round2(ns + span); (l.segs || []).forEach((q, k2) => { q.t = round2(segs0[k2] + d); }); layoutClips(); S.dirty = true; touch();
+              } else { tgt = clamp(li - Math.round(dy / LHx), 0, sh.layers.length - 1); R.shots.querySelectorAll('.lyrbar[data-si="' + i + '"]').forEach((n) => n.classList.toggle('tgt', +n.dataset.li === tgt && tgt !== li)); }
+            };
+            const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); if (moved && mode === 'time') commit(); else if (moved && tgt !== li && !l.locked) { S.li = reorderLayer(sh, li, tgt); commit(); } else { renderLayers(); renderInspector(); R.shots.querySelectorAll('.lyrbar').forEach((n) => { const on = +n.dataset.si === S.si && +n.dataset.li === S.li; n.classList.toggle('on', on); n.querySelectorAll('.lseg').forEach((q) => q.classList.toggle('on', on && +q.dataset.r === S.sg)); }); S.dirty = true; } };
             bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
           });
           R.shots.append(bar);
@@ -34019,14 +34129,14 @@ module.exports = ZStream;
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
           el2.classList.add('on'); S.cl = c.id; S.tx = null;
           const x0 = e.clientX, s0 = c.start; let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapT(s0 + (ev.clientX - x0) / S.pps, c.id); layoutClips(); touch(); } };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapMove(s0 + (ev.clientX - x0) / S.pps, c.dur, c.id); layoutClips(); touch(); } };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else renderInspector(); };
           el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = c.dur, maxd = a ? a.dur - c.offset : 600;
-          const mv = (ev) => { c.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.1, maxd); layoutClips(); touch(); };
+          const mv = (ev) => { c.dur = clamp(Math.round((snapEnd(c.start + d0 + (ev.clientX - x0) / S.pps, c.id) - c.start) * 100) / 100, 0.1, maxd); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -34043,7 +34153,7 @@ module.exports = ZStream;
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
           el2.classList.add('on'); S.tx = it.id; S.cl = null; S.li = -1;
           const x0 = e.clientX, s0 = it.start; let moved = false;
-          const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapT(s0 + (ev.clientX - x0) / S.pps, null); layoutClips(); touch(); } };
+          const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id); layoutClips(); touch(); } };
           const up = () => {
             el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up);
             if (moved) { commit(); return; }
@@ -34056,7 +34166,7 @@ module.exports = ZStream;
         if (rz) rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = it.dur;
-          const mv = (ev) => { it.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.2, 60); layoutClips(); touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(sp.start + d0 + (ev.clientX - x0) / S.pps, it.id) - sp.start) * 100) / 100, 0.2, 60); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -34075,7 +34185,7 @@ module.exports = ZStream;
           const x0 = e.clientX, s0 = x.start; let moved = false;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3 || Math.abs(ev.clientY - e.clientY) > 6) moved = true; if (!moved) return;
-            x.start = Math.max(0, snapT(s0 + (ev.clientX - x0) / S.pps, null));
+            x.start = snapMove(s0 + (ev.clientX - x0) / S.pps, x.duration, x.id);
             const row = xts.map((q, i) => R['x' + i]).find((r3) => r3 && ev.clientY >= r3.getBoundingClientRect().top && ev.clientY < r3.getBoundingClientRect().bottom);
             xts.forEach((q, i) => R['x' + i] && R['x' + i].classList.toggle('drop', R['x' + i] === row)); if (row) x.xtrack = +row.dataset.k.slice(1);
             layoutClips(); S.dirty = true; touch();
@@ -34085,7 +34195,7 @@ module.exports = ZStream;
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = x.duration;
-          const mv = (ev) => { x.duration = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 10) / 10, 0.5, 120); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { x.duration = clamp(Math.round((snapEnd(x.start + d0 + (ev.clientX - x0) / S.pps, x.id) - x.start) * 100) / 100, 0.5, 120); layoutClips(); S.dirty = true; touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -34100,13 +34210,13 @@ module.exports = ZStream;
           if (e.target === rz) return; el2.setPointerCapture(e.pointerId);
           const q = e.target.closest('.sbq'); S.sb = it.id; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = []; if (q) S.swi = +q.dataset.w;
           const x0 = e.clientX, s0 = it.start, snap = []; Object.keys(it.words || {}).forEach((l2) => it.words[l2].forEach((w) => { if (w.s != null) snap.push([w, w.s]); })); let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const ns = Math.max(0, snapT(s0 + (ev.clientX - x0) / S.pps, null)), d = ns - s0; it.start = ns; snap.forEach((z) => { z[0].s = Math.max(0, Math.round((z[1] + d) * 1000) / 1000); }); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const ns = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id), d = ns - s0; it.start = ns; snap.forEach((z) => { z[0].s = Math.max(0, Math.round((z[1] + d) * 1000) / 1000); }); layoutClips(); S.dirty = true; touch(); };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { const cue = q ? MC.subCues(it, p.lang, it.style).find((c) => c.words[0].i === +q.dataset.w) : null; setTime(cue ? cue.s + 0.01 : it.start + 0.01); S.selKind = 'subs'; renderInspector(); renderPanels(); renderTimeline(); } };
           el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = it.dur;
-          const mv = (ev) => { it.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.5, 600); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + (ev.clientX - x0) / S.pps, it.id) - it.start) * 100) / 100, 0.5, 600); layoutClips(); S.dirty = true; touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -34150,7 +34260,7 @@ module.exports = ZStream;
           const x0 = e.clientX, s0 = it.start, tr0 = it.track; let moved = false, over = null;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved && Math.abs(ev.clientY - e.clientY) < 6) return; moved = true;
-            it.start = snapT(s0 + (ev.clientX - x0) / S.pps, null); syncOvAudio(it);
+            it.start = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id); syncOvAudio(it);
             const row = ots.map((q, i) => R['o' + i]).find((r2) => { const b2 = r2.getBoundingClientRect(); return ev.clientY >= b2.top && ev.clientY < b2.bottom; });
             ots.forEach((q, i) => R['o' + i].classList.toggle('drop', R['o' + i] === row)); if (row) { over = +row.dataset.k.slice(1); it.track = over; }
             layoutClips(); touch();
@@ -34161,7 +34271,7 @@ module.exports = ZStream;
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = it.dur, maxd = it.kind === 'video' && !it.loop && a ? Math.max(0.2, (a.dur - (it.offset || 0)) / (it.speed || 1)) : 600;
-          const mv = (ev) => { it.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.2, maxd); syncOvAudio(it); layoutClips(); touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + (ev.clientX - x0) / S.pps, it.id) - it.start) * 100) / 100, 0.2, maxd); syncOvAudio(it); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -34226,6 +34336,10 @@ module.exports = ZStream;
       }
       if (/^x\d+$/.test(key) && imgs.length) { if (info.xclip) { selectXs(info.xclip.dataset.xs, false); await assetsToLayers(imgs.map((q) => q.id), null); return; } await addXShots(imgs.map((q) => q.id), +key.slice(1), info.time); return; }
       if (/^o\d+$/.test(key) && imgs.length) { let at = info.time; for (const q of imgs) { const a = await MC.assets.load(q.id); if (!a) continue; const it = MC.newOverlay(a, { track: +key.slice(1), start: at, dur: 4 }); it.scale = 0.6; if (!a.video) it.dur = Math.max(1, Math.min(MC.totalTime(p) - at, 6)) || 4; p.overlays.push(it); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1; at += it.dur; } commit(); return; }
+      if (key === 'shots' && imgs.length && info.bar && e.target.closest('.lseg')) { /* sobre un tramo de una capa: reemplaza su ilustración */
+        const si = +info.bar.dataset.si, li = +info.bar.dataset.li, k = +e.target.closest('.lseg').dataset.r; selectShot(si, false); const l = S.project.shots[si].layers[li]; S.li = li; S.sg = k;
+        if (l && !l.locked) { await replaceRegion(l, k, imgs[0].id); return; }
+      }
       if (key === 'shots' && imgs.length) {
         if (info.si != null) { /* sobre un plano: capas */
           selectShot(info.si, false); let idx = null;
@@ -34416,15 +34530,31 @@ module.exports = ZStream;
       MC.announce(t('Plano eliminado. Ctrl+Z para deshacer.', 'Shot deleted. Ctrl+Z to undo.')); return true;
     }
     /* ---------- herramientas de edición de la línea de tiempo (estilo CapCut) ---------- */
-    S.snapOn = MC.store.get('snapon', '1') !== '0'; S.tool = 'sel';
+    S.snapOn = MC.store.get('snapon', '1') !== '0'; S.tool = 'sel'; S.sg = 0;
     const round2 = (v) => Math.round(v * 100) / 100;
+    /* tramos de una capa dentro del plano: cada uno muestra una ilustración (el primero, la de la capa; los demás, sus cortes) */
+    function layerRegions(l, sh) {
+      const ts = l.ts || 0, te = l.te == null ? sh.duration : l.te, cuts = MC.layerSegs(l).filter((q) => q.t > ts + 0.01 && q.t < te - 0.01);
+      const out = [{ k: 0, t0: ts, t1: cuts.length ? cuts[0].t : te, assetId: l.assetId, seg: null }];
+      cuts.forEach((q, i) => out.push({ k: i + 1, t0: q.t, t1: i + 1 < cuts.length ? cuts[i + 1].t : te, assetId: q.assetId, seg: q }));
+      return out;
+    }
+    async function replaceRegion(l, k, aid) {
+      const a = await MC.assets.load(aid); if (!a) return;
+      const sh = shot(), r = layerRegions(l, sh)[k]; if (!r) return;
+      if (k === 0) l.assetId = aid; else r.seg.assetId = aid;
+      commit(); MC.announce(t('Ilustración reemplazada', 'Illustration replaced'));
+    }
+    function pickReplace(l, k) {
+      openAssetPicker({ title: t('Reemplazar la ilustración de este tramo', 'Replace the illustration of this part'), noDevice: true, onPick: (ids) => { if (ids && ids[0]) replaceRegion(l, k, ids[0]); } });
+    }
     /* sobre qué actúan las herramientas: el elemento seleccionado, o el plano actual si no hay otro */
     function tgt() {
       const p = S.project, k = S.selKind;
       if (k === 'clip' && S.cl && clipById(S.cl)) { const it = clipById(S.cl); return { k: 'clip', it, start: it.start, dur: it.dur }; }
       if (k === 'text' && S.tx && txById(S.tx)) { const it = txById(S.tx), sp = MC.textSpan(it, p); return { k: 'text', it, start: sp.start, dur: sp.dur, linked: !!it.link }; }
       if (k === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { k: 'overlay', it, start: it.start, dur: it.dur }; }
-      if (k === 'layer' && layer()) return { k: 'layer', it: layer(), start: curStart(), dur: shot().duration };
+      if (k === 'layer' && layer()) { const l = layer(), sh = shot(), ts = l.ts || 0; return { k: 'layer', it: l, start: curStart() + ts, dur: (l.te == null ? sh.duration : l.te) - ts }; }
       const sh = shot(); return sh ? { k: 'shot', it: sh, start: curStart(), dur: sh.duration } : null;
     }
     const cloneShot = (sh) => { const c = JSON.parse(JSON.stringify(sh)); c.id = MC.uid(); c.layers.forEach((x) => { x.id = MC.uid(); }); return c; };
@@ -34432,9 +34562,12 @@ module.exports = ZStream;
     function splitAt(tm) {
       let T = tgt(); if (!T) return false;
       const p = S.project;
-      if (T.k === 'layer') { const sh = shot(); T = { k: 'shot', it: sh, start: curStart(), dur: sh.duration }; }
       if (!(tm > T.start + 0.1 && tm < T.start + T.dur - 0.1)) { MC.toast(t('Coloca el cabezal dentro del elemento seleccionado para dividirlo.', 'Place the playhead inside the selected item to split it.')); return false; }
       const it = T.it;
+      if (T.k === 'layer') {
+        const sh = shot(), loc = round2(tm - curStart()); it.segs = (it.segs || []).concat([{ id: MC.uid(), t: loc, assetId: MC.layerAsset(it, loc) }]); S.sg = layerRegions(it, sh).length - 1;
+        S.open.capa_time = true; commit(); MC.announce(t('Capa dividida: ahora puedes reemplazar la ilustración del nuevo tramo', 'Layer split: you can now replace the illustration of the new part')); return true;
+      }
       if (T.k === 'clip') { const b = Object.assign({}, it, { id: MC.uid(), start: tm, offset: it.offset + (tm - it.start), dur: it.start + it.dur - tm, fadeIn: 0 }); it.dur = tm - it.start; it.fadeOut = 0; p.clips.push(b); S.cl = b.id; }
       else if (T.k === 'text') {
         if (T.linked) { MC.toast(t('Este texto sigue a un clip de audio: divide el clip.', 'This text follows an audio clip: split the clip.')); return false; }
@@ -34453,10 +34586,10 @@ module.exports = ZStream;
     function trimEdge(side) {
       let T = tgt(); if (!T) return;
       const p = S.project, tm = S.time;
-      if (T.k === 'layer') { const sh = shot(); T = { k: 'shot', it: sh, start: curStart(), dur: sh.duration }; }
       if (!(tm > T.start + 0.05 && tm < T.start + T.dur - 0.05)) { MC.toast(t('Coloca el cabezal dentro del elemento seleccionado.', 'Place the playhead inside the selected item.')); return; }
       const it = T.it, d = tm - T.start;
       if (T.linked) { MC.toast(t('Este texto sigue a un clip de audio: recorta el clip.', 'This text follows an audio clip: trim the clip.')); return; }
+      if (T.k === 'layer') { const loc = round2(tm - curStart()); if (side === 'start') it.ts = loc; else it.te = loc; commit(); MC.announce(side === 'start' ? t('La capa aparece desde aquí', 'The layer now appears from here') : t('La capa desaparece aquí', 'The layer now disappears here')); return; }
       if (T.k === 'shot') {
         if (it.page || it.webtoon) { MC.toast(t('Las páginas y tiras no se recortan aquí.', 'Pages and strips cannot be trimmed here.')); return; }
         const nd = side === 'start' ? it.duration - d : d; if (nd < 0.3) return;
@@ -34687,12 +34820,14 @@ module.exports = ZStream;
     }
     const onFs = () => setTimeout(fit, 120);
     document.addEventListener('fullscreenchange', onFs);
+    const altOn = (e) => { S.altSnap = !!e.altKey; }, guideOff = () => snapGuide(null);
+    document.addEventListener('pointermove', altOn, true); document.addEventListener('keydown', altOn, true); document.addEventListener('keyup', altOn, true); document.addEventListener('pointerup', guideOff, true); document.addEventListener('pointercancel', guideOff, true);
     document.addEventListener('keydown', onKey);
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },

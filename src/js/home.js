@@ -139,7 +139,7 @@
     let p = (await MC.db.all('projects')).find((q) => q.sampleV === 4 && !q.samplePage);
     if (!p || !canvas.isConnected) return;
     MC.normalizeProject(p);
-    await Promise.all(p.shots[0].layers.map((l) => MC.assets.load(l.assetId)));
+    await Promise.all(p.shots[0].layers.flatMap((l) => MC.layerAssetIds(l)).map((id) => MC.assets.load(id)));
     const sh = p.shots[0], o = MC.renderOpts(p, { W: 1280, H: 720, fx: false, noLook: true, frames: false }), ctx = canvas.getContext('2d');
     let mx = 0, my = 0, tx = 0, ty = 0, raf = 0;
     const move = (e) => { const r = canvas.getBoundingClientRect(); tx = ((e.clientX - r.left) / r.width - 0.5) * 2; ty = ((e.clientY - r.top) / r.height - 0.5) * 2; };
