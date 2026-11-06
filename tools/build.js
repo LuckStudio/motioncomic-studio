@@ -4,7 +4,8 @@ const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const fontsCss = read('src/fonts.css').replace(/url\(fonts\/([^)]+)\)/g, (m, f) => 'url(data:font/woff2;base64,' + fs.readFileSync(path.join(root, 'src/fonts', f)).toString('base64') + ')');
 const vendor = ['mp4-muxer', 'ag-psd', 'pdf.min'].map((n) => read('src/vendor/' + n + '.js'));
-const scripts = ['util', 'formats', 'db', 'audio', 'sounds', 'render', 'panel', 'zip', 'file', 'overlay', 'outputs', 'three', 'anim', 'fx', 'psd', 'pdf', 'text', 'subs', 'style', 'page', 'export', 'sample', 'keys', 'presets', 'help', 'prefs', 'home', 'studio', 'main'].map((n) => read('src/js/' + n + '.js')).join('\n');
+/* los scripts salen de index.html, en su mismo orden, para que el artefacto nunca se quede atrás */
+const scripts = [...read('index.html').matchAll(/<script src="src\/js\/([\w-]+)\.js"><\/script>/g)].map((m) => read('src/js/' + m[1] + '.js')).join('\n');
 const html = `<title>MotionComic Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
