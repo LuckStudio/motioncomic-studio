@@ -16,7 +16,7 @@
 
     const SEL_KEYS = { li: 'layer', tx: 'text', cl: 'clip', fxsel: 'fx', pn: 'panel', sp: 'stop', ov: 'overlay', sb: 'subs', xs: 'shot' };
     const S = new Proxy({ project, selKind: 'project', tab: {}, si: 0, xs: null, li: -1, cl: null, tx: null, ov: null, sb: null, swi: 0, kfid: null, vz: { z: 1, x: 0, y: 0 }, rulers: false, multi: [], hits: [], guides: false, ema: 0, slow: 0, quality: ((pq) => (pq === 'media' || pq === 'full' ? pq : null))(MC.store.get('pq', 'auto')) || ((innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) <= 4)) ? 'media' : 'full'), pn: null, pageMap: null, sim: null, sp: null, wp: 0, fxsel: null, ptool: 'rect', poly: null, polyCur: null, pv: null, time: 0, playing: false, loop: true, view: 'out', kf: 'to', adv: true,
-      ws: 'montaje', mtab: 'panel', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_3d: false, overlay_3d: false, capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
+      ws: 'montaje', mtab: '', thumbV: 0, holes: false, safe: false, pps: 70, open: { capa_3d: false, overlay_3d: false, capa_rig: false, capa_look: false, capa_pivot: false, capa_kf: false, overlay_look: false, overlay_kf: false, vinetas: true, plano: true, camara: true, capa: true, proyecto: false, audio: true, mezcla: false, texto: true, idiomas: false, pagina: true, estilo: false, tira: true, tray: true, efectos: true, rack: false, aspecto: false },
       hist: [], hpos: -1, dirty: true, alive: true, dpr: 1, savedAt: project.updated, dragging: false },
       { set(o, k, v) { o[k] = v; if (SEL_KEYS[k] && v != null && v !== -1 && v !== false) o.selKind = SEL_KEYS[k]; return true; } });
     const el = {};
@@ -421,7 +421,7 @@
       const set = (k, v) => (v == null ? st.removeProperty(k) : st.setProperty(k, v));
       placePanels(narrow);
       const ts = narrow ? 'l' : LY.dock.tools, tlTop = !narrow && LY.dock.tl === 't', ex = S.ws === 'exportar';
-      studio.dataset.pviewer = POP.viewer ? '1' : '0';
+      studio.dataset.pviewer = POP.viewer ? '1' : '0'; document.documentElement.dataset.compact = narrow ? '1' : '0';
       Object.keys(POP).forEach((k) => syncDoc(POP[k].win.document, true));
       if (narrow) {
         ['--left-w', '--right-w', '--tl-h', '--g1', '--g2', '--g3', '--g5', '--g6', '--g7'].forEach((k) => st.removeProperty(k));
@@ -3099,11 +3099,20 @@
     const timeline = h('div', { class: 'p-timeline' }, el.hTl = handle('tl', 't', t('Alto de la línea de tiempo', 'Timeline height')),
       tlToolbar(),
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
-    const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
-      h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
+    /* pantallas estrechas (tablet en vertical): los paneles salen de una hoja que sube desde abajo */
+    const MT = [['panel', t('Panel', 'Panel')], ['layers', t('Capas', 'Layers')], ['props', t('Propiedades', 'Properties')]];
+    function setSheet(v) {
+      S.mtab = S.mtab === v ? '' : v; studio.dataset.mtab = S.mtab;
+      mtabs.querySelectorAll('button').forEach((b, k) => { b.setAttribute('aria-pressed', String(S.mtab === MT[k][0])); b.setAttribute('aria-expanded', String(S.mtab === MT[k][0])); });
+      if (S.mtab) MC.announce(t('Abierto: ', 'Open: ') + MT.find((q) => q[0] === S.mtab)[1]); setTimeout(fit, 60);
+    }
+    const mtabs = h('div', { class: 'mtabs', role: 'toolbar', 'aria-label': t('Paneles', 'Panels') }, MT.map((x) => h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), 'aria-expanded': String(S.mtab === x[0]), onClick: () => setSheet(x[0]) }, x[1])));
+    el.sheetGrab = h('div', { class: 'sheetgrab', role: 'button', tabindex: '0', 'aria-label': t('Cerrar el panel (arrastra hacia abajo)', 'Close the panel (drag down)'),
+      onClick: () => { if (S.mtab) setSheet(S.mtab); }, onKeydown: (e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); if (S.mtab) setSheet(S.mtab); } },
+      onPointerdown: (e) => { const y0 = e.clientY; let moved = false; const g = e.currentTarget; try { g.setPointerCapture(e.pointerId); } catch (er) { /* sin captura */ } const mv = (ev) => { if (ev.clientY - y0 > 50) { moved = true; g.removeEventListener('pointermove', mv); if (S.mtab) setSheet(S.mtab); } }; g.addEventListener('pointermove', mv); g.addEventListener('pointerup', () => g.removeEventListener('pointermove', mv), { once: true }); } }, h('span', { 'aria-hidden': 'true' }));
     const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab },
       h('div', { class: 'skiplinks' }, [['viewer', 'Saltar al visor', 'Skip to the viewer'], ['timeline', 'Saltar a la línea de tiempo', 'Skip to the timeline'], ['props', 'Saltar a las propiedades', 'Skip to properties']].map((q) => h('button', { type: 'button', onClick: () => focusRegion(q[0]) }, t(q[1], q[2])))),
-      el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
+      el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), el.sheetGrab, mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 1400);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
@@ -3274,8 +3283,16 @@
       set('zoom', (b) => { b.value = String(Math.round(Math.log(S.pps / 6) / Math.log(400 / 6) * 100)); });
       const lab = el.tlBar.querySelector('[data-tb="target"]'); if (lab) lab.textContent = T ? ({ clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), layer: t('Capa', 'Layer'), shot: t('Plano', 'Shot') })[T.k] : '';
     }
+    /* en pantallas estrechas la barra enseña lo esencial y el resto sale de este menú */
+    const ESSENTIAL = ['undo', 'redo', 'sel', 'blade', 'split', 'del', 'kf', 'snap', 'more', 'zout', 'zin', 'fit', 'target'];
+    function moreTools(btn) {
+      const items = [...el.tlBar.querySelectorAll('[data-tb]')].filter((b) => !ESSENTIAL.includes(b.dataset.tb) && b.dataset.tb !== 'zoom' && !b.hidden)
+        .map((b) => ({ ic: b.dataset.ic || 'dots', l: (b.getAttribute('aria-label') || b.title || '').split(/[:(,]/)[0].trim(), dis: b.disabled, fn: () => b.click() }));
+      const r = btn.getBoundingClientRect(), host = btn.closest('.studio') || studio;
+      ctxMenu(host, r.left, r.top, t('Más herramientas', 'More tools'), items, true);
+    }
     function tlToolbar() {
-      const B = (key, icon, es, en, fn, extra) => h('button', Object.assign({ class: 'btn btn-g btn-ic tlb', type: 'button', 'data-tb': key, title: t(es, en), 'aria-label': t(es, en), onClick: fn }, extra || {}), MC.icon(icon, 18));
+      const B = (key, icon, es, en, fn, extra) => h('button', Object.assign({ class: 'btn btn-g btn-ic tlb', type: 'button', 'data-tb': key, 'data-ic': icon, title: t(es, en), 'aria-label': t(es, en), onClick: fn }, extra || {}), MC.icon(icon, 18));
       const sep = () => h('span', { class: 'tlsep', 'aria-hidden': 'true' });
       el.tlBar = h('div', { class: 'tl-head', role: 'toolbar', 'aria-label': t('Herramientas de la línea de tiempo', 'Timeline tools') },
         B('undo', 'undo', 'Deshacer (Ctrl+Z)', 'Undo (Ctrl+Z)', () => undo()), B('redo', 'redo', 'Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)', () => redo()), sep(),
@@ -3292,6 +3309,7 @@
         B('addov', 'layersx', 'Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track', () => { fileOv.dataset.track = 0; fileOv.click(); }),
         B('addx', 'film', 'Plano superpuesto: otro plano a la vez que el principal', 'Overlapping shot: another shot at the same time as the main one', () => { if (S.project.xtracks.length < 1) S.project.xtracks.push({ id: MC.uid(), name: t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }); addXShotFromPicker(); }),
         B('addtrack', 'layers', 'Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)', () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); }),
+        B('more', 'dots', 'Más herramientas', 'More tools', (e) => moreTools(e.currentTarget), { 'aria-haspopup': 'menu' }),
         h('span', { class: 'tlfill' }), h('span', { class: 'eyebrow', 'data-tb': 'target' }),
         B('zout', 'minus', 'Alejar', 'Zoom out', () => zoomTl(1 / 1.3)),
         h('input', { class: 'tlzoom', type: 'range', min: 0, max: 100, step: 1, 'data-tb': 'zoom', 'aria-label': t('Zoom de la línea de tiempo', 'Timeline zoom'), title: t('Zoom de la línea de tiempo (Ctrl + rueda)', 'Timeline zoom (Ctrl + wheel)'), onInput: (e) => { const sc = el.tlContent.parentNode, mid = sc ? (sc.scrollLeft + sc.clientWidth / 2) / S.pps : 0; S.pps = 6 * Math.pow(400 / 6, e.target.value / 100); renderTimeline(); if (sc) sc.scrollLeft = mid * S.pps - sc.clientWidth / 2; } }),
@@ -3422,7 +3440,7 @@
       const c = cloneShot(sh); c.name += ' 2'; p.shots.splice(S.si + 1, 0, c); S.si++; S.li = -1; S.selKind = 'shot'; commit(); MC.announce(t('Plano duplicado', 'Shot duplicated'));
     }
     function closeCtx() { qAll('.ctxmenu').forEach((n) => n.remove()); }
-    function ctxMenu(host, x, y, title, items) {
+    function ctxMenu(host, x, y, title, items, above) {
       closeDockMenu(); closeCtx();
       const menu = h('div', { class: 'dockmenu ctxmenu', role: 'menu', 'aria-label': title, onKeydown: (e) => {
         const bs = [...menu.querySelectorAll('button:not([disabled])')], i = bs.indexOf(host.ownerDocument.activeElement);
@@ -3430,7 +3448,7 @@
       } }, h('div', { class: 'eyebrow' }, title), items.filter(Boolean).map((i) => (i === '-' ? h('hr', { role: 'separator' }) : h('button', { type: 'button', role: 'menuitem', disabled: !!i.dis, onClick: () => { closeCtx(); i.fn(); } }, MC.icon(i.ic || 'dots', 14), i.l))));
       host.append(menu);
       const f = zf(host), hr = host.getBoundingClientRect(), w = menu.offsetWidth, hh = menu.offsetHeight;
-      menu.style.left = clamp((x - hr.left) / f, 4, Math.max(4, host.offsetWidth - w - 4)) + 'px'; menu.style.top = clamp((y - hr.top) / f, 4, Math.max(4, host.offsetHeight - hh - 4)) + 'px';
+      menu.style.left = clamp((x - hr.left) / f, 4, Math.max(4, host.offsetWidth - w - 4)) + 'px'; menu.style.top = clamp((y - hr.top) / f - (above ? hh + 6 : 0), 4, Math.max(4, host.offsetHeight - hh - 4)) + 'px';
       const first = menu.querySelector('button:not([disabled])'); if (first) first.focus();
     }
     /* qué hay bajo el cursor o el dedo y lo selecciona */

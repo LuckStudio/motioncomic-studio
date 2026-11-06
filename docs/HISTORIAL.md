@@ -150,3 +150,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Aviso de versión nueva
 
 - Tarjeta de actualización (versión nueva lista o copia vieja en caché) con Actualizar ahora, Más tarde y Forzar actualización; comprobación al abrir, al volver a la pestaña y cada 20 minutos; la publicación escribe version.json y la versión dentro de index.html para detectar copias antiguas.
+
+## Tablet en vertical
+
+- Disposición para pantallas estrechas: visor arriba, línea de tiempo siempre visible, hoja inferior con Panel, Capas y Propiedades, barra de herramientas compacta con menú de más herramientas, y cabecera y barra del visor en una sola fila.
