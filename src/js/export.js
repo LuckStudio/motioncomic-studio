@@ -45,7 +45,7 @@
     const fmt = opt.format || 'mp4';
     if (fmt === 'audio') return MC.exportAudioOnly(p, opt, onProgress);
     if (fmt === 'gif' || fmt === 'png') return MC.exportFrames(p, opt, fmt, onProgress, signal);
-    const size = MC.frameSize(p.ratio, p.res), W = size.w, H = size.h, fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
+    const size = MC.frameSize(p.ratio, p.res), W = size.w + (size.w % 2), H = size.h + (size.h % 2), fps = opt.fps, bitrate = Math.round(opt.mbps * 1e6);
     const total = MC.totalTime(p), from = opt.from || 0, to = Math.min(opt.to == null ? total : opt.to, total), dur = Math.max(0.1, to - from);
     const frames = Math.max(1, Math.round(dur * fps));
     await MC.ensureFonts();

@@ -216,3 +216,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Icono «?» en el título de cada pestaña lateral, en las propiedades y en cada sección con cabecera (y en las pestañas de una sola sección): ventanita con para qué sirve y cómo se usa, y botón para ver el tutorial. 40 temas en español e inglés (`src/js/helptopics.js`).
 - Siete tutoriales nuevos (Rack focus, Curvas, Fotogramas clave, Viñetas, Mi estilo, Superposiciones, Texto); los pasos pueden cambiar de espacio y pestaña solos. Probado que todos los pasos encuentran su elemento.
+
+## Bloque 4 del plan: formatos y resolución
+
+- Un único selector de formato (`MC.formatPicker`) para el menú de la barra, la pestaña Proyecto y Proyecto nuevo: proporciones 16:9, 9:16, 4:5, 3:4, 1:1 y 2:1, botón de girar a vertical u horizontal, proporciones propias guardadas, resolución 720p/1080p/2K/4K, lado corto personalizado y píxeles exactos. Las medidas a medida viajan en el propio campo de resolución del proyecto (`@1200`, `=1000x777`), así que el visor, los exportadores y los formatos por plataforma las usan sin cambios.

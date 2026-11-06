@@ -676,7 +676,7 @@
       el.redo = h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Rehacer (Ctrl+Mayús+Z)', 'Redo (Ctrl+Shift+Z)'), 'aria-label': t('Rehacer', 'Redo'), onClick: redo }, MC.icon('redo'));
       const sz = MC.parseRatio(S.project.ratio), rw = sz[0] >= sz[1] ? 16 : Math.round(16 * sz[0] / sz[1]), rh = sz[0] >= sz[1] ? Math.round(16 * sz[1] / sz[0]) : 16;
       el.fmt = h('button', { class: 'fmt', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.fmtOpen), title: t('Cambiar proporción y resolución', 'Change aspect ratio and resolution'), onClick: () => { S.fmtOpen = !S.fmtOpen; renderFmtPop(); el.fmt.setAttribute('aria-expanded', String(!!S.fmtOpen)); } },
-        h('i', { style: { width: rw + 'px', height: rh + 'px' } }), S.project.ratio + ' · ' + S.project.res);
+        h('i', { style: { width: rw + 'px', height: rh + 'px' } }), MC.fmtLabel(S.project.ratio, S.project.res));
       MC.put(MC.clear(el.top),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Volver a tus proyectos', 'Back to your projects'), 'aria-label': t('Volver a tus proyectos', 'Back to your projects'), onClick: close }, MC.icon('back')),
         MC.mark(24),
@@ -694,17 +694,10 @@
     function renderFmtPop() {
       if (el.fmtPop) { el.fmtPop.remove(); el.fmtPop = null; }
       if (!S.fmtOpen) return;
-      const p = S.project, ratios = ['16:9', '9:16', '4:5', '3:4', '1:1', '2:1'], isPreset = ratios.includes(p.ratio), cur = MC.parseRatio(p.ratio);
-      const apply = (r, res) => { if (r) p.ratio = r; if (res) p.res = res; commit(); fit(); renderTop(); };
-      const sw = (r) => { const q = MC.parseRatio(r), w = q[0] >= q[1] ? 44 : Math.round(44 * q[0] / q[1]), hh = q[0] >= q[1] ? Math.round(44 * q[1] / q[0]) : 44; return h('button', { class: 'sw', type: 'button', 'aria-pressed': String(p.ratio === r), onClick: () => apply(r) }, h('i', { style: { width: w + 'px', height: hh + 'px' } }), r); };
-      const size = MC.frameSize(p.ratio, p.res), idW = 'fw-' + MC.uid(), idH = 'fh-' + MC.uid();
+      const p = S.project, pst = { ratio: p.ratio, res: p.res, zoom: p.zoomPlan || 1.5 };
       el.fmtPop = h('div', { class: 'fmtpop', role: 'dialog', 'aria-label': t('Formato del proyecto', 'Project format'), onKeydown: (e) => { if (e.key === 'Escape') { S.fmtOpen = false; renderFmtPop(); el.fmt.setAttribute('aria-expanded', 'false'); el.fmt.focus(); } } },
-        h('div', { class: 'eyebrow' }, t('Proporción', 'Aspect ratio')), h('div', { class: 'sw-row' }, ratios.map(sw)),
-        h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, h('span', { class: 'cap' }, t('Personalizada', 'Custom')),
-          h('input', { class: 'input', id: idW, type: 'number', min: 1, max: 40, value: cur[0], 'aria-label': t('Ancho', 'Width'), style: { width: '70px' }, onChange: (e) => apply(Math.max(1, Math.round(+e.target.value || 1)) + ':' + cur[1]) }), h('span', null, ':'),
-          h('input', { class: 'input', id: idH, type: 'number', min: 1, max: 40, value: cur[1], 'aria-label': t('Alto', 'Height'), style: { width: '70px' }, onChange: (e) => apply(cur[0] + ':' + Math.max(1, Math.round(+e.target.value || 1))) })),
-        h('div', { class: 'eyebrow' }, t('Resolución de salida', 'Output resolution')), MC.ui.seg(Object.keys(MC.RES).map((r) => ({ v: r, l: r })), p.res, (v) => apply(null, v), t('Resolución', 'Resolution')),
-        h('div', { class: 'calc' }, h('span', { class: 'big' }, size.w + ' × ' + size.h + ' px'), h('span', { class: 'cap' }, isPreset && MC.RATIO_HINT[p.ratio] ? t(MC.RATIO_HINT[p.ratio][0], MC.RATIO_HINT[p.ratio][1]) : t('El encuadre se reajusta solo: corrige a mano lo que haga falta.', 'The framing readjusts itself: fix by hand whatever needs it.'))));
+        MC.formatPicker(pst, () => { p.ratio = pst.ratio; p.res = pst.res; commit(); fit(); renderTop(); }, { zoom: false }),
+        h('p', { class: 'cap' }, t('El encuadre se reajusta solo: corrige a mano lo que haga falta.', 'The framing readjusts itself: fix by hand whatever needs it.')));
       studio.append(el.fmtPop);
       const off = (e) => { if (el.fmtPop && !el.fmtPop.contains(e.target) && !el.fmt.contains(e.target)) { S.fmtOpen = false; renderFmtPop(); el.fmt.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', off, true); } };
       setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
