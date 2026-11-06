@@ -648,3 +648,9 @@ html[data-touch="1"] .crumbs button { min-height: 44px; padding: 6px 8px; }
 html[data-touch="1"] .layer .btn { width: 44px; height: 44px; }
 html[data-touch="1"] .lrz { width: 30px; }
 html[data-touch="1"] .clip .cvx { width: 44px; } html[data-touch="1"] .clip .rz { width: 36px; }
+
+/* ---------- menú contextual, avisos con acción y gestos ---------- */
+.ctxmenu { min-width: 240px; max-height: 80%; overflow-y: auto; z-index: 90; } .ctxmenu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.toast { display: flex; align-items: center; gap: 14px; } .toast .tact { background: transparent; border: 1px solid currentColor; color: inherit; font-weight: 700; padding: 6px 14px; cursor: pointer; min-height: 36px; }
+html[data-touch="1"] .toast .tact { min-height: 44px; padding-inline: 18px; }
+.tl-scroll { touch-action: none; } .stage { touch-action: none; }

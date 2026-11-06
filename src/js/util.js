@@ -60,6 +60,7 @@
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
+    crosshair: '<circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
     curve: '<path d="M3 20C10 20 8 4 21 4"/><circle cx="3" cy="20" r="1.600" fill="currentColor"/><circle cx="21" cy="4" r="1.600" fill="currentColor"/>',
     clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/>',
     magnet: '<path d="M5 3h4v9a3 3 0 006 0V3h4v9a7 7 0 01-14 0z"/><path d="M5 7h4M15 7h4"/>',
@@ -184,13 +185,15 @@
   let toastT = 0;
   /* documento que tiene el foco: la ventana principal o una ventana separada del estudio */
   MC.hostDoc = document;
-  MC.toast = (msg) => {
+  /* aviso corto; con {label, onClick} lleva un botón de acción (por ejemplo «Deshacer») y dura más */
+  MC.toast = (msg, act) => {
     const D = MC.hostDoc || document;
     D.querySelectorAll('.toast').forEach((n) => n.remove());
-    const n = h('div', { class: 'toast', role: 'status' }, msg);
+    const n = h('div', { class: 'toast', role: 'status' }, h('span', null, msg));
+    if (act && act.onClick) n.append(h('button', { type: 'button', class: 'tact', onClick: () => { n.remove(); act.onClick(); } }, act.label));
     D.body.append(n);
     clearTimeout(toastT);
-    toastT = setTimeout(() => n.remove(), 2800);
+    toastT = setTimeout(() => n.remove(), (act && act.ms) || 2800);
   };
   /* Aviso para lectores de pantalla (región «polite»). */
   let live = null;

@@ -73,6 +73,7 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | Barra de edición de la línea de tiempo (cuchilla, recorte de inicio y fin, reflejar, recorte de imagen, imán, zoom), fotogramas clave en capas, superposiciones y textos, editor de curvas Bézier y favoritos | ✔ | Atajos V, X, S, Q, W, N |
 | Imán por bordes con guía, capas con aparición/desaparición propias y tramos con ilustración reemplazable (gestos) | ✔ | Alt desactiva el imán al arrastrar |
 | Modo táctil (objetivos de 44 px, nombres con pulsación larga, vistas previas al mantener, sin dependencia del hover) | ✔ | Automático, siempre o nunca en Preferencias |
+| Menú contextual, gestos de pellizco y desplazamiento, modo de precisión y aviso «Deshacer» al eliminar | ✔ | Clic derecho o pulsación larga |
 | Paneles acoplables (izquierda/derecha/arriba), disposiciones predefinidas y ventanas separadas para varias pantallas | ✔ | Menú ⋮ y asa ⠿ en cada panel; la ventana nueva recibe el panel con sus atajos y se devuelve al cerrarla |
 | Paneles acoplables y flotantes, barra de herramientas | ✘ | Disposición fija |
 | Atajos configurables con mapas de Premiere y Photoshop | ✔ | |

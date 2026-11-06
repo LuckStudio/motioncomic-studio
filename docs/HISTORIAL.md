@@ -127,3 +127,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Modo táctil automático (o forzado en Preferencias): objetivos de 44 px y zonas de toque ampliadas en tiradores, clips, rombos, deslizadores y menús; sin controles que dependan del hover.
 - Pulsación larga para ver el nombre de los iconos y vistas previas al mantener pulsado; iconos de Curvas y Proyecto distintos.
+
+## Gestos, menú contextual y precisión
+
+- Menú contextual con clic derecho o pulsación larga en planos, capas, clips, textos, superposiciones, fotogramas clave y pistas.
+- Pellizco y arrastre con dos dedos en la línea de tiempo y el visor; desplazamiento con un dedo en el fondo.
+- Modo de precisión para arrastres finos y aviso con botón Deshacer al eliminar.

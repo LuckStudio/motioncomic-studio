@@ -532,7 +532,7 @@
       d.body.append(host);
       const rec = POP[id] = { win, host, closing: false, ro: null };
       PNODES()[id].forEach((n) => host.append(n));
-      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true); if (MC.touch) MC.touch.wireDoc(d);
+      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true); if (MC.touch) MC.touch.wireDoc(d); wireCtx(host);
       win.addEventListener('focus', () => { MC.hostDoc = d; });
       win.addEventListener('pagehide', () => { if (!rec.closing) dockBack(id, true); });
       let rt = 0; win.addEventListener('resize', () => { fit(); clearTimeout(rt); rt = setTimeout(() => saveGeo(id, win), 300); });
@@ -817,7 +817,7 @@
       }
     }
     function dupLayer() { const sh = shot(), l = sh && sh.layers[S.li]; if (!l) return; const c = JSON.parse(JSON.stringify(l)); c.id = MC.uid(); c.name += ' 2'; const at = S.li + 1; sh.layers.splice(at, 0, c); c.z = zBetween(sh.layers, at); S.li = at; commit(); }
-    function delLayer(i) { const sh = shot(), l = sh && sh.layers[i]; if (!l || l.locked) return; sh.layers.splice(i, 1); S.li = clamp(S.li >= i ? S.li - 1 : S.li, -1, sh.layers.length - 1); if (S.li < 0 && sh.layers.length) S.li = -1; commit(); }
+    function delLayer(i) { const sh = shot(), l = sh && sh.layers[i]; if (!l || l.locked) return; sh.layers.splice(i, 1); S.li = clamp(S.li >= i ? S.li - 1 : S.li, -1, sh.layers.length - 1); if (S.li < 0 && sh.layers.length) S.li = -1; commit(); undoToast(t('Capa eliminada', 'Layer deleted')); }
 
     /* ---------- inspector ---------- */
     const secDom = (d) => { const open = S.open[d.id] !== false; return h('div', { class: 'sec', 'data-id': d.id, 'data-open': String(open) },
@@ -2661,7 +2661,7 @@
         b.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); b.setPointerCapture(e.pointerId); S.mk = n.id; S.selKind = 'marker'; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = [];
           const x0 = e.clientX, t0 = n.t; let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; n.t = Math.max(0, Math.round((t0 + (ev.clientX - x0) / S.pps) * 100) / 100); b.style.left = n.t * S.pps - 5 + 'px'; touch(); };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; n.t = Math.max(0, Math.round((t0 + fineDx(ev, x0) / S.pps) * 100) / 100); b.style.left = n.t * S.pps - 5 + 'px'; touch(); };
           const up = () => { b.removeEventListener('pointermove', mv); b.removeEventListener('pointerup', up); b.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(n.t); renderInspector(); renderTimeline(); } };
           b.addEventListener('pointermove', mv); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
         });
@@ -2699,7 +2699,7 @@
         else rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = sh.duration; clip._moved = true; const rp = S.ripple ? rippleBegin(MC.shotStarts(p)[i] + sh.duration) : null;
-          const st0 = MC.shotStarts(p)[i]; const mv = (ev) => { const raw = st0 + d0 + (ev.clientX - x0) / S.pps, e2 = snapEnd(raw, null, true); sh.duration = clamp(e2 !== raw ? Math.round((e2 - st0) * 100) / 100 : Math.round((raw - st0) * 10) / 10, 0.5, 60); if (rp) rippleApply(rp, sh.duration - d0); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
+          const st0 = MC.shotStarts(p)[i]; const mv = (ev) => { const raw = st0 + d0 + fineDx(ev, x0) / S.pps, e2 = snapEnd(raw, null, true); sh.duration = clamp(e2 !== raw ? Math.round((e2 - st0) * 100) / 100 : Math.round((raw - st0) * 10) / 10, 0.5, 60); if (rp) rippleApply(rp, sh.duration - d0); clip.firstChild.textContent = sh.name + ' · ' + sh.duration.toFixed(1) + ' s'; layoutClips(); S.dirty = true; };
           const endd = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', endd); rz.removeEventListener('pointercancel', endd); setTimeout(() => { clip._moved = false; }, 0); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', endd); rz.addEventListener('pointercancel', endd);
         });
@@ -2755,14 +2755,14 @@
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
           el2.classList.add('on'); S.cl = c.id; S.tx = null;
           const x0 = e.clientX, s0 = c.start; let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapMove(s0 + (ev.clientX - x0) / S.pps, c.dur, c.id); layoutClips(); touch(); } };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { c.start = snapMove(s0 + fineDx(ev, x0) / S.pps, c.dur, c.id); layoutClips(); touch(); } };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else renderInspector(); };
           el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = c.dur, maxd = a ? a.dur - c.offset : 600;
-          const mv = (ev) => { c.dur = clamp(Math.round((snapEnd(c.start + d0 + (ev.clientX - x0) / S.pps, c.id) - c.start) * 100) / 100, 0.1, maxd); layoutClips(); touch(); };
+          const mv = (ev) => { c.dur = clamp(Math.round((snapEnd(c.start + d0 + fineDx(ev, x0) / S.pps, c.id) - c.start) * 100) / 100, 0.1, maxd); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2779,7 +2779,7 @@
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
           el2.classList.add('on'); S.tx = it.id; S.cl = null; S.li = -1;
           const x0 = e.clientX, s0 = it.start; let moved = false;
-          const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id); layoutClips(); touch(); } };
+          const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapMove(s0 + fineDx(ev, x0) / S.pps, it.dur, it.id); layoutClips(); touch(); } };
           const up = () => {
             el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up);
             if (moved) { commit(); return; }
@@ -2792,7 +2792,7 @@
         if (rz) rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = it.dur;
-          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(sp.start + d0 + (ev.clientX - x0) / S.pps, it.id) - sp.start) * 100) / 100, 0.2, 60); layoutClips(); touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(sp.start + d0 + fineDx(ev, x0) / S.pps, it.id) - sp.start) * 100) / 100, 0.2, 60); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2811,7 +2811,7 @@
           const x0 = e.clientX, s0 = x.start; let moved = false;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3 || Math.abs(ev.clientY - e.clientY) > 6) moved = true; if (!moved) return;
-            x.start = snapMove(s0 + (ev.clientX - x0) / S.pps, x.duration, x.id);
+            x.start = snapMove(s0 + fineDx(ev, x0) / S.pps, x.duration, x.id);
             const row = xts.map((q, i) => R['x' + i]).find((r3) => r3 && ev.clientY >= r3.getBoundingClientRect().top && ev.clientY < r3.getBoundingClientRect().bottom);
             xts.forEach((q, i) => R['x' + i] && R['x' + i].classList.toggle('drop', R['x' + i] === row)); if (row) x.xtrack = +row.dataset.k.slice(1);
             layoutClips(); S.dirty = true; touch();
@@ -2821,7 +2821,7 @@
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = x.duration;
-          const mv = (ev) => { x.duration = clamp(Math.round((snapEnd(x.start + d0 + (ev.clientX - x0) / S.pps, x.id) - x.start) * 100) / 100, 0.5, 120); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { x.duration = clamp(Math.round((snapEnd(x.start + d0 + fineDx(ev, x0) / S.pps, x.id) - x.start) * 100) / 100, 0.5, 120); layoutClips(); S.dirty = true; touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2836,13 +2836,13 @@
           if (e.target === rz) return; el2.setPointerCapture(e.pointerId);
           const q = e.target.closest('.sbq'); S.sb = it.id; S.cl = null; S.tx = null; S.ov = null; S.li = -1; S.multi = []; if (q) S.swi = +q.dataset.w;
           const x0 = e.clientX, s0 = it.start, snap = []; Object.keys(it.words || {}).forEach((l2) => it.words[l2].forEach((w) => { if (w.s != null) snap.push([w, w.s]); })); let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const ns = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id), d = ns - s0; it.start = ns; snap.forEach((z) => { z[0].s = Math.max(0, Math.round((z[1] + d) * 1000) / 1000); }); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const ns = snapMove(s0 + fineDx(ev, x0) / S.pps, it.dur, it.id), d = ns - s0; it.start = ns; snap.forEach((z) => { z[0].s = Math.max(0, Math.round((z[1] + d) * 1000) / 1000); }); layoutClips(); S.dirty = true; touch(); };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { const cue = q ? MC.subCues(it, p.lang, it.style).find((c) => c.words[0].i === +q.dataset.w) : null; setTime(cue ? cue.s + 0.01 : it.start + 0.01); S.selKind = 'subs'; renderInspector(); renderPanels(); renderTimeline(); } };
           el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = it.dur;
-          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + (ev.clientX - x0) / S.pps, it.id) - it.start) * 100) / 100, 0.5, 600); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + fineDx(ev, x0) / S.pps, it.id) - it.start) * 100) / 100, 0.5, 600); layoutClips(); S.dirty = true; touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2857,14 +2857,14 @@
           if (e.target === rz) return; el2.setPointerCapture(e.pointerId);
           S.si = si; S.li = -1; S.cl = null; S.tx = null; S.ov = null; S.multi = []; S.fxsel = f.id;
           const x0 = e.clientX, s0 = f.start; let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved || f.panel != null) return; f.start = clamp(Math.round((s0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0, Math.max(0, shx.duration - 0.1)); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved || f.panel != null) return; f.start = clamp(Math.round((s0 + fineDx(ev, x0) / S.pps) * 100) / 100, 0, Math.max(0, shx.duration - 0.1)); layoutClips(); S.dirty = true; touch(); };
           const up = () => { el2.removeEventListener('pointermove', mv); el2.removeEventListener('pointerup', up); el2.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(MC.shotStarts(p)[si] + clamp(MC.fxStart(shx, f), 0, Math.max(0, shx.duration - 0.001))); S.fxsel = f.id; S.selKind = 'fx'; renderLayers(); renderInspector(); renderTimeline(); } };
           el2.addEventListener('pointermove', mv); el2.addEventListener('pointerup', up); el2.addEventListener('pointercancel', up);
         });
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = f.dur;
-          const mv = (ev) => { f.dur = clamp(Math.round((d0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0.1, 30); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { f.dur = clamp(Math.round((d0 + fineDx(ev, x0) / S.pps) * 100) / 100, 0.1, 30); layoutClips(); S.dirty = true; touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2886,7 +2886,7 @@
           const x0 = e.clientX, s0 = it.start, tr0 = it.track; let moved = false, over = null;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved && Math.abs(ev.clientY - e.clientY) < 6) return; moved = true;
-            it.start = snapMove(s0 + (ev.clientX - x0) / S.pps, it.dur, it.id); syncOvAudio(it);
+            it.start = snapMove(s0 + fineDx(ev, x0) / S.pps, it.dur, it.id); syncOvAudio(it);
             const row = ots.map((q, i) => R['o' + i]).find((r2) => { const b2 = r2.getBoundingClientRect(); return ev.clientY >= b2.top && ev.clientY < b2.bottom; });
             ots.forEach((q, i) => R['o' + i].classList.toggle('drop', R['o' + i] === row)); if (row) { over = +row.dataset.k.slice(1); it.track = over; }
             layoutClips(); touch();
@@ -2897,7 +2897,7 @@
         rz.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); rz.setPointerCapture(e.pointerId);
           const x0 = e.clientX, d0 = it.dur, maxd = it.kind === 'video' && !it.loop && a ? Math.max(0.2, (a.dur - (it.offset || 0)) / (it.speed || 1)) : 600;
-          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + (ev.clientX - x0) / S.pps, it.id) - it.start) * 100) / 100, 0.2, maxd); syncOvAudio(it); layoutClips(); touch(); };
+          const mv = (ev) => { it.dur = clamp(Math.round((snapEnd(it.start + d0 + fineDx(ev, x0) / S.pps, it.id) - it.start) * 100) / 100, 0.2, maxd); syncOvAudio(it); layoutClips(); touch(); };
           const up = () => { rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up); rz.removeEventListener('pointercancel', up); commit(); };
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
@@ -2909,7 +2909,7 @@
         d.addEventListener('pointerdown', (e) => {
           e.stopPropagation(); d.setPointerCapture(e.pointerId); S.kfid = q.id; R.kf.querySelectorAll('.kfd.on').forEach((n) => n.classList.remove('on')); d.classList.add('on');
           const x0 = e.clientX, t0 = q.t; let moved = false;
-          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; q.t = clamp(Math.round((t0 + (ev.clientX - x0) / S.pps) * 100) / 100, 0, kft.dur); layoutClips(); S.dirty = true; touch(); };
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; q.t = clamp(Math.round((t0 + fineDx(ev, x0) / S.pps) * 100) / 100, 0, kft.dur); layoutClips(); S.dirty = true; touch(); };
           const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(kft.start + clamp(q.t, 0, Math.max(0, kft.dur - 0.001))); renderInspector(); renderTimeline(); } };
           d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
         });
@@ -3005,7 +3005,7 @@
           const items = multiItems().filter((q) => !(q.k[0] === 'x' && q.it.link)), x0 = e.clientX, starts0 = items.map((q) => q.it.start); let moved = false;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return;
-            const mn = Math.min(...starts0), d = Math.max(-mn, Math.round(((ev.clientX - x0) / S.pps) * 100) / 100);
+            const mn = Math.min(...starts0), d = Math.max(-mn, Math.round((fineDx(ev, x0) / S.pps) * 100) / 100);
             items.forEach((q, i) => { q.it.start = Math.round((starts0[i] + d) * 100) / 100; if (q.k[0] === 'o') syncOvAudio(q.it); });
             layoutClips(); touch();
           };
@@ -3153,7 +3153,7 @@
       if (S.ripple) { const rp = rippleBegin(curStart() + sh.duration); rippleApply(rp, -sh.duration); }
       p.shots.splice(S.si, 1); S.si = clamp(S.si, 0, p.shots.length - 1); S.li = -1; S.xs = null; S.selKind = 'shot';
       S.time = clamp(S.time, 0, Math.max(0, MC.totalTime(p) - 0.001)); commit(); setTime(S.time);
-      MC.announce(t('Plano eliminado. Ctrl+Z para deshacer.', 'Shot deleted. Ctrl+Z to undo.')); return true;
+      undoToast(t('Plano eliminado', 'Shot deleted')); return true;
     }
     /* ---------- herramientas de edición de la línea de tiempo (estilo CapCut) ---------- */
     S.snapOn = MC.store.get('snapon', '1') !== '0'; S.tool = 'sel'; S.sg = 0;
@@ -3260,7 +3260,7 @@
       const set = (k, f) => { const b = el.tlBar.querySelector('[data-tb="' + k + '"]'); if (b) f(b); };
       set('undo', (b) => { b.disabled = S.hpos <= 0; }); set('redo', (b) => { b.disabled = S.hpos >= S.hist.length - 1; });
       set('sel', (b) => b.setAttribute('aria-pressed', String(S.tool === 'sel'))); set('blade', (b) => b.setAttribute('aria-pressed', String(S.tool === 'blade')));
-      set('snap', (b) => b.setAttribute('aria-pressed', String(!!S.snapOn))); set('ripple', (b) => b.setAttribute('aria-pressed', String(!!S.ripple)));
+      set('snap', (b) => b.setAttribute('aria-pressed', String(!!S.snapOn))); set('fine', (b) => b.setAttribute('aria-pressed', String(!!S.fine))); set('ripple', (b) => b.setAttribute('aria-pressed', String(!!S.ripple)));
       set('flipx', (b) => { b.disabled = !canFlip; }); set('flipy', (b) => { b.disabled = !canFlip; }); set('crop', (b) => { b.disabled = !canCrop; }); set('kf', (b) => { b.disabled = !canKf; });
       set('zoom', (b) => { b.value = String(Math.round(Math.log(S.pps / 6) / Math.log(400 / 6) * 100)); });
       const lab = el.tlBar.querySelector('[data-tb="target"]'); if (lab) lab.textContent = T ? ({ clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), layer: t('Capa', 'Layer'), shot: t('Plano', 'Shot') })[T.k] : '';
@@ -3276,6 +3276,7 @@
         B('flipx', 'flipH', 'Reflejar en horizontal', 'Flip horizontally', () => flipSel('x')), B('flipy', 'flipV', 'Reflejar en vertical', 'Flip vertically', () => flipSel('y')), B('crop', 'crop', 'Recortar la imagen o el vídeo', 'Crop the image or video', openCrop),
         B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'curve', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
         B('marker', 'bookmark', 'Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)', () => addMarker('note')), B('dup', 'copy', 'Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)', () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); }), sep(),
+        B('fine', 'crosshair', 'Precisión: arrastrar con más finura (o mantén Mayús)', 'Precision: drag more finely (or hold Shift)', () => { S.fine = !S.fine; refreshTlBar(); MC.toast(S.fine ? t('Precisión activada: los arrastres van a un cuarto de velocidad', 'Precision on: drags move at a quarter speed') : t('Precisión desactivada', 'Precision off')); }, { 'aria-pressed': 'false' }),
         B('snap', 'magnet', 'Imán: se pega a cortes, marcadores y cabezal (N)', 'Magnet: snaps to cuts, markers and playhead (N)', toggleSnap, { 'aria-pressed': String(!!S.snapOn) }),
         B('ripple', 'ripple', 'Ripple: al cambiar la duración de un plano, lo de detrás lo sigue', 'Ripple: when a shot’s length changes, everything after follows', () => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); refreshTlBar(); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); }, { 'aria-pressed': String(!!S.ripple) }), sep(),
         B('addshot', 'plus', 'Planos desde imágenes', 'Shots from images', () => fileShots.click()),
@@ -3395,6 +3396,123 @@
       return out;
     }
 
+    /* ---------- precisión, aviso de deshacer, gestos y menú contextual ---------- */
+    S.fine = false;
+    /* arrastre fino: con el modo «precisión» o con Mayús, el cursor o el dedo mueven una cuarta parte */
+    const fineDx = (ev, x0) => (ev.clientX - x0) * (S.fine || ev.shiftKey ? 0.25 : 1);
+    const undoToast = (msg) => MC.toast(msg, { label: t('Deshacer', 'Undo'), onClick: () => undo(), ms: 7000 });
+    const askName = (title, cur, cb) => {
+      const inp = h('input', { class: 'input', value: cur || '', 'aria-label': title }); let m = null;
+      const ok = () => { const v = inp.value.trim(); if (m) m.close(); if (v) cb(v); };
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); e.stopPropagation(); });
+      m = MC.modal(title, inp, (close) => [h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), h('button', { class: 'btn btn-p', type: 'button', onClick: ok }, t('Guardar', 'Save'))]);
+      setTimeout(() => inp.select(), 60);
+    };
+    function dupShot() {
+      const p = S.project, sh = shot(); if (!sh) return;
+      const c = cloneShot(sh); c.name += ' 2'; p.shots.splice(S.si + 1, 0, c); S.si++; S.li = -1; S.selKind = 'shot'; commit(); MC.announce(t('Plano duplicado', 'Shot duplicated'));
+    }
+    function closeCtx() { qAll('.ctxmenu').forEach((n) => n.remove()); }
+    function ctxMenu(host, x, y, title, items) {
+      closeDockMenu(); closeCtx();
+      const menu = h('div', { class: 'dockmenu ctxmenu', role: 'menu', 'aria-label': title, onKeydown: (e) => {
+        const bs = [...menu.querySelectorAll('button:not([disabled])')], i = bs.indexOf(host.ownerDocument.activeElement);
+        if (e.key === 'Escape') { closeCtx(); e.stopPropagation(); } else if (e.key === 'ArrowDown') { e.preventDefault(); bs[(i + 1) % bs.length].focus(); } else if (e.key === 'ArrowUp') { e.preventDefault(); bs[(i - 1 + bs.length) % bs.length].focus(); }
+      } }, h('div', { class: 'eyebrow' }, title), items.filter(Boolean).map((i) => (i === '-' ? h('hr', { role: 'separator' }) : h('button', { type: 'button', role: 'menuitem', disabled: !!i.dis, onClick: () => { closeCtx(); i.fn(); } }, MC.icon(i.ic || 'dots', 14), i.l))));
+      host.append(menu);
+      const f = zf(host), hr = host.getBoundingClientRect(), w = menu.offsetWidth, hh = menu.offsetHeight;
+      menu.style.left = clamp((x - hr.left) / f, 4, Math.max(4, host.offsetWidth - w - 4)) + 'px'; menu.style.top = clamp((y - hr.top) / f, 4, Math.max(4, host.offsetHeight - hh - 4)) + 'px';
+      const first = menu.querySelector('button:not([disabled])'); if (first) first.focus();
+    }
+    /* qué hay bajo el cursor o el dedo y lo selecciona */
+    function ctxFor(e) {
+      const n0 = e.target; if (!n0 || !n0.closest) return null;
+      const rc = el.tlContent.getBoundingClientRect(), tm = clamp((e.clientX - rc.left) / S.pps, 0, MC.totalTime(S.project));
+      let n;
+      if ((n = n0.closest('.kfd')) && kfTarget()) { S.kfid = n.dataset.kf; return { k: 'kf', tm }; }
+      if ((n = n0.closest('.lyrbar'))) { const si = +n.dataset.si, li = +n.dataset.li, sg = n0.closest('.lseg'); if (S.si !== si) selectShot(si, false); S.li = li; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; if (sg) S.sg = +sg.dataset.r; return { k: 'layer', tm, bar: true }; }
+      if ((n = n0.closest('.lrow2'))) { S.li = +n.dataset.idx; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; return { k: 'layer', tm: S.time, bar: false }; }
+      if ((n = n0.closest('.clip[data-c]'))) { S.cl = n.dataset.c; S.selKind = 'clip'; S.tx = S.ov = null; S.li = -1; S.multi = []; return { k: 'clip', tm }; }
+      if ((n = n0.closest('.clip[data-x]'))) { S.tx = n.dataset.x; S.selKind = 'text'; S.cl = S.ov = null; S.li = -1; S.multi = []; return { k: 'text', tm }; }
+      if ((n = n0.closest('.clip[data-o]'))) { S.ov = n.dataset.o; S.selKind = 'overlay'; S.cl = S.tx = null; S.li = -1; S.multi = []; return { k: 'overlay', tm }; }
+      if ((n = n0.closest('.clip[data-xs]'))) { selectXs(n.dataset.xs, false); return { k: 'xshot', tm }; }
+      if ((n = n0.closest('.clip[data-s]'))) { S.sb = n.dataset.s; S.selKind = 'subs'; return { k: 'subs', tm }; }
+      if ((n = n0.closest('.clip[data-i]'))) { selectShot(+n.dataset.i, false); S.selKind = 'shot'; return { k: 'shot', tm }; }
+      if ((n = n0.closest('.trl.ot'))) return { k: 'otrack', tm, i: +n.dataset.k.slice(1) };
+      if (n0.closest('.tl-track.kft')) return { k: 'kftrack', tm };
+      return null;
+    }
+    function ctxItems(c) {
+      const p = S.project, I = (ic, l, fn, dis) => ({ ic, l, fn, dis }), tm = round2(c.tm), at = () => { if (c.bar !== false) setTime(tm); };
+      const split = I('cut', t('Dividir aquí', 'Split here'), () => { at(); splitAt(S.time); }), del = I('trash', t('Eliminar', 'Delete'), () => { if (ACT.delete() === false) MC.toast(t('No hay nada que eliminar.', 'Nothing to delete.')); });
+      const kf = I('diamond', t('Fotograma clave aquí', 'Keyframe here'), () => { at(); addKfHere(); });
+      const flips = [I('flipH', t('Reflejar en horizontal', 'Flip horizontally'), () => flipSel('x')), I('flipV', t('Reflejar en vertical', 'Flip vertically'), () => flipSel('y'))];
+      if (c.k === 'shot') return [split, I('copy', t('Duplicar el plano', 'Duplicate the shot'), dupShot), I('edit', t('Renombrar', 'Rename'), () => { const sh = shot(); askName(t('Nombre del plano', 'Shot name'), sh.name, (v) => { sh.name = v; commit(); }); }), I('layers', S.expand[shot().id] ? t('Plegar las capas', 'Fold the layers') : t('Ver las capas', 'Show the layers'), () => { const sh = shot(); S.expand[sh.id] = !S.expand[sh.id]; renderTimeline(); }), '-', del];
+      if (c.k === 'layer') { const l = layer(), sh = shot(); return [split, I('image', t('Reemplazar la ilustración de este tramo', 'Replace this part’s illustration'), () => pickReplace(l, S.sg || 0), !!(l && l.locked)), '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, '-', I('copy', t('Duplicar la capa', 'Duplicate the layer'), dupLayer), I('edit', t('Renombrar', 'Rename'), () => askName(t('Nombre de la capa', 'Layer name'), l.name, (v) => { l.name = v; commit(); })), I(l && l.locked ? 'unlock' : 'lock', l && l.locked ? t('Desbloquear', 'Unlock') : t('Bloquear', 'Lock'), () => { l.locked = !l.locked; commit(); }), '-', I('trash', t('Eliminar la capa', 'Delete the layer'), () => { if (l.locked) MC.toast(t('La capa está bloqueada. Desbloquéala para borrarla.', 'The layer is locked. Unlock it to delete it.')); else { delLayer(S.li); } })]; }
+      if (c.k === 'clip') return [split, I('trimL', t('Recortar el principio hasta aquí', 'Trim the start to here'), () => { at(); trimEdge('start'); }), I('trimR', t('Recortar el final desde aquí', 'Trim the end from here'), () => { at(); trimEdge('end'); }), I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
+      if (c.k === 'text') return [split, kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
+      if (c.k === 'overlay') return [split, '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
+      if (c.k === 'xshot' || c.k === 'subs') return [del];
+      if (c.k === 'kf') { const kt = kfTarget(), q = kt && (kt.it.kf || []).find((z) => z.id === S.kfid); return [I('play', t('Ir a este fotograma clave', 'Go to this keyframe'), () => { if (q) setTime(kt.start + clamp(q.t, 0, Math.max(0, kt.dur - 0.001))); }), I('curve', t('Movimiento suave hasta el siguiente', 'Smooth motion to the next'), () => { if (q) { q.ease = 'smooth'; commit(); } }), I('minus', t('Movimiento lineal', 'Linear motion'), () => { if (q) { q.ease = 'linear'; commit(); } }), '-', I('trash', t('Eliminar el fotograma clave', 'Delete the keyframe'), () => { if (kt && q) { kt.it.kf = kt.it.kf.filter((z) => z.id !== q.id); S.kfid = null; commit(); } })]; }
+      if (c.k === 'kftrack') return [I('diamond', t('Fotograma clave aquí', 'Keyframe here'), () => { setTime(clamp(tm, 0, MC.totalTime(p) - 0.001)); addKfHere(); })];
+      if (c.k === 'otrack') { const ot = p.otracks[c.i], busy = p.overlays.some((o) => o.track === c.i); return [I('edit', t('Renombrar la pista', 'Rename the track'), () => askName(t('Nombre de la pista', 'Track name'), ot.name, (v) => { ot.name = v; commit(); })), I('plus', t('Añadir una superposición aquí', 'Add an overlay here'), () => { fileOv.dataset.track = c.i; fileOv.click(); }), I('trash', t('Quitar la pista vacía', 'Remove the empty track'), () => { p.overlays.forEach((o) => { if (o.track > c.i) o.track--; }); p.otracks.splice(c.i, 1); commit(); }, busy || p.otracks.length < 2)]; }
+      return [];
+    }
+    function openCtx(e, host) {
+      const c = ctxFor(e); if (!c) return false;
+      renderPanels(); renderLayers(); renderTimeline();
+      const items = ctxItems(c); if (!items.length) return false;
+      const ttl = { shot: t('Plano', 'Shot'), layer: t('Capa', 'Layer'), clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), xshot: t('Plano superpuesto', 'Overlapping shot'), subs: t('Subtítulo', 'Subtitle'), kf: t('Fotograma clave', 'Keyframe'), kftrack: t('Fotogramas clave', 'Keyframes'), otrack: t('Pista', 'Track') }[c.k];
+      ctxMenu(host, e.clientX, e.clientY, ttl, items); return true;
+    }
+    /* clic derecho y pulsación larga */
+    const onCtx = (e) => { const host = e.target.closest && e.target.closest('.studio'); if (!host || e.target.closest('input, textarea, select') || e.target.closest('.ctxmenu')) return; if (openCtx(e, host)) e.preventDefault(); };
+    let lpTimer = 0, lpX = 0, lpY = 0, lpSuppress = false;
+    const lpDown = (e) => {
+      if (e.pointerType !== 'touch' || e.target.closest('.ctxmenu, .dockmenu, input, textarea, select')) return;
+      lpX = e.clientX; lpY = e.clientY; clearTimeout(lpTimer);
+      const tgt0 = e.target, host = tgt0.closest && tgt0.closest('.studio'); if (!host) return;
+      lpTimer = setTimeout(() => { lpTimer = 0; if (openCtx({ target: tgt0, clientX: lpX, clientY: lpY }, host)) { lpSuppress = true; if (navigator.vibrate) navigator.vibrate(12); } }, 560);
+    };
+    const lpMove = (e) => { if (lpTimer && Math.hypot(e.clientX - lpX, e.clientY - lpY) > 10) { clearTimeout(lpTimer); lpTimer = 0; } };
+    const lpEnd = () => { clearTimeout(lpTimer); lpTimer = 0; };
+    const lpClick = (e) => { if (lpSuppress) { lpSuppress = false; e.preventDefault(); e.stopPropagation(); } };
+    function wireCtx(host) {
+      host.addEventListener('contextmenu', onCtx); host.addEventListener('pointerdown', lpDown, true); host.addEventListener('pointermove', lpMove, true);
+      host.addEventListener('pointerup', lpEnd, true); host.addEventListener('pointercancel', lpEnd, true); host.addEventListener('click', lpClick, true);
+    }
+    /* dos dedos: pellizcar para acercar y arrastrar para desplazar (línea de tiempo y visor) */
+    function wirePinch(node, onStart, onMove, onEnd) {
+      const pts = new Map(); let g = null;
+      const mid = () => { const a = [...pts.values()]; return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1 }; };
+      node.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch') return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size >= 2) { e.stopPropagation(); if (!g) { const m = mid(); g = { m0: m }; lpEnd(); onStart(m); } }
+      }, true);
+      node.addEventListener('pointermove', (e) => {
+        if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (g && pts.size >= 2) { e.stopPropagation(); e.preventDefault(); const m = mid(); onMove(m, m.d / g.m0.d, g.m0); }
+      }, true);
+      const up = (e) => { if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId); if (g && pts.size < 2) { g = null; onEnd(); } };
+      node.addEventListener('pointerup', up, true); node.addEventListener('pointercancel', up, true);
+    }
+    function wireGestures() {
+      const sc = el.tlContent.parentNode, body = sc.parentNode; let tz = null, raf = 0, pan = null;
+      /* línea de tiempo */
+      wirePinch(sc, (m) => { tz = { pps: S.pps, anchor: (m.x - el.tlContent.getBoundingClientRect().left) / S.pps, sl: sc.scrollLeft, st: body.scrollTop, m0x: m.x, m0y: m.y }; },
+        (m, ratio) => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (!tz) return; S.pps = clamp(tz.pps * ratio, 6, 400); renderTimeline(); const r = sc.getBoundingClientRect(); sc.scrollLeft = tz.anchor * S.pps - (m.x - r.left); body.scrollTop = tz.st - (m.y - tz.m0y); refreshTlBar(); }); },
+        () => { tz = null; });
+      /* un dedo sobre el fondo vacío de la línea de tiempo la desplaza */
+      sc.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch' || e.target.closest('.clip, .lyrbar, .kfd, .tl-ruler, .rz, .lrz, .playhead, button')) return; pan = { x: e.clientX, y: e.clientY, sl: sc.scrollLeft, st: body.scrollTop, on: false, id: e.pointerId }; });
+      sc.addEventListener('pointermove', (e) => { if (!pan || pan.id !== e.pointerId) return; const dx = e.clientX - pan.x, dy = e.clientY - pan.y; if (!pan.on && Math.hypot(dx, dy) > 8) pan.on = true; if (pan.on) { sc.scrollLeft = pan.sl - dx; body.scrollTop = pan.st - dy; } });
+      const pe = () => { pan = null; }; sc.addEventListener('pointerup', pe); sc.addEventListener('pointercancel', pe);
+      /* visor */
+      let vz = null;
+      wirePinch(el.stage, (m) => { vz = { z: S.vz.z, x: S.vz.x, y: S.vz.y, m0x: m.x, m0y: m.y }; },
+        (m, ratio) => { if (!vz) return; S.vz = { z: vz.z, x: vz.x, y: vz.y }; setViewZoom(vz.z * ratio, m.x, m.y); S.vz.x += m.x - vz.m0x; S.vz.y += m.y - vz.m0y; applyViewXf(); },
+        () => { vz = null; });
+    }
+
     const ACT = {
       play: () => togglePlay(), pause: () => togglePlay(false), forward: () => togglePlay(true),
       back1: () => setTime(S.time - 1), stepBack: () => setTime(S.time - 1 / 30), stepFwd: () => setTime(S.time + 1 / 30), secBack: () => setTime(S.time - 1), secFwd: () => setTime(S.time + 1),
@@ -3426,9 +3544,12 @@
         else return false;
       },
     };
+    wireGestures(); wireCtx(studio);
+    { const del0 = ACT.delete; ACT.delete = (e) => { const n = S.hpos, r = del0(e); if (r !== false && S.hpos > n && !document.querySelector('.toast .tact')) undoToast(t('Eliminado', 'Deleted')); return r; }; }
     function onKey(e) {
       if (!S.alive || ((e.target && e.target.ownerDocument) || document).querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Enter' && S.poly) { closePoly(); return; }
+      if (e.key === 'Escape' && qAll('.ctxmenu').length) { closeCtx(); return; }
       if (e.key === 'Escape') { if (S.poly) { S.poly = null; S.polyCur = null; S.dirty = true; } else if (S.fmtOpen || S.ovMenu) { S.fmtOpen = false; S.ovMenu = false; renderFmtPop(); renderVbar(); } else clearSel(); return; }
       if (S.ws === 'creativo' && curTab() === 'subtitulos' && subById(S.sb) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === 'Enter') { e.preventDefault(); markWord(); return; }
