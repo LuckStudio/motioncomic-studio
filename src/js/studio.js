@@ -11,6 +11,9 @@
 
   MC.mountStudio = async function mountStudio(root, project) {
     MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…')));
+    /* versión IA pendiente de revisar: el proyecto guardado sigue siendo el tuyo, se abre la copia de la IA */
+    let aiInit = null;
+    try { const r = await MC.db.get('versions', 'ia-' + project.id); if (r && r.kind === 'ia') { aiInit = { base: r.base, t: r.t, log: r.log || [] }; const w = JSON.parse(r.json); w.id = project.id; project = w; } } catch (e) { /* sin versión IA */ }
     MC.normalizeProject(project);
     await MC.loadProjectAssets(project);
 
@@ -40,7 +43,9 @@
     async function save() {
       clearTimeout(saveT);
       const p = S.project;
+      if (S.ai && S.aiView === 'base') return;
       p.updated = Date.now(); p.thumb = MC.makeThumb(p);
+      if (S.ai) { try { await MC.db.put('versions', { id: 'ia-' + p.id, projectId: p.id, kind: 'ia', t: S.ai.t, json: JSON.stringify(p), base: S.ai.base, log: S.ai.log, size: 0 }); S.savedAt = p.updated; } catch (e) { MC.toast(t('No se pudo guardar la versión IA.', 'Could not save the AI version.')); } setStatus(true); return; }
       try { await MC.db.put('projects', p); S.savedAt = p.updated; } catch (e) { MC.toast(t('No se pudo guardar. Exporta una copia por si acaso.', 'Could not save. Export a backup just in case.')); }
       setStatus(true);
     }
@@ -710,7 +715,7 @@
       c.textContent = job.state === 'running' ? t('Exportando ', 'Exporting ') + Math.round(job.progress * 100) + ' %' : job.state === 'done' ? t('Vídeo listo', 'Video ready') : t('Error al exportar', 'Export failed');
     }
     const offJobChip = MC.onExportJob(updateJobChip);
-    async function close() { S.alive = false; togglePlay(false); await save(); try { await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } if (MC.motion) await MC.motion.leaveStudio(studio); MC.studioApi = null; cleanup(); MC.app.render(); }
+    async function close() { S.alive = false; togglePlay(false); await save(); try { if (!S.ai) await MC.versions.save(S.project, '', true); } catch (e) { /* sin versión */ } if (MC.motion) await MC.motion.leaveStudio(studio); MC.studioApi = null; cleanup(); MC.app.render(); }
 
     /* ---------- capas ---------- */
     /* ---------- capas: como en Photoshop, arriba = más cerca y tapa lo de abajo ---------- */
@@ -3136,11 +3141,46 @@
       el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), el.sheetGrab, mtabs, el.sBot = h('div', { class: 's-bot' }, el.zBL, timeline, el.zBR), fileLayers, fileOver, fileOv, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 3000); if (MC.motion && !MC.motion.reduced()) MC.motion.watchEnter(3000);
 
+
+    /* ---------- versión IA: los cambios de la IA van a una copia que no pisa la tuya hasta que la aceptas ---------- */
+    async function aiBegin(desc) {
+      if (S.ai && S.aiView === 'base') await aiToggle();
+      if (!S.ai) { await save(); await MC.versions.save(S.project, t('Antes de la IA', 'Before the AI'), false); S.ai = { base: JSON.stringify(S.project), t: Date.now(), log: [] }; S.aiView = 'ia'; }
+      S.ai.log.push(new Date().toLocaleTimeString() + ' · ' + desc); renderAi();
+    }
+    async function aiToggle() {
+      if (!S.ai) return;
+      if (S.aiView === 'ia') { await save(); S.aiWork = S.project; const b = JSON.parse(S.ai.base); S.aiView = 'base'; S.project = MC.normalizeProject(b); }
+      else { S.aiView = 'ia'; S.project = S.aiWork; S.aiWork = null; }
+      await MC.loadProjectAssets(S.project); S.si = 0; S.li = -1; S.selKind = 'project'; fit(); renderAll(); renderAi();
+    }
+    async function aiAccept() {
+      if (!S.ai) return; if (S.aiView === 'base') await aiToggle();
+      const id = S.project.id; S.ai = null; await save(); try { await MC.db.del('versions', 'ia-' + id); } catch (e) { /* sin registro */ }
+      renderAi(); MC.toast(t('Versión de la IA aceptada. Tu versión anterior está en el historial («Antes de la IA»).', 'AI version accepted. Your previous version is in the history (“Before the AI”).'), { ms: 8000 });
+    }
+    function aiDiscard() {
+      if (!S.ai) return;
+      MC.modal(t('¿Descartar la versión de la IA?', 'Discard the AI version?'), h('p', null, t('Se vuelve a tu proyecto tal y como estaba. Los cambios de la IA se pierden.', 'You go back to your project as it was. The AI changes are lost.')), (close) => [
+        h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
+        h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { close(); const id = S.project.id, b = JSON.parse(S.ai.base); S.ai = null; S.aiWork = null; S.aiView = 'ia'; S.project = MC.normalizeProject(b); try { await MC.db.del('versions', 'ia-' + id); } catch (e) { /* sin registro */ } await MC.loadProjectAssets(S.project); S.si = 0; S.li = -1; S.selKind = 'project'; fit(); renderAll(); pushHist(); await save(); renderAi(); MC.toast(t('Versión de la IA descartada.', 'AI version discarded.')); } }, t('Descartar', 'Discard'))]);
+    }
+    function renderAi() {
+      const bar = el.aibar; if (!bar) return; MC.clear(bar); bar.hidden = !S.ai; if (!S.ai) return;
+      const base = S.aiView === 'base', n = S.ai.log.length;
+      MC.put(bar, h('span', { class: 'aitag' }, MC.icon('star', 14), base ? t('Viendo TU versión (solo lectura)', 'Viewing YOUR version (read only)') : t('Versión de la IA · sin aceptar', 'AI version · not accepted')),
+        h('button', { class: 'btn btn-sm', type: 'button', onClick: aiToggle }, base ? t('Volver a la versión IA', 'Back to AI version') : t('Ver la mía', 'View mine')),
+        h('button', { class: 'btn btn-sm', type: 'button', title: S.ai.log.join('\n'), onClick: () => MC.modal(t('Cambios de la IA', 'AI changes'), h('ul', null, S.ai.log.map((l) => h('li', null, l))), (close) => [h('button', { class: 'btn btn-p', type: 'button', onClick: close }, t('Cerrar', 'Close'))]) }, t('Cambios (' + n + ')', 'Changes (' + n + ')')),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: aiAccept }, t('Aceptar', 'Accept')),
+        h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: aiDiscard }, t('Descartar', 'Discard')));
+    }
+
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
+    S.ai = aiInit; S.aiView = 'ia'; studio.append(el.aibar = h('div', { class: 'aibar', role: 'region', 'aria-label': t('Versión de la IA', 'AI version'), hidden: true })); renderAi();
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
-    const verTimer = setInterval(() => { if (S.alive && S.dirtySinceVer) { S.dirtySinceVer = false; MC.versions.save(S.project, '', true).catch(() => {}); } }, 300000);
+    const verTimer = setInterval(() => { if (S.alive && S.dirtySinceVer && !S.ai) { S.dirtySinceVer = false; MC.versions.save(S.project, '', true).catch(() => {}); } }, 300000);
     const onDocDown = (e) => {
       if (!e.target.closest || (!e.target.closest('.dockmenu') && !e.target.closest('.dockctl'))) { closeDockMenu(); qAll('.dockctl button[data-open]').forEach((b) => { b.dataset.open = ''; b.setAttribute('aria-expanded', 'false'); }); } if (S.impOpen && el.impMenu && !el.impMenu.contains(e.target) && !(el.impBtn && el.impBtn.contains(e.target))) { S.impOpen = false; renderImpMenu(); if (el.impBtn) el.impBtn.setAttribute('aria-expanded', 'false'); }
       if (S.fileOpen && el.fileMenu && !el.fileMenu.contains(e.target) && !(el.fileBtn && el.fileBtn.contains(e.target))) { S.fileOpen = false; renderFileMenu(); if (el.fileBtn) el.fileBtn.setAttribute('aria-expanded', 'false'); }
@@ -3900,7 +3940,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); },
-      importFiles: (files, mode) => importFiles(files, mode), info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
+      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };

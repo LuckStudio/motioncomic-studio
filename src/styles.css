@@ -786,3 +786,7 @@ html[data-touch="1"] .rsbtn { min-height: 30px; } html[data-touch="1"] .tkrow .b
 .sidecol > .pz-l { left: 0; } .sidecol > .pz-r { right: 0; }
 html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol > .pz-r { right: 0; }
 .home > .top, .home > .notice { animation: rise .8s both; }
+
+.aibar { position: absolute; z-index: 40; top: 60px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent, #7c5cff); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.aibar[hidden] { display: none; }
+.aibar .aitag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }

@@ -52,9 +52,9 @@
       const api = MC.studioApi; if (!api || !api.importFiles) throw new Error('No hay ningún proyecto abierto. Usa «nuevo_proyecto» o «abrir_proyecto».');
       const names = a.files.map((f) => f.name);
       if (!(await confirmAction(a.as === 'shots' ? t('Crear un plano por cada archivo (' + names.length + ')', 'Create one shot per file (' + names.length + ')') : t('Añadir ' + names.length + ' archivo(s) como recursos', 'Add ' + names.length + ' file(s) as assets'), names.join(', ')))) throw new Error('El usuario rechazó la acción.');
-      const before = api.info(); await api.importFiles(await toFiles(a.files), a.as === 'shots' ? 'shots' : 'layers');
-      await new Promise((r) => setTimeout(r, 400)); const now = api.info();
-      return { importados: names, planos: now.shots, planos_antes: before.shots };
+      const before = api.info(); await api.aiBegin((a.as === 'shots' ? 'Planos nuevos: ' : 'Recursos añadidos: ') + names.join(', ')); await api.importFiles(await toFiles(a.files), a.as === 'shots' ? 'shots' : 'layers');
+      await new Promise((r) => setTimeout(r, 400)); await api.saveNow(); const now = api.info();
+      return { importados: names, planos: now.shots, planos_antes: before.shots, nota: 'Los cambios están en una «versión IA» que el usuario debe aceptar o descartar en el estudio; su proyecto original no se ha tocado.' };
     },
   };
   async function waitStudio(id) { for (let i = 0; i < 80; i++) { const a = MC.studioApi; if (a && a.info && a.info().id === id) return; await new Promise((r) => setTimeout(r, 100)); } }

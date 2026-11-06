@@ -185,3 +185,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Conector local `tools/mcp/server.js` (MCP por stdio + puente en 127.0.0.1 con código de emparejamiento, límite de intentos y solo orígenes permitidos) y `src/js/mcp.js` en el estudio: permiso al conectar, confirmación en cada acción que cambia algo, desconexión en un clic y panel en Preferencias. Probado de punta a punta con un cliente MCP simulado.
 - Pendiente: WebMCP (herramientas expuestas por la propia página) y más herramientas (texto, exportar).
+
+## Versión IA (MCP)
+
+- Los cambios de la IA se guardan en una copia de trabajo (registro `ia-<id>` en el almacén de versiones) y el proyecto guardado queda intacto hasta pulsar Aceptar. Barra con Ver la mía / Cambios / Aceptar / Descartar; se guarda «Antes de la IA» en el historial; sigue pendiente al reabrir.
+- Pendiente: aceptar plano a plano.

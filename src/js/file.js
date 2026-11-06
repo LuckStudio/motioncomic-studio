@@ -47,7 +47,7 @@
 
   /* ---------- historial de versiones (persistente) ---------- */
   const V = (MC.versions = {});
-  V.list = async (pid) => (await MC.db.all('versions')).filter((v) => v.projectId === pid).sort((a, b) => b.t - a.t);
+  V.list = async (pid) => (await MC.db.all('versions')).filter((v) => v.projectId === pid && v.kind !== 'ia').sort((a, b) => b.t - a.t);
   V.save = async (p, label, auto) => {
     const json = JSON.stringify(p), list = await V.list(p.id);
     if (auto && list[0] && list[0].json === json) return null;
@@ -61,7 +61,7 @@
     return v;
   };
   V.remove = (id) => MC.db.del('versions', id);
-  V.removeAll = async (pid) => { for (const v of await V.list(pid)) await MC.db.del('versions', v.id); };
+  V.removeAll = async (pid) => { try { await MC.db.del('versions', 'ia-' + pid); } catch (e) { /* sin registro */ } for (const v of await V.list(pid)) await MC.db.del('versions', v.id); };
   V.parse = (v) => JSON.parse(v.json);
 
   /* ---------- biblioteca compartida entre proyectos ---------- */
