@@ -35,6 +35,8 @@
       MC.store.set('uizoom_auto', '1');
     }
     MC.applyPrefs();
+    /* pantalla de carga: se ve mientras se prepara todo y el inicio aparece justo cuando se va */
+    const splash = MC.splash.start();
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
     if (!MC.store.get('seeded5', '')) {
@@ -49,7 +51,9 @@
     }
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); MC.installEvt = e; if (!MC.studioApi) MC.app.render(); });
     window.addEventListener('appinstalled', () => { MC.installEvt = null; });
+    await splash.ready;
     await MC.app.render();
+    splash.hide();
     if (autoZoom) setTimeout(() => MC.toast(t('Hemos puesto la interfaz al ', 'We set the interface to ') + Math.round(autoZoom * 100) + t(' % para tu tablet. Puedes cambiarlo en Preferencias.', '% for your tablet. You can change it in Preferences.'), { label: t('Cambiar', 'Change'), onClick: () => MC.openPrefs(), ms: 10000 }), 600);
     if (/[?&]new=1/.test(location.search)) { history.replaceState(null, '', location.pathname + location.hash); MC.newProjectDialog(); }
     if (MC.update) MC.update.start();

@@ -196,3 +196,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Al salir, el marco del estudio (borde, fondo y líneas sueltas) se apaga con el resto y no queda ninguna caja vacía; al entrar, el marco y el área central aparecen con las piezas.
 - El texto «Abriendo el proyecto…» solo aparece si la carga tarda más de 0,9 s; los recursos se cargan mientras el inicio se deshace, así que casi no hay hueco en blanco.
 - El inicio aparece entero (bordes incluidos) y por orden, sin cajas vacías antes del contenido.
+
+## Pantalla de carga
+
+- Tarjeta al abrir la aplicación con la imagen lateral editable (se guarda reducida en este equipo), crédito opcional, opción de ocultarla, vista previa y salto con toque o tecla. Imagen provisional: patrón de viñetas dibujado en un lienzo.
