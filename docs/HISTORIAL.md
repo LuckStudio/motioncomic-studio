@@ -253,3 +253,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Bloque 10 del plan: viñetas personalizables
 
 - El marco de viñeta gana `radius` (esquinas redondeadas con curvas dentro de `panelGeom`, así clip, trazo y sombra coinciden), `bgGrad`/`bg2`/`bgAngle` (calle con degradado vía `MC.gradFill`, incluido en la clave de caché del fondo), `strokeGrad`/`color2`/`strokeAngle` y `shadowAngle`/`shadowBlur`. «Mis estilos de viñeta» se guarda en el almacenamiento local (`framestyles`).
+
+## Bloque 11 del plan: efectos de estilo
+
+- Siete efectos de post-proceso en `fx.js` (`pixelate`, `posterize`, `duotone`, `glitch`, `vhs`, `edges`, `htone`) que retocan la zona dibujada del plano con lienzos intermedios, con parámetros propios por efecto. Ajustes comunes a todos los efectos (`speed`, `opacity`, `fadeIn`, `fadeOut`, `seed`, `scale`, `blend`).
+- Corregido: la entrada y salida (y ahora la opacidad) no afectaban a las partículas, que fijaban su propia opacidad; ahora todas respetan `FXA`.

@@ -890,6 +890,7 @@ a.btn { text-decoration: none; }
 
 .sp-ded { display: grid; gap: 2px; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.45; } .sp-ded b { font-size: 14px; }
 .sp-card.static { width: 100%; height: auto; min-height: 330px; box-shadow: none; animation: none; margin: 8px 0; } .sp-card.static .sp-img { min-height: 220px; }
+.fxadv summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
 
 </style>
 <div id="app"></div>
@@ -29512,7 +29513,9 @@ module.exports = ZStream;
 (function () {
   const MC = window.MC;
   const { clamp } = MC;
-  const nz = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  let FXA = 1; // opacidad del efecto en curso (entrada, salida y opacidad propia), que respetan también las partículas
+  let SEED = 0; // variación del efecto en curso (f.seed): cambia el azar sin cambiar el aspecto
+  const nz = (i) => { const s = Math.sin((i + SEED * 977) * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
   const wrap1 = (v) => ((v % 1) + 1) % 1;
 
   MC.FX = [
@@ -29523,14 +29526,21 @@ module.exports = ZStream;
     { v: 'rain', g: 'fx', dur: 3, es: 'Lluvia', en: 'Rain' }, { v: 'dust', g: 'fx', dur: 3, es: 'Polvo', en: 'Dust' }, { v: 'sparks', g: 'fx', dur: 2.5, es: 'Chispas', en: 'Sparks' },
     { v: 'snow', g: 'fx', dur: 3, es: 'Nieve', en: 'Snow' }, { v: 'smoke', g: 'fx', dur: 3, es: 'Humo', en: 'Smoke' },
     { v: 'fog', g: 'fx', dur: 4, es: 'Niebla', en: 'Fog' }, { v: 'beam', g: 'fx', dur: 4, es: 'Haces de luz', en: 'Light beams' },
+    { v: 'pixelate', g: 'style', dur: 2, es: 'Pixelado', en: 'Pixelate' }, { v: 'posterize', g: 'style', dur: 3, es: 'Posterizado', en: 'Posterize' }, { v: 'duotone', g: 'style', dur: 3, es: 'Duotono', en: 'Duotone' },
+    { v: 'glitch', g: 'style', dur: 1.2, es: 'Glitch', en: 'Glitch' }, { v: 'vhs', g: 'style', dur: 3, es: 'Cinta VHS', en: 'VHS tape' }, { v: 'edges', g: 'style', dur: 3, es: 'Contorno de tinta', en: 'Ink outline' }, { v: 'htone', g: 'style', dur: 3, es: 'Trama de puntos', en: 'Halftone dots' },
   ];
+  /* efectos de estilo: retocan la imagen ya dibujada del plano */
+  const STYLE = new Set(['pixelate', 'posterize', 'duotone', 'glitch', 'vhs', 'edges', 'htone']);
+  MC.isStyleFx = (v) => STYLE.has(v);
+  const DEF_PARAMS = { pixelate: { size: 16 }, posterize: { lv: 4 }, duotone: { color2: '#ffd36e', mix: 1 }, glitch: { shift: 0.06, split: 0.012, rate: 14 }, vhs: { lines: 3, noise: 0.5, wobble: 0.5, bleed: 0.5 }, edges: { thresh: 0.25, thick: 1.5, mix: 1, only: false }, htone: { size: 10, mix: 1 } };
+  MC.FX_PARAMS = DEF_PARAMS;
   const ANIM = new Set(['shake', 'impact', 'pulse', 'vibrate']);
-  const DEF_COLOR = { speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff', fog: '#cfd6e6', beam: '#fff1bf' };
+  const DEF_COLOR = { duotone: '#1b1464', edges: '#0b0b10', htone: '#111111', speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff', fog: '#cfd6e6', beam: '#fff1bf' };
   MC.fxName = (v) => { const f = MC.FX.find((x) => x.v === v); return f ? MC.t(f.es, f.en) : v; };
   MC.isAnimFx = (v) => ANIM.has(v);
   MC.newFx = (type, start) => {
     const d = MC.FX.find((x) => x.v === type);
-    return { id: MC.uid(), type, start: Math.max(0, Math.round(start * 100) / 100), dur: d.dur, intensity: 1, layer: null, panel: null, color: DEF_COLOR[type] || '#ffffff', angle: 0 };
+    return Object.assign({ id: MC.uid(), type, start: Math.max(0, Math.round(start * 100) / 100), dur: d.dur, intensity: 1, layer: null, panel: null, color: DEF_COLOR[type] || '#ffffff', angle: 0 }, DEF_PARAMS[type] || {});
   };
 
   /* Momento del plano en que empieza un efecto. Si apunta a una viñeta, cuenta desde que la cámara llega a ella. */
@@ -29605,7 +29615,7 @@ module.exports = ZStream;
   function speedLines(ctx, f, a, W, H) {
     const seed = Math.floor(a * 12) * 31, n = Math.round(28 * f.intensity), u = W / 1920;
     ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(((f.angle || 0) * Math.PI) / 180); ctx.translate(-W / 2, -H / 2);
-    ctx.fillStyle = f.color || '#fff'; ctx.globalAlpha = 0.6;
+    ctx.fillStyle = f.color || '#fff'; ctx.globalAlpha = FXA * 0.6;
     for (let i = 0; i < n; i++) {
       const y = nz(seed + i * 7) * H * 1.3 - H * 0.15, len = (0.2 + nz(seed + i * 13) * 0.55) * W, x = nz(seed + i * 3) * W * 1.2 - W * 0.1, th = (1.2 + nz(seed + i * 5) * 5) * u;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y - th / 2); ctx.lineTo(x + len, y + th / 2); ctx.closePath(); ctx.fill();
@@ -29614,7 +29624,7 @@ module.exports = ZStream;
   }
   function focusLines(ctx, f, a, W, H) {
     const seed = Math.floor(a * 12) * 17, n = Math.round(80 * f.intensity), R = Math.hypot(W, H) / 2, r0 = Math.min(W, H) * 0.3;
-    ctx.save(); ctx.translate(W / 2, H / 2); ctx.fillStyle = f.color || '#14141c'; ctx.globalAlpha = 0.75;
+    ctx.save(); ctx.translate(W / 2, H / 2); ctx.fillStyle = f.color || '#14141c'; ctx.globalAlpha = FXA * 0.75;
     for (let i = 0; i < n; i++) {
       const ang = (i / n) * 6.2832 + (nz(seed + i) - 0.5) * 0.06, w = 0.012 + nz(seed + i * 5) * 0.03, rin = r0 * (0.85 + nz(seed + i * 9) * 0.5);
       ctx.beginPath(); ctx.moveTo(Math.cos(ang - w) * R, Math.sin(ang - w) * R); ctx.lineTo(Math.cos(ang + w) * R, Math.sin(ang + w) * R); ctx.lineTo(Math.cos(ang) * rin, Math.sin(ang) * rin); ctx.closePath(); ctx.fill();
@@ -29625,20 +29635,20 @@ module.exports = ZStream;
     const I = f.intensity, u = W / 1920, col = f.color || '#fff';
     ctx.save(); ctx.fillStyle = col; ctx.strokeStyle = col;
     if (f.type === 'rain') {
-      const n = Math.round(130 * I); ctx.lineWidth = 1.6 * u; ctx.globalAlpha = 0.55;
+      const n = Math.round(130 * I); ctx.lineWidth = 1.6 * u; ctx.globalAlpha = FXA * 0.55;
       for (let i = 0; i < n; i++) { const sp = 1.3 + nz(i) * 0.7, y = wrap1(nz(i * 5) + a * sp), x = nz(i * 3) * 1.25 - 0.1 - y * 0.12; ctx.beginPath(); ctx.moveTo(x * W, y * H); ctx.lineTo((x - 0.012) * W, (y - 0.06) * H); ctx.stroke(); }
     } else if (f.type === 'dust') {
       const n = Math.round(70 * I);
-      for (let i = 0; i < n; i++) { const x = wrap1(nz(i) + a * 0.03 * (nz(i + 1) - 0.5) * 2), y = wrap1(nz(i * 7) - a * 0.02 * (0.3 + nz(i + 2))); ctx.globalAlpha = 0.25 + 0.4 * Math.abs(Math.sin(a * 1.3 + i)); ctx.beginPath(); ctx.arc(x * W, y * H, (1 + nz(i * 11) * 3) * u, 0, 6.2832); ctx.fill(); }
+      for (let i = 0; i < n; i++) { const x = wrap1(nz(i) + a * 0.03 * (nz(i + 1) - 0.5) * 2), y = wrap1(nz(i * 7) - a * 0.02 * (0.3 + nz(i + 2))); ctx.globalAlpha = FXA * 0.25 + 0.4 * Math.abs(Math.sin(a * 1.3 + i)); ctx.beginPath(); ctx.arc(x * W, y * H, (1 + nz(i * 11) * 3) * u, 0, 6.2832); ctx.fill(); }
     } else if (f.type === 'sparks') {
       const n = Math.round(45 * I);
-      for (let i = 0; i < n; i++) { const life = wrap1(a * 1.1 + nz(i)), x = 0.5 + (nz(i * 3) - 0.5) * 0.6 + (nz(i + 9) - 0.5) * life * 0.25, y = 1 - life * (0.3 + nz(i) * 0.6); ctx.globalAlpha = 1 - life; ctx.beginPath(); ctx.arc(x * W, y * H, (2 + nz(i * 5) * 3) * u * (1 - life * 0.5), 0, 6.2832); ctx.fill(); }
+      for (let i = 0; i < n; i++) { const life = wrap1(a * 1.1 + nz(i)), x = 0.5 + (nz(i * 3) - 0.5) * 0.6 + (nz(i + 9) - 0.5) * life * 0.25, y = 1 - life * (0.3 + nz(i) * 0.6); ctx.globalAlpha = FXA * 1 - life; ctx.beginPath(); ctx.arc(x * W, y * H, (2 + nz(i * 5) * 3) * u * (1 - life * 0.5), 0, 6.2832); ctx.fill(); }
     } else if (f.type === 'snow') {
-      const n = Math.round(100 * I); ctx.globalAlpha = 0.85;
+      const n = Math.round(100 * I); ctx.globalAlpha = FXA * 0.85;
       for (let i = 0; i < n; i++) { const y = wrap1(nz(i * 5) + a * 0.12 * (0.6 + nz(i))), x = nz(i) + Math.sin(a * 1.5 + i) * 0.02; ctx.beginPath(); ctx.arc(x * W, y * H, (1.5 + nz(i * 9) * 3.5) * u, 0, 6.2832); ctx.fill(); }
     } else if (f.type === 'smoke') {
       const n = Math.round(14 * I);
-      for (let i = 0; i < n; i++) { const life = wrap1(a * 0.15 + nz(i)), x = 0.15 + nz(i * 3) * 0.7 + Math.sin(life * 4 + i) * 0.05, y = 1.05 - life * 1.2, r = (0.08 + nz(i * 7) * 0.12 + life * 0.08) * H; ctx.globalAlpha = 0.33 * Math.sin(Math.PI * life); ctx.beginPath(); ctx.arc(x * W, y * H, r, 0, 6.2832); ctx.fill(); }
+      for (let i = 0; i < n; i++) { const life = wrap1(a * 0.15 + nz(i)), x = 0.15 + nz(i * 3) * 0.7 + Math.sin(life * 4 + i) * 0.05, y = 1.05 - life * 1.2, r = (0.08 + nz(i * 7) * 0.12 + life * 0.08) * H; ctx.globalAlpha = FXA * 0.33 * Math.sin(Math.PI * life); ctx.beginPath(); ctx.arc(x * W, y * H, r, 0, 6.2832); ctx.fill(); }
     }
     ctx.restore();
   }
@@ -29664,22 +29674,74 @@ module.exports = ZStream;
     }
   }
 
+  /* ---- efectos de estilo (post-proceso de la zona del plano) ---- */
+  const regionOf = (ctx, o) => { const m = ctx.getTransform(), x0 = Math.round(m.e), y0 = Math.round(m.f), w = Math.round(o.W * m.a), h = Math.round(o.H * m.d); return w < 4 || h < 4 ? null : { x0, y0, w, h, u: (o.W / 1920) * m.a }; };
+  const hexN = (c) => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); const n = m ? parseInt(m[1], 16) : 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const lumAt = (d, i) => (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+  function styleFx(ctx, o, f, a, k) {
+    const R = regionOf(ctx, o); if (!R) return;
+    const { x0, y0, w, h, u } = R, I = clamp(f.intensity == null ? 1 : f.intensity, 0.1, 3), mixv = f.mix == null ? 1 : f.mix;
+    if (f.type === 'glitch') { const ts = Math.floor(a * (f.rate || 14)); if (nz(ts * 7 + 3) < 0.45 / Math.max(0.5, I)) return; aberration(ctx, o, (f.split == null ? 0.012 : f.split) * I * o.W * (0.4 + nz(ts * 5))); }
+    const src = mk(0, w, h), sg = src.getContext('2d'); sg.setTransform(1, 0, 0, 1, 0, 0); sg.globalCompositeOperation = 'source-over'; sg.globalAlpha = 1; sg.clearRect(0, 0, w, h); sg.drawImage(ctx.canvas, x0, y0, w, h, 0, 0, w, h);
+    const res = mk(3, w, h), rg = res.getContext('2d'); rg.setTransform(1, 0, 0, 1, 0, 0); rg.globalCompositeOperation = 'source-over'; rg.globalAlpha = 1; rg.imageSmoothingEnabled = true; rg.clearRect(0, 0, w, h);
+    let alpha = k;
+    if (f.type === 'pixelate') {
+      const s2 = Math.max(1, Math.round((f.size || 16) * u * I)), sw = Math.max(1, Math.ceil(w / s2)), sh2 = Math.max(1, Math.ceil(h / s2)), sm = mk(4, sw, sh2), mg = sm.getContext('2d');
+      mg.setTransform(1, 0, 0, 1, 0, 0); mg.imageSmoothingEnabled = true; mg.clearRect(0, 0, sw, sh2); mg.drawImage(src, 0, 0, sw, sh2); rg.imageSmoothingEnabled = false; rg.drawImage(sm, 0, 0, sw, sh2, 0, 0, sw * s2, sh2 * s2);
+    } else if (f.type === 'posterize' || f.type === 'duotone') {
+      const im = sg.getImageData(0, 0, w, h), d = im.data;
+      if (f.type === 'posterize') { const lv = clamp(Math.round(f.lv || 4), 2, 16) - 1; for (let i = 0; i < d.length; i += 4) { d[i] = Math.round((d[i] / 255) * lv) / lv * 255; d[i + 1] = Math.round((d[i + 1] / 255) * lv) / lv * 255; d[i + 2] = Math.round((d[i + 2] / 255) * lv) / lv * 255; } }
+      else { const c1 = hexN(f.color), c2 = hexN(f.color2); for (let i = 0; i < d.length; i += 4) { const l = lumAt(d, i); d[i] = c1[0] + (c2[0] - c1[0]) * l; d[i + 1] = c1[1] + (c2[1] - c1[1]) * l; d[i + 2] = c1[2] + (c2[2] - c1[2]) * l; } }
+      rg.putImageData(im, 0, 0); if (f.type === 'duotone') alpha *= mixv;
+    } else if (f.type === 'glitch') {
+      const ts = Math.floor(a * (f.rate || 14)), n = Math.round(5 + 12 * I); rg.drawImage(src, 0, 0);
+      for (let i = 0; i < n; i++) { const yy = nz(ts * 13 + i) * h, hh = (0.01 + nz(ts * 17 + i * 3) * 0.07) * h, dx = (nz(ts * 19 + i * 5) - 0.5) * 2 * (f.shift == null ? 0.06 : f.shift) * w * Math.min(1.5, I); rg.drawImage(src, 0, yy, w, hh, dx, yy, w, hh); }
+    } else if (f.type === 'vhs') {
+      const band = Math.max(1, Math.round(2 * u)), wob = (f.wobble == null ? 0.5 : f.wobble) * 4 * u * I, trk = ((a * 0.25) % 1) * h, bl = (f.bleed == null ? 0.5 : f.bleed) * 3 * u;
+      for (let y = 0; y < h; y += band) { const near = Math.max(0, 1 - Math.abs(y - trk) / (h * 0.06)), dx = Math.sin(y * 0.045 + a * 9) * wob + near * (nz(Math.floor(a * 24) + y) - 0.3) * 26 * u * I; rg.drawImage(src, 0, y, w, band, dx + bl, y, w, band); }
+      rg.globalCompositeOperation = 'lighter'; rg.globalAlpha = 0.35; rg.drawImage(src, -bl * 1.6, 0); rg.globalCompositeOperation = 'source-over'; rg.globalAlpha = 1;
+      const ls = Math.max(2, Math.round((f.lines || 3) * u)); rg.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = 0; y < h; y += ls * 2) rg.fillRect(0, y, w, ls);
+      const nn = Math.round(((f.noise == null ? 0.5 : f.noise) * w * h) / 2600 * I), fr = Math.floor(a * 24); rg.fillStyle = '#fff'; for (let i = 0; i < nn; i++) { rg.globalAlpha = 0.15 + nz(fr * 31 + i * 7) * 0.5; rg.fillRect(nz(fr * 11 + i) * w, nz(fr * 13 + i * 3) * h, 1 + nz(i) * 12 * u, Math.max(1, u)); } rg.globalAlpha = 1;
+    } else if (f.type === 'edges') {
+      const sw = clamp(Math.round(w / Math.max(1, f.thick || 1.5)), 160, 1100), sh2 = Math.max(2, Math.round((sw * h) / w)), sm = mk(4, sw, sh2), mg = sm.getContext('2d');
+      mg.setTransform(1, 0, 0, 1, 0, 0); mg.imageSmoothingEnabled = true; mg.clearRect(0, 0, sw, sh2); mg.drawImage(src, 0, 0, sw, sh2);
+      const im = mg.getImageData(0, 0, sw, sh2), d = im.data, L = new Float32Array(sw * sh2); for (let i = 0, j = 0; i < d.length; i += 4, j++) L[j] = lumAt(d, i);
+      const col = hexN(f.color), th = f.thresh == null ? 0.25 : f.thresh, ed = mg.createImageData(sw, sh2), e = ed.data;
+      for (let y = 1; y < sh2 - 1; y++) for (let x = 1; x < sw - 1; x++) { const j = y * sw + x, gx = -L[j - sw - 1] - 2 * L[j - 1] - L[j + sw - 1] + L[j - sw + 1] + 2 * L[j + 1] + L[j + sw + 1], gy = -L[j - sw - 1] - 2 * L[j - sw] - L[j - sw + 1] + L[j + sw - 1] + 2 * L[j + sw] + L[j + sw + 1], g = Math.sqrt(gx * gx + gy * gy), al = clamp((g - th) / Math.max(0.02, th * 0.6), 0, 1), q = j * 4; e[q] = col[0]; e[q + 1] = col[1]; e[q + 2] = col[2]; e[q + 3] = al * 255; }
+      mg.putImageData(ed, 0, 0);
+      if (f.only) { rg.fillStyle = '#ffffff'; rg.fillRect(0, 0, w, h); } else rg.drawImage(src, 0, 0);
+      rg.imageSmoothingEnabled = true; rg.drawImage(sm, 0, 0, sw, sh2, 0, 0, w, h); alpha *= mixv;
+    } else if (f.type === 'htone') {
+      const cell = Math.max(3, Math.round((f.size || 10) * u * I)), cols = Math.ceil(w / cell), rows = Math.ceil(h / cell), sm = mk(4, cols, rows), mg = sm.getContext('2d');
+      mg.setTransform(1, 0, 0, 1, 0, 0); mg.imageSmoothingEnabled = true; mg.clearRect(0, 0, cols, rows); mg.drawImage(src, 0, 0, cols, rows);
+      const d = mg.getImageData(0, 0, cols, rows).data; rg.fillStyle = '#ffffff'; rg.fillRect(0, 0, w, h); rg.fillStyle = f.color || '#111111';
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) { const l = lumAt(d, (y * cols + x) * 4), r = cell * 0.72 * Math.sqrt(1 - l); if (r > 0.4) { rg.beginPath(); rg.arc((x + 0.5) * cell, (y + 0.5) * cell, r, 0, 6.2832); rg.fill(); } }
+      alpha *= mixv;
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip(); ctx.globalAlpha = clamp(alpha, 0, 1); ctx.drawImage(res, x0, y0); ctx.restore();
+  }
+  /* ajustes comunes a todos los efectos: velocidad, tamaño, opacidad, entrada y salida, mezcla y variación */
+  const fxTime = (f, a) => a * (f.speed == null ? 1 : f.speed);
   MC.fxOverlays = (ctx, shot, tl, o, anim) => {
     const { W, H } = o, list = shot.fx || [];
     list.forEach((f) => {
       if (f.type !== 'aberration') return;
       const a = tl - MC.fxStart(shot, f);
-      if (a >= 0 && a < f.dur) aberration(ctx, o, 0.008 * f.intensity * W * (1 - 0.5 * (a / f.dur)));
+      if (a >= 0 && a < f.dur) aberration(ctx, o, 0.008 * f.intensity * W * (1 - 0.5 * (a / f.dur)) * (f.opacity == null ? 1 : f.opacity));
     });
     list.forEach((f) => {
       if (ANIM.has(f.type) || f.type === 'aberration') return;
-      const a = tl - MC.fxStart(shot, f);
-      if (a < 0 || a >= f.dur) return;
-      const fadeIn = clamp(a / 0.12, 0, 1), fadeOut = clamp((f.dur - a) / 0.2, 0, 1);
-      ctx.save(); ctx.globalAlpha = fadeIn * fadeOut;
+      const a0 = tl - MC.fxStart(shot, f);
+      if (a0 < 0 || a0 >= f.dur) return;
+      SEED = f.seed || 0;
+      const a = fxTime(f, a0), fadeIn = clamp(a0 / Math.max(0.01, f.fadeIn == null ? 0.12 : f.fadeIn), 0, 1), fadeOut = clamp((f.dur - a0) / Math.max(0.01, f.fadeOut == null ? 0.2 : f.fadeOut), 0, 1);
+      if (STYLE.has(f.type)) { styleFx(ctx, o, f, a, fadeIn * fadeOut * (f.opacity == null ? 1 : f.opacity)); return; }
+      FXA = fadeIn * fadeOut * (f.opacity == null ? 1 : f.opacity);
+      ctx.save(); ctx.globalAlpha = FXA; if (f.blend) ctx.globalCompositeOperation = f.blend;
+      if (f.scale && f.scale !== 1) { ctx.translate(W / 2, H / 2); ctx.scale(f.scale, f.scale); ctx.translate(-W / 2, -H / 2); }
       if (f.type === 'speed') speedLines(ctx, f, a, W, H);
       else if (f.type === 'focus') focusLines(ctx, f, a, W, H);
-      else if (f.type === 'flash') { ctx.globalAlpha = Math.pow(1 - a / f.dur, 2) * clamp(f.intensity, 0, 1); ctx.fillStyle = f.color || '#fff'; ctx.fillRect(0, 0, W, H); }
+      else if (f.type === 'flash') { ctx.globalAlpha = FXA * Math.pow(1 - a / f.dur, 2) * clamp(f.intensity, 0, 1); ctx.fillStyle = f.color || '#fff'; ctx.fillRect(0, 0, W, H); }
       else if (f.type === 'fog' || f.type === 'beam') ambient(ctx, f, a, W, H);
       else particles(ctx, f, a, W, H);
       ctx.restore();
@@ -31466,7 +31528,7 @@ module.exports = ZStream;
     favs: [['Favoritos', 'Los sonidos, transiciones y estilos de subtítulos que marcas con la estrella ★, juntos en un solo sitio.', 'Pulsa la estrella de cualquier elemento; aquí aparece para usarlo rápido.'], ['Favourites', 'The sounds, transitions and subtitle styles you mark with the star ★, together in one place.', 'Press the star on any item; it shows up here for quick use.']],
     texto: [['Texto', 'Bocadillos, cajas de texto y onomatopeyas sobre la imagen. Pueden vincularse a la voz para que aparezcan cuando suena su línea.', 'Pulsa para añadir un texto en el cabezal, escribe, y elige tipografía, color y forma. Su duración se ajusta en la línea de tiempo y se anima con entradas, salidas y fotogramas clave.'], ['Text', 'Speech bubbles, text boxes and sound effects over the picture. They can be linked to the voice so they appear when their line plays.', 'Press to add text at the playhead, type, and choose font, colour and shape. Its length is set on the timeline and it is animated with entries, exits and keyframes.'], 'texto'],
     subtitulos: [['Subtítulos', 'Subtítulos hechos de palabras con tiempo propio, con estilos (resaltado de la palabra que suena) e importación de tiempos o SRT.', 'Escribe o pega el texto, ajusta los tiempos de cada palabra y elige un estilo. Cada línea es un clip de la pista de subtítulos.'], ['Subtitles', 'Subtitles built from words with their own timing, with styles (highlighting the word being spoken) and timing or SRT import.', 'Type or paste the text, adjust each word’s timing and pick a style. Each line is a clip on the subtitle track.']],
-    efectos: [['Efectos', 'Efectos de acción y ambiente sobre un plano: temblor, lluvia, niebla, líneas de velocidad, destellos…', 'Pasa el ratón por encima de un efecto para verlo funcionar en el plano antes de añadirlo; haz clic para añadirlo y ajusta su inicio, duración e intensidad. Aparecen como barras en la pista de efectos.'], ['Effects', 'Action and ambience effects over a shot: shake, rain, fog, speed lines, flashes…', 'Hover over an effect to see it working on the shot before adding it; click to add it and set its start, length and strength. They show as bars on the effects track.']],
+    efectos: [['Efectos', 'Efectos de acción y ambiente sobre un plano: temblor, lluvia, niebla, líneas de velocidad, destellos…', 'Pasa el ratón por encima de un efecto para verlo funcionar en el plano antes de añadirlo; haz clic para añadirlo y ajusta su inicio, duración e intensidad, sus parámetros propios y, en «Ajustes avanzados», la velocidad, la opacidad, la entrada y salida, la mezcla y la variación. Hay efectos de estilo de imagen (pixelado, posterizado, duotono, glitch, cinta VHS, contorno de tinta y trama de puntos). Aparecen como barras en la pista de efectos.'], ['Effects', 'Action and ambience effects over a shot: shake, rain, fog, speed lines, flashes…', 'Hover over an effect to see it working on the shot before adding it; click to add it and set its start, length and strength, its own parameters and, under “Advanced settings”, speed, opacity, fade in and out, blend and variation. There are image-style effects (pixelate, posterize, duotone, glitch, VHS tape, ink outline and halftone dots). They show as bars on the effects track.']],
     transiciones: [['Transiciones', 'Cómo se pasa de un plano al siguiente: corte, fundido, barrido, 3D…', 'Pasa el ratón por encima de una transición para verla en el visor con tus propios planos antes de aplicarla; haz clic para aplicarla al plano seleccionado. Su duración se ajusta en las propiedades del plano.'], ['Transitions', 'How the video moves from one shot to the next: cut, fade, wipe, 3D…', 'Pick a transition and it is applied to the selected shot. Its length is set in the shot’s properties.']],
     sfx: [['Efectos de sonido', 'Sonidos cortos (golpes, pasos, whoosh…) generados por el propio programa. No hace falta subir nada.', 'Pulsa para oír la muestra y «Añadir» para colocarlo en el cabezal. Se mueve y recorta en la línea de tiempo.'], ['Sound effects', 'Short sounds (hits, steps, whoosh…) generated by the program itself. Nothing to upload.', 'Press to hear a sample and “Add” to place it at the playhead. Move and trim it on the timeline.']],
     musica: [['Música', 'Músicas ambientales generadas por código, para acompañar la escena sin derechos de autor.', 'Escucha, añade a la pista de música y ajusta el volumen en el mezclador.'], ['Music', 'Ambient music generated by code, to accompany the scene without copyright worries.', 'Listen, add it to the music track and set the volume in the mixer.']],
@@ -33899,16 +33961,39 @@ module.exports = ZStream;
       /* efectos */
       {
         const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
+        const fxSl = (f, k, label, min, max, step, fmt, def) => MC.ui.slider({ label, min, max, step, value: f[k] == null ? def : f[k], fmt, onInput: (v) => { f[k] = v; touch(); }, onChange: commit });
+        const fxCol = (f, k, label) => h('div', { class: 'field' }, h('label', null, label), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: f[k] || '#ffffff', onInput: (e) => { f[k] = e.target.value; touch(); }, onChange: commit }));
+        const pc = (v) => Math.round(v * 100) + ' %';
+        /* ajustes propios de cada efecto de estilo y ajustes comunes a todos (velocidad, escala, opacidad, entrada y salida, mezcla, variación) */
+        const fxParamNodes = (f) => {
+          const n = [];
+          if (f.type === 'pixelate') n.push(fxSl(f, 'size', t('Tamaño del píxel', 'Pixel size'), 2, 80, 1, (v) => v + ' px', 16));
+          if (f.type === 'posterize') n.push(fxSl(f, 'lv', t('Niveles de color', 'Colour levels'), 2, 12, 1, (v) => String(v), 4));
+          if (f.type === 'duotone') n.push(fxCol(f, 'color2', t('Color de las luces', 'Highlight colour')), fxSl(f, 'mix', t('Mezcla con la imagen', 'Mix with the image'), 0, 1, 0.01, pc, 1));
+          if (f.type === 'glitch') n.push(fxSl(f, 'shift', t('Desplazamiento de las franjas', 'Slice shift'), 0.01, 0.2, 0.005, pc, 0.06), fxSl(f, 'split', t('Separación de color', 'Colour split'), 0, 0.04, 0.001, (v) => (v * 100).toFixed(1) + ' %', 0.012), fxSl(f, 'rate', t('Cambios por segundo', 'Changes per second'), 2, 40, 1, (v) => String(v), 14));
+          if (f.type === 'vhs') n.push(fxSl(f, 'lines', t('Grosor de las líneas', 'Scanline width'), 1, 8, 0.5, (v) => v + ' px', 3), fxSl(f, 'noise', t('Ruido', 'Noise'), 0, 1, 0.01, pc, 0.5), fxSl(f, 'wobble', t('Temblor horizontal', 'Horizontal wobble'), 0, 2, 0.05, pc, 0.5), fxSl(f, 'bleed', t('Desborde del color', 'Colour bleed'), 0, 2, 0.05, pc, 0.5));
+          if (f.type === 'edges') n.push(fxSl(f, 'thresh', t('Sensibilidad (más bajo = más líneas)', 'Sensitivity (lower = more lines)'), 0.05, 0.8, 0.01, (v) => v.toFixed(2), 0.25), fxSl(f, 'thick', t('Grosor de la línea', 'Line thickness'), 1, 5, 0.1, (v) => v.toFixed(1), 1.5), fxSl(f, 'mix', t('Opacidad de la tinta', 'Ink opacity'), 0, 1, 0.01, pc, 1),
+            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!f.only, onChange: (e) => { f.only = e.target.checked; commit(); } }), h('span', null, t('Solo las líneas, sobre papel blanco', 'Lines only, on white paper'))));
+          if (f.type === 'htone') n.push(fxSl(f, 'size', t('Tamaño de los puntos', 'Dot size'), 3, 40, 1, (v) => v + ' px', 10), fxSl(f, 'mix', t('Mezcla con la imagen', 'Mix with the image'), 0, 1, 0.01, pc, 1));
+          if (f.type === 'aberration') n.push(fxSl(f, 'opacity', t('Fuerza final', 'Final strength'), 0, 1.5, 0.05, pc, 1));
+          const anim = MC.isAnimFx(f.type), adv = [];
+          if (!anim && f.type !== 'aberration' && !MC.isStyleFx(f.type)) adv.push(fxSl(f, 'scale', t('Escala del efecto', 'Effect scale'), 0.5, 2.5, 0.05, (v) => '×' + v.toFixed(2), 1));
+          if (!anim && f.type !== 'aberration') adv.push(fxSl(f, 'speed', t('Velocidad', 'Speed'), 0.2, 3, 0.05, (v) => '×' + v.toFixed(2), 1), fxSl(f, 'opacity', t('Opacidad', 'Opacity'), 0, 1, 0.01, pc, 1), fxSl(f, 'fadeIn', t('Aparece en', 'Fades in over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.12), fxSl(f, 'fadeOut', t('Desaparece en', 'Fades out over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.2), fxSl(f, 'seed', t('Variación', 'Variation'), 0, 20, 1, (v) => String(v), 0));
+          if (!anim && f.type !== 'aberration' && !MC.isStyleFx(f.type)) adv.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mezcla', 'Blend')), MC.ui.chips([{ v: '', l: t('Normal', 'Normal') }, { v: 'screen', l: t('Pantalla', 'Screen') }, { v: 'overlay', l: t('Superponer', 'Overlay') }, { v: 'soft-light', l: t('Luz suave', 'Soft light') }, { v: 'multiply', l: t('Multiplicar', 'Multiply') }, { v: 'lighten', l: t('Aclarar', 'Lighten') }], f.blend || '', (v) => { f.blend = v; commit(); })));
+          if (adv.length) n.push(h('details', { class: 'fxadv' }, h('summary', null, t('Ajustes avanzados', 'Advanced settings')), h('div', { style: { display: 'grid', gap: '10px', paddingTop: '8px' } }, adv)));
+          return n;
+        };
         const addFx = (type) => { const f = MC.newFx(type, localT); if (f.start + f.dur > sh.duration) f.start = Math.max(0, Math.round((sh.duration - f.dur) * 100) / 100); sh.fx.push(f); S.fxsel = f.id; S.open.efectos = true; commit(); };
         const nodes = [
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilo de imagen', 'Image style')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'style').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         const propNodes = [];
         if (selF) {
-          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam', 'duotone', 'edges', 'htone'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
           propNodes.push(
             h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
@@ -33917,6 +34002,7 @@ module.exports = ZStream;
             MC.ui.slider({ label: t('Dura', 'Lasts'), min: 0.1, max: Math.max(1, sh.duration), step: 0.05, value: clamp(selF.dur, 0.1, Math.max(1, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.dur = v; touch(); }, onChange: commit }),
             MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 3, step: 0.05, value: selF.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selF.intensity = v; touch(); }, onChange: commit }),
             selF.type === 'speed' ? MC.ui.slider({ label: t('Ángulo', 'Angle'), min: -90, max: 90, step: 1, value: selF.angle || 0, fmt: (v) => v + '°', onInput: (v) => { selF.angle = v; touch(); }, onChange: commit }) : null,
+            ...fxParamNodes(selF),
             colored ? h('div', { class: 'field' }, h('label', { for: 'fc-' + selF.id }, t('Color', 'Colour')), h('input', { type: 'color', id: 'fc-' + selF.id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: selF.color || '#ffffff', onInput: (e) => { selF.color = e.target.value; touch(); }, onChange: commit })) : null,
             h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
               selF.type === 'impact' ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(MC.audio.LIBRARY.find((x) => x.id === 'golpe'), shotStart + MC.fxStart(sh, selF)); S.cl = c.id; S.fxsel = null; commit(); MC.toast(t('Sonido de golpe añadido en la pista SFX', 'Hit sound added to the SFX track')); } }, MC.icon('note', 14), t('Añadir sonido de golpe', 'Add hit sound')) : null,

@@ -1265,16 +1265,39 @@
       /* efectos */
       {
         const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
+        const fxSl = (f, k, label, min, max, step, fmt, def) => MC.ui.slider({ label, min, max, step, value: f[k] == null ? def : f[k], fmt, onInput: (v) => { f[k] = v; touch(); }, onChange: commit });
+        const fxCol = (f, k, label) => h('div', { class: 'field' }, h('label', null, label), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: f[k] || '#ffffff', onInput: (e) => { f[k] = e.target.value; touch(); }, onChange: commit }));
+        const pc = (v) => Math.round(v * 100) + ' %';
+        /* ajustes propios de cada efecto de estilo y ajustes comunes a todos (velocidad, escala, opacidad, entrada y salida, mezcla, variación) */
+        const fxParamNodes = (f) => {
+          const n = [];
+          if (f.type === 'pixelate') n.push(fxSl(f, 'size', t('Tamaño del píxel', 'Pixel size'), 2, 80, 1, (v) => v + ' px', 16));
+          if (f.type === 'posterize') n.push(fxSl(f, 'lv', t('Niveles de color', 'Colour levels'), 2, 12, 1, (v) => String(v), 4));
+          if (f.type === 'duotone') n.push(fxCol(f, 'color2', t('Color de las luces', 'Highlight colour')), fxSl(f, 'mix', t('Mezcla con la imagen', 'Mix with the image'), 0, 1, 0.01, pc, 1));
+          if (f.type === 'glitch') n.push(fxSl(f, 'shift', t('Desplazamiento de las franjas', 'Slice shift'), 0.01, 0.2, 0.005, pc, 0.06), fxSl(f, 'split', t('Separación de color', 'Colour split'), 0, 0.04, 0.001, (v) => (v * 100).toFixed(1) + ' %', 0.012), fxSl(f, 'rate', t('Cambios por segundo', 'Changes per second'), 2, 40, 1, (v) => String(v), 14));
+          if (f.type === 'vhs') n.push(fxSl(f, 'lines', t('Grosor de las líneas', 'Scanline width'), 1, 8, 0.5, (v) => v + ' px', 3), fxSl(f, 'noise', t('Ruido', 'Noise'), 0, 1, 0.01, pc, 0.5), fxSl(f, 'wobble', t('Temblor horizontal', 'Horizontal wobble'), 0, 2, 0.05, pc, 0.5), fxSl(f, 'bleed', t('Desborde del color', 'Colour bleed'), 0, 2, 0.05, pc, 0.5));
+          if (f.type === 'edges') n.push(fxSl(f, 'thresh', t('Sensibilidad (más bajo = más líneas)', 'Sensitivity (lower = more lines)'), 0.05, 0.8, 0.01, (v) => v.toFixed(2), 0.25), fxSl(f, 'thick', t('Grosor de la línea', 'Line thickness'), 1, 5, 0.1, (v) => v.toFixed(1), 1.5), fxSl(f, 'mix', t('Opacidad de la tinta', 'Ink opacity'), 0, 1, 0.01, pc, 1),
+            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!f.only, onChange: (e) => { f.only = e.target.checked; commit(); } }), h('span', null, t('Solo las líneas, sobre papel blanco', 'Lines only, on white paper'))));
+          if (f.type === 'htone') n.push(fxSl(f, 'size', t('Tamaño de los puntos', 'Dot size'), 3, 40, 1, (v) => v + ' px', 10), fxSl(f, 'mix', t('Mezcla con la imagen', 'Mix with the image'), 0, 1, 0.01, pc, 1));
+          if (f.type === 'aberration') n.push(fxSl(f, 'opacity', t('Fuerza final', 'Final strength'), 0, 1.5, 0.05, pc, 1));
+          const anim = MC.isAnimFx(f.type), adv = [];
+          if (!anim && f.type !== 'aberration' && !MC.isStyleFx(f.type)) adv.push(fxSl(f, 'scale', t('Escala del efecto', 'Effect scale'), 0.5, 2.5, 0.05, (v) => '×' + v.toFixed(2), 1));
+          if (!anim && f.type !== 'aberration') adv.push(fxSl(f, 'speed', t('Velocidad', 'Speed'), 0.2, 3, 0.05, (v) => '×' + v.toFixed(2), 1), fxSl(f, 'opacity', t('Opacidad', 'Opacity'), 0, 1, 0.01, pc, 1), fxSl(f, 'fadeIn', t('Aparece en', 'Fades in over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.12), fxSl(f, 'fadeOut', t('Desaparece en', 'Fades out over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.2), fxSl(f, 'seed', t('Variación', 'Variation'), 0, 20, 1, (v) => String(v), 0));
+          if (!anim && f.type !== 'aberration' && !MC.isStyleFx(f.type)) adv.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mezcla', 'Blend')), MC.ui.chips([{ v: '', l: t('Normal', 'Normal') }, { v: 'screen', l: t('Pantalla', 'Screen') }, { v: 'overlay', l: t('Superponer', 'Overlay') }, { v: 'soft-light', l: t('Luz suave', 'Soft light') }, { v: 'multiply', l: t('Multiplicar', 'Multiply') }, { v: 'lighten', l: t('Aclarar', 'Lighten') }], f.blend || '', (v) => { f.blend = v; commit(); })));
+          if (adv.length) n.push(h('details', { class: 'fxadv' }, h('summary', null, t('Ajustes avanzados', 'Advanced settings')), h('div', { style: { display: 'grid', gap: '10px', paddingTop: '8px' } }, adv)));
+          return n;
+        };
         const addFx = (type) => { const f = MC.newFx(type, localT); if (f.start + f.dur > sh.duration) f.start = Math.max(0, Math.round((sh.duration - f.dur) * 100) / 100); sh.fx.push(f); S.fxsel = f.id; S.open.efectos = true; commit(); };
         const nodes = [
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilo de imagen', 'Image style')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'style').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         const propNodes = [];
         if (selF) {
-          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam', 'duotone', 'edges', 'htone'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
           propNodes.push(
             h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
@@ -1283,6 +1306,7 @@
             MC.ui.slider({ label: t('Dura', 'Lasts'), min: 0.1, max: Math.max(1, sh.duration), step: 0.05, value: clamp(selF.dur, 0.1, Math.max(1, sh.duration)), fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { selF.dur = v; touch(); }, onChange: commit }),
             MC.ui.slider({ label: t('Intensidad', 'Intensity'), min: 0.2, max: 3, step: 0.05, value: selF.intensity, fmt: (v) => '×' + v.toFixed(2), onInput: (v) => { selF.intensity = v; touch(); }, onChange: commit }),
             selF.type === 'speed' ? MC.ui.slider({ label: t('Ángulo', 'Angle'), min: -90, max: 90, step: 1, value: selF.angle || 0, fmt: (v) => v + '°', onInput: (v) => { selF.angle = v; touch(); }, onChange: commit }) : null,
+            ...fxParamNodes(selF),
             colored ? h('div', { class: 'field' }, h('label', { for: 'fc-' + selF.id }, t('Color', 'Colour')), h('input', { type: 'color', id: 'fc-' + selF.id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: selF.color || '#ffffff', onInput: (e) => { selF.color = e.target.value; touch(); }, onChange: commit })) : null,
             h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
               selF.type === 'impact' ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(MC.audio.LIBRARY.find((x) => x.id === 'golpe'), shotStart + MC.fxStart(sh, selF)); S.cl = c.id; S.fxsel = null; commit(); MC.toast(t('Sonido de golpe añadido en la pista SFX', 'Hit sound added to the SFX track')); } }, MC.icon('note', 14), t('Añadir sonido de golpe', 'Add hit sound')) : null,
