@@ -271,3 +271,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Línea de tiempo: altura de filas (`S.rowK`, 0,6–2,6) con botones y Alt + rueda, guardada en `tlrow`; el panel puede crecer hasta el 82 %.
 - Versión: `MC.VERSION = '0.14'`; se decide mantener 0.x hasta que la persona decida que es la 1.0.
 - Decisiones tomadas con la persona: no se hará nada de 3D (formas ni modelos); el curso «Aprender» será solo en español (inglés: «próximamente»).
+
+## Fase B del plan nuevo: bases de atajos (versión 0.15)
+
+- Cinco bases nuevas en `keys.js` (After Effects, Affinity, CapCut, DaVinci Resolve, Blender), sin teclas repetidas dentro de cada base (comprobado por programa). Seis acciones nuevas configurables: selección, cuchilla, recortar principio y final, imán y fotograma clave; se quitan los atajos fijos V X Q W N. La hoja de atajos del estudio usa las teclas de la base elegida. Tabla comparativa en Ayuda → Atajos y aviso «escrito de memoria, a revisar» en las bases ajenas.
