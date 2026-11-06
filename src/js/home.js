@@ -200,6 +200,13 @@
       MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.update.now(); } }, t('Actualizar ahora', 'Update now'))) : null,
       (() => {
+        /* aviso para quien abre la herramienta desde una tablet o un móvil: el ordenador es el mejor sitio para editar vídeo */
+        const d = MC.device(), small = d.iOS || d.android || (window.matchMedia && matchMedia('(pointer: coarse)').matches) || innerWidth < 900 || /[?&]pcnote=1/.test(location.search);
+        if (!small || MC.store.get('pcnote', '') === '1') return null;
+        return h('div', { class: 'notice hint pcnote', role: 'note' }, h('span', null, h('b', null, t('Mejor en un ordenador. ', 'Best on a computer. ')), t('Editar vídeo va mucho mejor en un PC: más memoria, ratón y teclado, y exportar sin sorpresas. En tablets y móviles puedes mirar y retocar, pero algunas funciones (arrastrar con precisión, ventanas separadas, atajos, exportaciones pesadas) no funcionan del todo bien.', 'Editing video works much better on a PC: more memory, mouse and keyboard, and exports without surprises. On tablets and phones you can look around and tweak, but some features (precise dragging, separate windows, shortcuts, heavy exports) do not work fully well.')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { MC.store.set('pcnote', '1'); MC.app.render(); } }, t('Entendido', 'Got it')));
+      })(),
+      (() => {
         const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
         if (standalone || MC.store.get('hintInstall', '') === '1') return null;
         return h('div', { class: 'notice hint', role: 'note' }, h('span', null, h('b', null, t('Funciona mejor instalado. ', 'Works best installed. ')), t('Instálalo en tu ordenador o tableta: tiene más memoria para vídeo y PSD pesados, el navegador no borra tus proyectos y funciona sin conexión.', 'Install it on your computer or tablet: more memory for video and heavy PSDs, the browser will not clear your projects and it works offline.')),

@@ -28097,7 +28097,7 @@ module.exports = ZStream;
       ctx.globalAlpha = (layer.opacity == null ? 1 : layer.opacity) * (ia ? clamp(ia.op, 0, 1) : 1) * amul;
       if (layer.blend && BLEND[layer.blend]) ctx.globalCompositeOperation = layer.blend;
       const blur = Math.max(layer.blur || 0, !o.noClip && MC.rackBlur ? MC.rackBlur(shot, layer, tl) : 0), lf = anim && anim.layers[layer.id];
-      if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
+      if (o.fx !== false) { const flt = MC.itemFilter ? MC.itemFilter(layer, blur > 0 ? blur * W / 1920 : 0, W / 1920) : (blur > 0 ? 'blur(' + (blur * W / 1920).toFixed(2) + 'px)' : ''); if (flt) ctx.filter = flt; }
       ctx.translate(W / 2 + (lf ? lf.dx * W : 0), H / 2 + (lf ? lf.dy * H : 0));
       if (cam.rot || lf) ctx.rotate(((cam.rot + (lf ? lf.rot : 0)) * Math.PI) / 180);
       ctx.scale(g.zl * (lf ? lf.sc : 1), g.zl * (lf ? lf.sc : 1));
@@ -28109,13 +28109,17 @@ module.exports = ZStream;
         const pxx = ix + iw * pv.x, pyy = iy + ih * pv.y, kz = 1 / (g.zl * (lf ? lf.sc : 1));
         ctx.translate(pxx + ia.dx * W * kz, pyy + ia.dy * H * kz); if (ia.rot) ctx.rotate((ia.rot * Math.PI) / 180); if (ia.sc !== 1 || ia.sx !== 1 || ia.sy !== 1) ctx.scale(ia.sc * (ia.sx || 1), ia.sc * (ia.sy || 1)); ctx.translate(-pxx, -pyy);
       }
+      if (layer.rot) { const rpx = ix + iw * pv.x, rpy = iy + ih * pv.y; ctx.translate(rpx, rpy); ctx.rotate((layer.rot * Math.PI) / 180); ctx.translate(-rpx, -rpy); }
       if (layer.flipX || layer.flipY) { const fcx = ix + iw / 2, fcy = iy + ih / 2; ctx.translate(fcx, fcy); ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1); ctx.translate(-fcx, -fcy); }
       { const cr = MC.effCrop(layer, ia); if (o.cropBoxes) o.cropBoxes['L' + layer.id] = { m: ctx.getTransform(), x: ix, y: iy, w: iw, h: ih, crop: cr }; if (cr) { ctx.beginPath(); ctx.rect(ix + iw * cr.l, iy + ih * cr.t, iw * (1 - cr.l - cr.r), ih * (1 - cr.t - cr.b)); ctx.clip(); } }
+      const crr = MC.effCrop(layer, ia), shRect = crr ? { x: ix + iw * crr.l, y: iy + ih * crr.t, w: iw * (1 - crr.l - crr.r), h: ih * (1 - crr.t - crr.b) } : { x: ix, y: iy, w: iw, h: ih };
+      if (MC.clipShape && o.fx !== false) MC.clipShape(ctx, layer, shRect);
       let src = img.bitmap;
       if (img.video) { src = MC.video.el(layer.id + (aid !== layer.assetId ? ':' + aid : ''), img); if (src.readyState < 2) { ctx.restore(); return; } }
       const rx3 = ((layer.r3 && layer.r3.x) || 0) + (ia ? ia.rx : 0), ry3 = ((layer.r3 && layer.r3.y) || 0) + (ia ? ia.ry : 0);
       if (MC.draw3D && MC.has3D(rx3, ry3) && o.fx !== false) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: ix, y: iy, w: iw, h: ih }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, layer.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && layer.look && o.fx !== false) MC.drawItem(ctx, src, layer, ix, iy, iw, ih, o, k0); else ctx.drawImage(src, ix, iy, iw, ih);
+      if (MC.drawFrame && o.fx !== false) MC.drawFrame(ctx, layer, shRect, W / 1920 / Math.max(0.0001, g.zl * (lf ? lf.sc : 1)));
       /* efecto de enfoque: el resto de la página se atenúa y la viñeta queda a la vista */
       const pg = shot.page;
       if (layer.page && pg && cam.rect && o.focus !== false && pg.dim > 0) {
@@ -28995,12 +28999,15 @@ module.exports = ZStream;
       ctx.save();
       ctx.globalAlpha = clamp(b.op, 0, 1);
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
-      const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
+      const flt = MC.itemFilter ? MC.itemFilter(it, 0, (o.W / 1920) * k0) : ''; if (flt) ctx.filter = flt;
       ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip || it.flipY) ctx.scale(it.flip ? -1 : 1, it.flipY ? -1 : 1);
       { const cr = MC.effCrop(it, b.an); if (o.cropBoxes) o.cropBoxes['O' + it.id] = { m: ctx.getTransform(), x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h, crop: cr }; if (cr) { ctx.beginPath(); ctx.rect(-b.w / 2 + b.w * cr.l, -b.h / 2 + b.h * cr.t, b.w * (1 - cr.l - cr.r), b.h * (1 - cr.t - cr.b)); ctx.clip(); } }
+      const crO = MC.effCrop(it, b.an), shR = crO ? { x: -b.w / 2 + b.w * crO.l, y: -b.h / 2 + b.h * crO.t, w: b.w * (1 - crO.l - crO.r), h: b.h * (1 - crO.t - crO.b) } : { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h };
+      if (MC.clipShape) MC.clipShape(ctx, it, shR);
       const rx3 = ((it.r3 && it.r3.x) || 0) + (b.an ? b.an.rx : 0), ry3 = ((it.r3 && it.r3.y) || 0) + (b.an ? b.an.ry : 0), pv = (b.an && b.an.pv) || { x: 0.5, y: 0.5 };
       if (MC.draw3D && MC.has3D(rx3, ry3)) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, it.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
+      if (MC.drawFrame) MC.drawFrame(ctx, it, shR, o.W / 1920);
       ctx.restore();
     });
   };
@@ -29412,15 +29419,32 @@ module.exports = ZStream;
   };
 
   /* ---------- aspecto por elemento: sombra, resplandor, contorno y color ---------- */
-  MC.ITEM_LOOK = { shadow: { on: true, color: '#000000', a: 0.55, blur: 18, x: 8, y: 10 }, glow: { on: true, color: '#8C7CFF', a: 0.9, blur: 26 }, outline: { on: true, color: '#ffffff', w: 5 }, adj: { bright: 1, contrast: 1, sat: 1, hue: 0 } };
-  const adjOn = (a) => a && (Math.abs((a.bright == null ? 1 : a.bright) - 1) > 0.01 || Math.abs((a.contrast == null ? 1 : a.contrast) - 1) > 0.01 || Math.abs((a.sat == null ? 1 : a.sat) - 1) > 0.01 || Math.abs(a.hue || 0) > 0.5);
+  MC.ITEM_LOOK = { shadow: { on: true, color: '#000000', a: 0.55, blur: 18, x: 8, y: 10 }, glow: { on: true, color: '#8C7CFF', a: 0.9, blur: 26 }, outline: { on: true, color: '#ffffff', w: 5 }, adj: { bright: 1, contrast: 1, sat: 1, hue: 0, gray: 0, sepia: 0, invert: 0, blur: 0 } };
+  const adjOn = (a) => a && (Math.abs((a.bright == null ? 1 : a.bright) - 1) > 0.01 || Math.abs((a.contrast == null ? 1 : a.contrast) - 1) > 0.01 || Math.abs((a.sat == null ? 1 : a.sat) - 1) > 0.01 || Math.abs(a.hue || 0) > 0.5 || (a.gray || 0) > 0.01 || (a.sepia || 0) > 0.01 || (a.invert || 0) > 0.01 || (a.blur || 0) > 0.1);
   MC.hasItemLook = (it) => { const L = it.look; return !!(L && ((L.shadow && L.shadow.on) || (L.glow && L.glow.on) || (L.outline && L.outline.on) || adjOn(L.adj))); };
   /* Cadena de filtros de lienzo: desenfoque + ajustes de color. */
-  MC.itemFilter = (it, blurPx) => {
+  MC.itemFilter = (it, blurPx, u) => {
     const a = it.look && it.look.adj, f = [];
-    if (blurPx > 0) f.push('blur(' + blurPx.toFixed(2) + 'px)');
+    const bl = (blurPx > 0 ? blurPx : 0) + (a && a.blur > 0 ? a.blur * (u || 1) : 0);
+    if (bl > 0) f.push('blur(' + bl.toFixed(2) + 'px)');
+    if (adjOn(a)) { if (a.gray > 0.01) f.push('grayscale(' + a.gray + ')'); if (a.sepia > 0.01) f.push('sepia(' + a.sepia + ')'); if (a.invert > 0.01) f.push('invert(' + a.invert + ')'); }
     if (adjOn(a)) f.push('brightness(' + (a.bright == null ? 1 : a.bright) + ')', 'contrast(' + (a.contrast == null ? 1 : a.contrast) + ')', 'saturate(' + (a.sat == null ? 1 : a.sat) + ')', 'hue-rotate(' + (a.hue || 0) + 'deg)');
     return f.join(' ');
+  };
+  /* Forma y marco: recorte en rectángulo, esquinas redondeadas o elipse, y un borde de color. rect = {x,y,w,h} ya recortado. */
+  const shapePath = (ctx, sp, r) => {
+    ctx.beginPath();
+    if (sp.type === 'ellipse') { ctx.ellipse(r.x + r.w / 2, r.y + r.h / 2, Math.max(0.5, r.w / 2), Math.max(0.5, r.h / 2), 0, 0, Math.PI * 2); return; }
+    const rad = sp.type === 'round' ? Math.min(r.w, r.h) * clamp(sp.r == null ? 0.15 : sp.r, 0, 0.5) : 0;
+    if (!rad) { ctx.rect(r.x, r.y, r.w, r.h); return; }
+    ctx.moveTo(r.x + rad, r.y); ctx.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, rad); ctx.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, rad); ctx.arcTo(r.x, r.y + r.h, r.x, r.y, rad); ctx.arcTo(r.x, r.y, r.x + r.w, r.y, rad); ctx.closePath();
+  };
+  MC.hasShape = (it) => !!(it.shape && ((it.shape.type && it.shape.type !== 'rect') || it.shape.bw > 0));
+  MC.clipShape = (ctx, it, r) => { if (it.shape && it.shape.type && it.shape.type !== 'rect') { shapePath(ctx, it.shape, r); ctx.clip(); } };
+  /* el borde se dibuja por dentro de la forma: se traza el doble de ancho y el recorte deja solo la mitad interior */
+  MC.drawFrame = (ctx, it, r, u) => {
+    const sp = it.shape; if (!sp || !(sp.bw > 0)) return;
+    ctx.save(); shapePath(ctx, sp, r); ctx.lineJoin = 'round'; ctx.lineWidth = 2 * sp.bw * u; ctx.strokeStyle = sp.bc || '#ffffff'; ctx.stroke(); ctx.restore();
   };
   const silCache = new WeakMap();
   const silhouette = (src, color) => {
@@ -31414,15 +31438,15 @@ module.exports = ZStream;
     capa_pivot: [['Pivote y límites', 'El pivote es el punto alrededor del que gira y escala la capa. Los límites impiden que se salga demasiado.', 'Mueve el pivote a la articulación o al centro que quieras (por ejemplo, el hombro de un brazo) antes de animar el giro.'], ['Pivot and limits', 'The pivot is the point the layer rotates and scales around. Limits stop it going too far.', 'Move the pivot to the joint or centre you want (for example, an arm’s shoulder) before animating the rotation.']],
     capa_kf: [['Fotogramas clave', 'Un fotograma clave guarda el valor de una propiedad en un instante. Entre dos fotogramas, el programa calcula el movimiento con la curva que elijas.', 'Mueve el cabezal, cambia un valor y pulsa el rombo de esa propiedad. Los rombos aparecen en la línea de tiempo y se afinan en la pestaña Curvas.'], ['Keyframes', 'A keyframe stores a property’s value at one moment. Between two keyframes the program works out the movement with the curve you choose.', 'Move the playhead, change a value and press that property’s diamond. The diamonds show on the timeline and are refined in the Curves tab.'], 'keyframes'],
     capa_3d: [['Giro en 3D', 'Gira la capa sobre los ejes X, Y y Z con perspectiva, como una carta que se da la vuelta.', 'Mueve los deslizadores de giro; con fotogramas clave puedes animar el giro.'], ['3D turn', 'Rotates the layer on the X, Y and Z axes with perspective, like a card flipping over.', 'Move the rotation sliders; with keyframes you can animate the turn.']],
-    capa_look: [['Sombra, brillo, contorno y color', 'Retoques de la capa: sombra, resplandor, contorno y ajustes de color.', 'Activa lo que necesites y ajusta la intensidad; cada capa tiene los suyos.'], ['Shadow, glow, outline and colour', 'Layer touches: shadow, glow, outline and colour adjustments.', 'Turn on what you need and set the strength; each layer has its own.']],
+    capa_look: [['Sombra, brillo, contorno y color', 'Retoques de la capa: sombra, resplandor, contorno y ajustes de color (brillo, contraste, saturación, tono, blanco y negro, sepia, invertir, desenfoque).', 'Activa lo que necesites y ajusta la intensidad. «Copiar ajustes» y «Pegar ajustes» pasan todo el aspecto, la forma, el recorte y las animaciones a otra capa o superposición.'], ['Shadow, glow, outline and colour', 'Layer touches: shadow, glow, outline and colour adjustments.', 'Turn on what you need and set the strength; each layer has its own.']],
     capa_time: [['Tiempo y gestos', 'Cuándo aparece y desaparece la capa dentro del plano, y cambios de ilustración por tramos (gestos).', 'Divide la capa en el cabezal y reemplaza la ilustración de un tramo; el cambio puede ser corte o fundido.'], ['Timing and gestures', 'When the layer appears and disappears inside the shot, and illustration swaps by segment (gestures).', 'Split the layer at the playhead and replace a segment’s illustration; the change can be a cut or a crossfade.']],
-    capa_crop: [['Recorte y reflejo', 'Recorta la imagen o el vídeo y refléjalo en horizontal o vertical.', 'Arrastra los tiradores del recuadro en el visor (lados y esquinas), usa los deslizadores o escribe el valor en %. El rombo de cada lado lo anima en el tiempo, por ejemplo para revelar una imagen. «Quitar recorte» lo devuelve todo. Útil sobre todo en superposiciones.'], ['Crop and flip', 'Crops the image or video and flips it horizontally or vertically.', 'Drag the box handles in the viewer (sides and corners), use the sliders or type the value in %. The diamond on each side animates it over time, for example to reveal an image. “Remove crop” brings everything back. Especially useful on overlays.']],
+    capa_crop: [['Recorte, forma y marco', 'Recorta la imagen o el vídeo, refléjalo, dale forma (rectángulo, esquinas redondeadas o círculo) y ponle un marco de color.', 'Arrastra los tiradores del recuadro en el visor (lados y esquinas), usa los deslizadores o escribe el valor en %. El rombo de cada lado lo anima en el tiempo, por ejemplo para revelar una imagen. «Quitar recorte» lo devuelve todo. Útil sobre todo en superposiciones.'], ['Crop, shape and frame', 'Crops the image or video, flips it, gives it a shape (rectangle, rounded corners or circle) and adds a colour frame.', 'Drag the box handles in the viewer (sides and corners), use the sliders or type the value in %. The diamond on each side animates it over time, for example to reveal an image. “Remove crop” brings everything back. Especially useful on overlays.']],
     overlay: [['Superposición', 'Una imagen o vídeo colocado encima del plano en su propia pista y con su propio tiempo: logotipos, recuadros, vídeos.', 'Arrastra un recurso a la línea de tiempo, colócalo en el visor y ajusta tamaño, giro y opacidad. Las pistas de superposición se apilan.'], ['Overlay', 'An image or video placed over the shot on its own track and with its own timing: logos, insets, clips.', 'Drag an asset to the timeline, place it in the viewer and set size, rotation and opacity. Overlay tracks stack.'], 'superposiciones'],
     overlay_anim: [['Animación de la superposición', 'Entradas, salidas y bucles de la superposición.', 'Igual que en las capas: elige una animación y su duración.'], ['Overlay animation', 'Entries, exits and loops for the overlay.', 'Same as for layers: pick an animation and its length.']],
     overlay_kf: [['Fotogramas clave', 'Anima posición, tamaño, giro y opacidad de la superposición en el tiempo.', 'Cambia un valor en el cabezal y pulsa el rombo; los puntos aparecen en la línea de tiempo.'], ['Keyframes', 'Animate the overlay’s position, size, rotation and opacity over time.', 'Change a value at the playhead and press the diamond; the points show on the timeline.'], 'keyframes'],
     overlay_3d: [['Giro en 3D', 'Gira la superposición en 3D con perspectiva.', 'Mueve los deslizadores de giro o anímalos con fotogramas clave.'], ['3D turn', 'Rotates the overlay in 3D with perspective.', 'Move the rotation sliders or animate them with keyframes.']],
     overlay_look: [['Sombra, brillo, contorno y color', 'Sombra, resplandor, contorno y color de la superposición.', 'Activa lo que necesites y ajusta la intensidad.'], ['Shadow, glow, outline and colour', 'Shadow, glow, outline and colour of the overlay.', 'Turn on what you need and set the strength.']],
-    overlay_crop: [['Recorte y reflejo', 'Recorta la imagen o el vídeo de la superposición y refléjalo.', 'Arrastra los tiradores del recuadro en el visor, o usa los deslizadores y los valores en %; el rombo de cada lado lo anima.'], ['Crop and flip', 'Crops the overlay’s image or video and flips it.', 'Drag the box handles in the viewer, or use the sliders and the % values; the diamond on each side animates it.']],
+    overlay_crop: [['Recorte, forma y marco', 'Recorta la imagen o el vídeo de la superposición, refléjalo, dale forma (esquinas redondeadas o círculo) y ponle un marco de color.', 'Arrastra los tiradores del recuadro en el visor, o usa los deslizadores y los valores en %; el rombo de cada lado lo anima.'], ['Crop, shape and frame', 'Crops the overlay’s image or video, flips it, gives it a shape (rounded corners or circle) and adds a colour frame.', 'Drag the box handles in the viewer, or use the sliders and the % values; the diamond on each side animates it.']],
     tray: [['Trayectoria de cámara', 'Una ruta dibujada que la cámara sigue en lugar de ir en línea recta del inicio al final.', 'Pulsa en el visor para añadir puntos de la ruta y arrastra para moverlos; la cámara pasa por ellos en orden.'], ['Camera route', 'A drawn path the camera follows instead of going straight from start to end.', 'Click in the viewer to add route points and drag to move them; the camera goes through them in order.']],
     pagina: [['Página', 'En modo Página, la cámara recorre las viñetas detectadas de la página en orden de lectura.', 'Corrige las viñetas detectadas, cambia el orden de lectura (occidental o manga) y el tipo de movimiento.'], ['Page', 'In Page mode the camera tours the page’s detected panels in reading order.', 'Fix the detected panels, change the reading order (Western or manga) and the type of move.']],
     tira: [['Tira', 'En modo Webtoon, la cámara baja por una tira vertical larga, se detiene y hace zoom en los momentos clave.', 'Añade pausas donde quieras detenerte y ajusta la velocidad de bajada.'], ['Strip', 'In Webtoon mode the camera scrolls down a long vertical strip, pauses and zooms at key moments.', 'Add pauses where you want to stop and set the scroll speed.']],
@@ -32480,6 +32504,13 @@ module.exports = ZStream;
       MC.topBar(),
       MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
         h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.update.now(); } }, t('Actualizar ahora', 'Update now'))) : null,
+      (() => {
+        /* aviso para quien abre la herramienta desde una tablet o un móvil: el ordenador es el mejor sitio para editar vídeo */
+        const d = MC.device(), small = d.iOS || d.android || (window.matchMedia && matchMedia('(pointer: coarse)').matches) || innerWidth < 900 || /[?&]pcnote=1/.test(location.search);
+        if (!small || MC.store.get('pcnote', '') === '1') return null;
+        return h('div', { class: 'notice hint pcnote', role: 'note' }, h('span', null, h('b', null, t('Mejor en un ordenador. ', 'Best on a computer. ')), t('Editar vídeo va mucho mejor en un PC: más memoria, ratón y teclado, y exportar sin sorpresas. En tablets y móviles puedes mirar y retocar, pero algunas funciones (arrastrar con precisión, ventanas separadas, atajos, exportaciones pesadas) no funcionan del todo bien.', 'Editing video works much better on a PC: more memory, mouse and keyboard, and exports without surprises. On tablets and phones you can look around and tweak, but some features (precise dragging, separate windows, shortcuts, heavy exports) do not work fully well.')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { MC.store.set('pcnote', '1'); MC.app.render(); } }, t('Entendido', 'Got it')));
+      })(),
       (() => {
         const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
         if (standalone || MC.store.get('hintInstall', '') === '1') return null;
@@ -33581,7 +33612,8 @@ module.exports = ZStream;
           animSlider(l, { prop: 'sc', es: 'Escala', en: 'Scale', min: 0.5, max: 3, step: 0.01, fmt: (v) => '×' + v.toFixed(2), mode: 'mul', base: () => l.scale || 1, set: (v) => set('scale', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }),
           animSlider(l, { prop: 'x', es: 'Posición X', en: 'Position X', min: -0.5, max: 0.5, step: 0.005, fmt: (v) => v.toFixed(3), mode: 'add', base: () => l.x || 0, set: (v) => set('x', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }),
           animSlider(l, { prop: 'y', es: 'Posición Y', en: 'Position Y', min: -0.5, max: 0.5, step: 0.005, fmt: (v) => v.toFixed(3), mode: 'add', base: () => l.y || 0, set: (v) => set('y', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }),
-          animSlider(l, { prop: 'op', es: 'Opacidad', en: 'Opacity', min: 0, max: 1, step: 0.01, fmt: (v) => Math.round(v * 100) + ' %', mode: 'mul', base: () => (l.opacity == null ? 1 : l.opacity), set: (v) => set('opacity', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }));
+          animSlider(l, { prop: 'op', es: 'Opacidad', en: 'Opacity', min: 0, max: 1, step: 0.01, fmt: (v) => Math.round(v * 100) + ' %', mode: 'mul', base: () => (l.opacity == null ? 1 : l.opacity), set: (v) => set('opacity', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }),
+          animSlider(l, { prop: 'rot', es: 'Giro', en: 'Rotation', min: -180, max: 180, step: 1, fmt: (v) => Math.round(v) + '°', mode: 'add', base: () => l.rot || 0, set: (v) => set('rot', v), start: () => curStart() + (l.ts || 0), dur: () => (l.te == null ? sh.duration : l.te) - (l.ts || 0) }));
         if (q) capaNodes.push(h('div', { class: 'calc' },
           h('span', { class: 'cap' }, t('Calidad de la imagen', 'Image quality')),
           h('span', null, q.img.w + ' × ' + q.img.h + ' px'),
@@ -34006,6 +34038,7 @@ module.exports = ZStream;
           MC.ui.slider({ label: t('Pivote Y', 'Pivot Y'), min: 0, max: 1, step: 0.01, value: pv.y, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setP((l2.pivot || pv).x, v), onChange: commit }),
           MC.ui.slider({ label: t('Límite de desplazamiento por parallax', 'Parallax travel limit'), min: 0, max: 0.2, step: 0.005, value: l2.maxShift || 0, fmt: (v) => (v === 0 ? t('sin límite', 'no limit') : (v * 100).toFixed(1) + ' %'), onInput: (v) => { l2.maxShift = v; S.dirty = true; touch(); }, onChange: commit })];
       };
+      const COPY_KEYS = ['look', 'shape', 'crop', 'blend', 'opacity', 'flipX', 'flipY', 'flip', 'r3', 'persp', 'anim', 'pivot'];
       const lookNodes = (it) => {
         const D = MC.ITEM_LOOK, L = it.look, ens = () => (it.look = it.look || {}), cb = (key, label, hint) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!(L && L[key] && L[key].on), onChange: (e) => { const l2 = ens(); l2[key] = Object.assign({}, D[key], l2[key] || {}, { on: e.target.checked }); commit(); } }), h('span', null, label, hint ? h('small', null, hint) : null));
         const colorF = (key, k, label) => h('div', { class: 'field' }, h('label', null, label), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: (L[key] && L[key][k]) || D[key][k], onInput: (e) => { L[key][k] = e.target.value; S.dirty = true; touch(); }, onChange: commit }));
@@ -34022,7 +34055,14 @@ module.exports = ZStream;
           MC.ui.slider({ label: t('Contraste', 'Contrast'), min: 0, max: 2, step: 0.01, value: A.contrast == null ? 1 : A.contrast, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('contrast', v), onChange: commit }),
           MC.ui.slider({ label: t('Saturación', 'Saturation'), min: 0, max: 2.5, step: 0.01, value: A.sat == null ? 1 : A.sat, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('sat', v), onChange: commit }),
           MC.ui.slider({ label: t('Tono', 'Hue'), min: -180, max: 180, step: 1, value: A.hue || 0, fmt: (v) => v + '°', onInput: (v) => setA('hue', v), onChange: commit }),
-          h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, disabled: !MC.hasItemLook(it), onClick: () => { it.look = null; commit(); } }, t('Quitar todo el aspecto', 'Clear all styling')));
+          MC.ui.slider({ label: t('Blanco y negro', 'Black and white'), min: 0, max: 1, step: 0.01, value: A.gray || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('gray', v), onChange: commit }),
+          MC.ui.slider({ label: t('Sepia', 'Sepia'), min: 0, max: 1, step: 0.01, value: A.sepia || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('sepia', v), onChange: commit }),
+          MC.ui.slider({ label: t('Invertir colores', 'Invert colours'), min: 0, max: 1, step: 0.01, value: A.invert || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setA('invert', v), onChange: commit }),
+          MC.ui.slider({ label: t('Desenfoque', 'Blur'), min: 0, max: 40, step: 0.5, value: A.blur || 0, fmt: (v) => v + ' px', onInput: (v) => setA('blur', v), onChange: commit }),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t('Copia el aspecto, la forma, el recorte, la mezcla y las animaciones de este elemento', 'Copies the styling, shape, crop, blend and animations of this element'), onClick: () => { S.styleClip = JSON.parse(JSON.stringify(COPY_KEYS.reduce((o2, k) => { if (it[k] !== undefined) o2[k] = it[k]; return o2; }, {}))); MC.toast(t('Ajustes copiados. Pégalos en otra capa o superposición.', 'Settings copied. Paste them on another layer or overlay.')); } }, MC.icon('copy', 14), t('Copiar ajustes', 'Copy settings')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !S.styleClip, onClick: () => { COPY_KEYS.forEach((k) => { delete it[k]; }); Object.assign(it, JSON.parse(JSON.stringify(S.styleClip))); commit(); MC.toast(t('Ajustes pegados', 'Settings pasted')); } }, MC.icon('layersx', 14), t('Pegar ajustes', 'Paste settings')),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !MC.hasItemLook(it), onClick: () => { it.look = null; commit(); } }, t('Quitar todo el aspecto', 'Clear all styling'))));
         return nodes;
       };
       const r3Nodes = (it) => {
@@ -34043,13 +34083,20 @@ module.exports = ZStream;
         const sl = row.map((q) => animSlider(it, { prop: q[1], es: q[2], en: q[3], min: 0, max: 0.9, step: 0.005, fmt: pct, mode: 'add', base: () => base(q[0]), set: (v) => setC(q[0], v), start, dur }));
         /* valores exactos en %, al lado de los deslizadores: se actualizan al mover el cabezal si el recorte está animado */
         const nums = row.map((q, i) => { const id = 'cn-' + MC.uid(), inp = h('input', { class: 'input', id, type: 'number', min: 0, max: 90, step: 1, value: Math.round(sl[i].getEff() * 100), style: { width: '70px' }, onChange: (e) => { const v = clamp((+e.target.value || 0) / 100, 0, 0.9); sl[i].setEff(v); } }); S.animCtl.push({ refresh: () => { if (document.activeElement !== inp) inp.value = Math.round(sl[i].getEff() * 100); } }); return h('div', { class: 'field' }, h('label', { for: id }, t(q[2].replace('Recortar ', ''), q[3].replace('Crop ', '')) + ' %'), inp); });
+        const SP = it.shape || {}, setS = (k, v) => { it.shape = Object.assign({ type: 'rect', r: 0.15, bw: 0, bc: '#ffffff' }, it.shape, { [k]: v }); S.dirty = true; touch(); };
+        const shapeNodes = [h('div', { class: 'eyebrow', style: { marginTop: '6px' } }, t('Forma y marco', 'Shape and frame')),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma', 'Shape')), MC.ui.chips([{ v: 'rect', l: t('Rectángulo', 'Rectangle') }, { v: 'round', l: t('Esquinas redondeadas', 'Rounded corners') }, { v: 'ellipse', l: t('Círculo / elipse', 'Circle / ellipse') }], SP.type || 'rect', (v) => { setS('type', v); commit(); })),
+          SP.type === 'round' ? MC.ui.slider({ label: t('Redondeo', 'Roundness'), min: 0, max: 0.5, step: 0.01, value: SP.r == null ? 0.15 : SP.r, fmt: (v) => Math.round(v * 200) + ' %', onInput: (v) => setS('r', v), onChange: commit }) : null,
+          MC.ui.slider({ label: t('Grosor del marco', 'Frame width'), min: 0, max: 40, step: 0.5, value: SP.bw || 0, fmt: (v) => (v ? v + ' px' : t('sin marco', 'no frame')), onInput: (v) => setS('bw', v), onChange: commit }),
+          SP.bw > 0 ? h('div', { class: 'field' }, h('label', null, t('Color del marco', 'Frame colour')), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: SP.bc || '#ffffff', onInput: (e) => setS('bc', e.target.value), onChange: commit })) : null,
+          it.shape ? h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete it.shape; commit(); } }, t('Quitar forma y marco', 'Remove shape and frame')) : null];
         return [h('p', { class: 'cap' }, t('Recorta los bordes de la imagen o del vídeo. No se borra nada: puedes devolverlos cuando quieras. Arrastra los tiradores del recuadro en el visor, usa los deslizadores o escribe el valor; el rombo de cada lado lo anima en el tiempo.', 'Crop the edges of the image or video. Nothing is deleted: you can bring them back any time. Drag the handles of the box in the viewer, use the sliders or type the value; the diamond on each side animates it over time.')),
           sl[0], sl[1], sl[2], sl[3],
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, nums),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it[fx]), onClick: () => { it[fx] = !it[fx]; commit(); } }, MC.icon('flipH', 14), t('Reflejar horizontal', 'Flip horizontal')),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it.flipY), onClick: () => { it.flipY = !it.flipY; commit(); } }, MC.icon('flipV', 14), t('Reflejar vertical', 'Flip vertical')),
-            it.crop || (it.kf || []).some((q) => MC.KF_CROP.some((k) => q[k] != null)) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; (it.kf || []).forEach((q) => MC.KF_CROP.forEach((k) => { delete q[k]; })); it.kf = (it.kf || []).filter((q) => KFP.some((d) => q[d[0]] != null)); commit(); } }, t('Quitar recorte', 'Remove crop')) : null)];
+            it.crop || (it.kf || []).some((q) => MC.KF_CROP.some((k) => q[k] != null)) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; (it.kf || []).forEach((q) => MC.KF_CROP.forEach((k) => { delete q[k]; })); it.kf = (it.kf || []).filter((q) => KFP.some((d) => q[d[0]] != null)); commit(); } }, t('Quitar recorte', 'Remove crop')) : null), ...shapeNodes];
       };
       if (tx && !tx.link) { const tsp = MC.textSpan(tx, p); textSecs.push(sec('texto_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(tx, tsp.start, tsp.dur))); }
       const timeNodes = (l) => {
@@ -34071,8 +34118,8 @@ module.exports = ZStream;
         if (l.ts || l.te != null || (l.segs && l.segs.length)) nodes.push(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { delete l.ts; l.te = null; l.segs = []; delete l.xf; S.sg = 0; commit(); } }, t('Quitar todos los cortes y tiempos', 'Remove all cuts and timing')));
         return nodes;
       };
-      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
-      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte y reflejo', 'Crop and flip'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
+      const layerAnimSecs = l ? [sec('capa_anim', t('Animación de la capa', 'Layer animation'), animNodes(l, () => sh.duration)), sec('capa_rig', t('Personaje: parpadeo y boca', 'Character: blink and mouth'), rigNodes(l)), sec('capa_3d', t('Giro en 3D', '3D turn'), r3Nodes(l)), sec('capa_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(l)), sec('capa_pivot', t('Pivote y límites', 'Pivot and limits'), pivotNodes(l)), sec('capa_time', t('Tiempo y gestos', 'Timing and gestures'), timeNodes(l)), sec('capa_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(l, false)), sec('capa_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(l, curStart() + (l.ts || 0), (l.te == null ? sh.duration : l.te) - (l.ts || 0)))] : [];
+      const ovAnimSec = ovx ? [sec('overlay_anim', t('Animación de la superposición', 'Overlay animation'), animNodes(ovx, () => ovx.dur)), sec('overlay_3d', t('Giro en 3D', '3D turn'), r3Nodes(ovx)), sec('overlay_look', t('Sombra, brillo, contorno y color', 'Shadow, glow, outline and colour'), lookNodes(ovx)), sec('overlay_crop', t('Recorte, forma y marco', 'Crop, shape and frame'), cropNodes(ovx, true)), sec('overlay_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(ovx, ovx.start, ovx.dur))] : [];
 
       /* selección múltiple */
       const mItems = multiItems(), mNodes = [], mSet = (fn) => { mItems.forEach((q) => fn(q.it, q.k)); commit(); };
