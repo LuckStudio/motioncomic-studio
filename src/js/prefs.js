@@ -27,7 +27,7 @@
   MC.openPrefs = (section) => {
     const st = { sec: section || 'look' }, pane = h('div', { class: 'pane' }), nav = h('nav', { role: 'tablist', 'aria-label': t('Secciones de las preferencias', 'Preference sections') });
     let modal = null;
-    const SECS = [['look', 'sliders', t('Apariencia', 'Appearance')], ['data', 'folder', t('Datos guardados', 'Stored data')], ['install', 'download', t('Instalación', 'Installation')], ['perf', 'film', t('Rendimiento', 'Performance')], ['keys', 'text', t('Atajos y ayuda', 'Shortcuts and help')], ['about', 'star', t('Acerca de', 'About')]];
+    const SECS = [['look', 'sliders', t('Apariencia', 'Appearance')], ['ui', 'layers', t('Interfaz', 'Interface')], ['data', 'folder', t('Datos guardados', 'Stored data')], ['install', 'download', t('Instalación', 'Installation')], ['perf', 'film', t('Rendimiento', 'Performance')], ['keys', 'text', t('Atajos y ayuda', 'Shortcuts and help')], ['about', 'star', t('Acerca de', 'About')]];
     const draw = async () => {
       MC.clear(nav); SECS.forEach((s) => nav.append(h('button', { type: 'button', role: 'tab', 'aria-selected': String(st.sec === s[0]), onClick: () => { st.sec = s[0]; draw(); } }, MC.icon(s[1], 18), s[2])));
       MC.clear(pane); await PANES[st.sec](pane);
@@ -64,6 +64,30 @@
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Modo táctil (botones grandes, nombres al mantener pulsado)', 'Touch mode (big buttons, names on long press)')), MC.ui.seg([{ v: 'auto', l: t('Automático', 'Automatic') }, { v: 'on', l: t('Siempre', 'Always') }, { v: 'off', l: t('Nunca', 'Never') }], MC.store.get('touch', 'auto'), (v) => { MC.store.set('touch', v); MC.applyPrefs(); }, t('Modo táctil', 'Touch mode'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations')), h('span', { class: 'cap' }, t('Incluye las entradas al abrir un proyecto y al cambiar de espacio de trabajo.', 'Includes the entrances when opening a project and switching workspaces.'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idioma', 'Language')), MC.ui.seg([{ v: 'es', l: 'Español' }, { v: 'en', l: 'English' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); modal.close(); MC.app.render(); }, t('Idioma', 'Language'))));
+      },
+      async ui(el) {
+        const C = MC.cfg, again = () => { MC.clear(el); PANES.ui(el); }, hid = (id) => C.isHidden(id);
+        const chk = (id, label) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !hid(id), onChange: (e) => { C.set(id, !e.target.checked); } }), h('span', null, label));
+        const views = C.views(), names = Object.keys(views), nameIn = h('input', { class: 'input', placeholder: t('Nombre de la vista, por ejemplo «Tablet»', 'View name, for example “Tablet”'), 'aria-label': t('Nombre de la vista', 'View name'), maxlength: 40 });
+        const file = h('input', { type: 'file', accept: '.mcview,application/json', hidden: true, onChange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const n = await C.importFile(f); if (n) { MC.toast(t('Vista importada: ', 'View imported: ') + n); again(); } else MC.toast(t('Ese archivo no es una vista de MotionComic.', 'That file is not a MotionComic view.')); } });
+        const viewRow = (n) => h('div', { class: 'viewrow' }, h('b', null, n),
+          h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { if (C.apply(views[n])) { MC.toast(t('Vista aplicada: ', 'View applied: ') + n); again(); } } }, t('Aplicar', 'Apply')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => C.exportFile(n, views[n]) }, MC.icon('download', 14), t('Exportar', 'Export')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { const v = prompt(t('Nuevo nombre', 'New name'), n); if (v && v.trim() && C.rename(n, v.trim().slice(0, 40))) again(); } }, t('Renombrar', 'Rename')),
+          h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => { C.remove(n); again(); } }, MC.icon('trash', 14), t('Borrar', 'Delete')));
+        const grp = (title, items, pre) => h('div', { class: 'field' }, h('span', { class: 'cap' }, title), h('div', { class: 'checks' }, items.map((q) => chk(pre + q[0], t(q[1], q[2])))));
+        MC.put(el, h('h3', null, t('Interfaz', 'Interface')),
+          h('p', { class: 'cap' }, t('Elige qué herramientas y pestañas quieres ver. Por defecto se ven todas. Lo que ocultes sigue funcionando con su atajo de teclado y puedes volver a mostrarlo aquí en cualquier momento.', 'Choose which tools and tabs you want to see. By default all are visible. What you hide still works with its keyboard shortcut and you can show it again here at any time.')),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Vistas guardadas (disposición de paneles, lo oculto, tema y tamaño)', 'Saved views (panel layout, what is hidden, theme and size)')),
+            names.length ? h('div', { class: 'views' }, names.map(viewRow)) : h('p', { class: 'cap' }, t('Aún no has guardado ninguna vista.', 'You have not saved any view yet.')),
+            h('div', { class: 'viewadd' }, nameIn, h('button', { class: 'btn btn-s', type: 'button', onClick: () => { const n = nameIn.value.trim().slice(0, 40); if (!n) { nameIn.focus(); return; } C.save(n); MC.toast(t('Vista guardada: ', 'View saved: ') + n); again(); } }, t('Guardar la vista actual', 'Save the current view'))),
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => file.click() }, MC.icon('upload', 14), t('Importar una vista…', 'Import a view…')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => C.exportFile(nameIn.value.trim() || t('Mi vista', 'My view')) }, MC.icon('download', 14), t('Exportar la vista actual a un archivo', 'Export the current view to a file')), file)),
+          grp(t('Barra de herramientas de la línea de tiempo', 'Timeline toolbar'), C.TB, 'tb:'),
+          grp(t('Pestañas de Montaje', 'Edit tabs'), C.TABS_M, 'tab:m:'),
+          grp(t('Pestañas de Efectos y audio', 'Effects and audio tabs'), C.TABS_C, 'tab:c:'),
+          grp(t('Espacios de trabajo', 'Workspaces'), C.WSS, 'ws:'),
+          h('p', { class: 'cap' }, t('Los paneles (Visor, Línea de tiempo, Herramientas, Capas y Propiedades) se muestran, ocultan o mueven desde el menú Vista del estudio.', 'The panels (Viewer, Timeline, Tools, Layers and Properties) are shown, hidden or moved from the studio’s View menu.')),
+          h('div', null, h('button', { class: 'btn btn-s', type: 'button', onClick: () => { C.reset(); again(); } }, MC.icon('undo', 14), t('Mostrar todo', 'Show everything'))));
       },
       async data(el) {
         const [projects, assets, usage] = await Promise.all([MC.db.all('projects'), MC.db.all('assets'), MC.db.usage()]);

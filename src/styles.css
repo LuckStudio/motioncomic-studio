@@ -693,3 +693,8 @@ html[data-marks="1"] .rail button[aria-selected="true"], html[data-marks="1"] .s
 .check { display: flex; gap: 10px; align-items: flex-start; }
 .fieldgroup .check { justify-content: flex-start; text-align: left; } .fieldgroup .check span { flex: 1; }
 .colorin::-webkit-color-swatch-wrapper { padding: 2px; } .colorin::-webkit-color-swatch { border: 0; }
+
+/* ---------- personalizar la interfaz ---------- */
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 14px; }
+.views { display: grid; gap: 6px; } .viewrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); padding: 6px 10px; } .viewrow b { flex: 1; min-width: 100px; }
+.viewadd { display: flex; gap: 8px; flex-wrap: wrap; } .viewadd .input { flex: 1; min-width: 180px; }

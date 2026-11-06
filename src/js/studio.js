@@ -360,7 +360,9 @@
     const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['clipboard', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
       texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['curve', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
-    const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
+    /* pestañas visibles del espacio actual (según lo que el usuario haya ocultado en Preferencias › Interfaz) */
+    const wsTabs = (ws) => { const all = WS[ws].tabs, k = ws === 'montaje' ? 'm' : 'c', vis = all.filter((id) => !MC.cfg.isHidden('tab:' + k + ':' + id)); return vis.length ? vis : all; };
+    const curTab = () => { const tabs = wsTabs(S.ws); if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
     const editView = () => { const sh = shot(); return sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam'; };
     /* la pestaña de Cámara abre la vista de edición de cámara; la de Capas y profundidad, la vista 3D */
     function tabView(tab) {
@@ -637,6 +639,10 @@
         (LY.last || []).filter((k) => !POP[k]).length ? h('button', { type: 'button', onClick: () => { S.viewOpen = false; renderViewMenu(); (LY.last || []).slice().forEach((k) => popOut(k)); } }, MC.icon('frame', 14), t('Reabrir las ventanas de la última vez', 'Reopen last session’s windows')) : null,
         h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Tamaño de la interfaz', 'Interface size')),
         h('div', { style: { padding: '2px 10px 6px' } }, MC.ui.seg(UI_SCALES.map((q) => ({ v: q[0], l: q[1] })), UI_SCALES.some((q) => q[0] === z) ? z : null, setUiScale, t('Tamaño de la interfaz', 'Interface size'))),
+        h('div', { class: 'eyebrow', style: { padding: '8px 10px 2px' } }, t('Mis vistas', 'My views')),
+        h('div', { class: 'wlist' }, Object.keys(MC.cfg.views()).map((n) => h('div', null, h('span', null, n), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.cfg.apply(MC.cfg.views()[n]); S.viewOpen = false; renderViewMenu(); MC.toast(t('Vista aplicada: ', 'View applied: ') + n); } }, t('Aplicar', 'Apply'))))),
+        h('button', { type: 'button', onClick: () => { S.viewOpen = false; renderViewMenu(); askName(t('Nombre de la vista', 'View name'), '', (v) => { MC.cfg.save(v.slice(0, 40)); MC.toast(t('Vista guardada: ', 'View saved: ') + v); }); } }, MC.icon('bookmark', 14), t('Guardar la vista actual…', 'Save the current view…')),
+        h('button', { type: 'button', onClick: () => { S.viewOpen = false; renderViewMenu(); MC.openPrefs('ui'); } }, MC.icon('gear', 14), t('Personalizar la interfaz…', 'Customise the interface…')),
         h('button', { type: 'button', onClick: () => { resetLayout(); setUiScale('1'); } }, MC.icon('undo', 14), t('Restablecer disposición y tamaño', 'Reset layout and size')));
       el.viewBtn.parentNode.append(el.viewMenu);
     }
@@ -658,7 +664,7 @@
         MC.mark(24),
         h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
         el.fmt,
-        h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).map(wsBtn)),
+        h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).filter((v) => v === S.ws || !MC.cfg.isHidden('ws:' + v)).map(wsBtn)),
         el.jobChip, el.status, el.undo, el.redo,
         h('span', { class: 'vwrap' }, el.fileBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.fileOpen), title: t('Archivo: copia en archivo, versiones y biblioteca', 'File: file copy, versions and library'), 'aria-label': t('Menú de archivo', 'File menu'), onClick: () => { S.fileOpen = !S.fileOpen; S.viewOpen = false; renderTop(); } }, MC.icon('folder'))),
         h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; S.fileOpen = false; renderTop(); } }, MC.icon('sliders'))),
@@ -1552,7 +1558,7 @@
     /* ---------- carril y paneles ---------- */
     function renderRail() {
       MC.clear(el.rail);
-      MC.put(el.rail, WS[S.ws].tabs.map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; if (S.ws === 'montaje') { tabView(id); renderVbar(); buildSim(); fit(); } renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
+      MC.put(el.rail, wsTabs(S.ws).map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; if (S.ws === 'montaje') { tabView(id); renderVbar(); buildSim(); fit(); } renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
     }
     const thumbCache = new Map();
     const djb = (str) => { let hh = 5381; for (let i = 0; i < str.length; i++) hh = ((hh << 5) + hh + str.charCodeAt(i)) | 0; return hh; };
@@ -3661,6 +3667,22 @@
       },
     };
     wireGestures(); wireCtx(studio); labelRegions(); wireKb();
+    /* herramientas y pestañas que el usuario ha decidido ocultar */
+    function applyUiHide() {
+      if (!el.tlBar) return;
+      const C = MC.cfg, gone = (key) => C.isHidden('tb:' + key) || Object.keys(C.TB_GROUPS).some((g) => C.TB_GROUPS[g].includes(key) && C.isHidden('tb:' + g));
+      [...el.tlBar.children].forEach((n) => { if (n.dataset && n.dataset.tb && n.dataset.tb !== 'target') n.hidden = gone(n.dataset.tb); });
+      const kids = [...el.tlBar.children].filter((n) => !n.hidden); let prevSep = true;
+      kids.forEach((n, i) => { if (n.classList.contains('tlsep')) { const next = kids.slice(i + 1).find((q) => !q.classList.contains('tlsep') && !q.classList.contains('tlfill')); n.style.display = prevSep || !next ? 'none' : ''; if (n.style.display !== 'none') prevSep = true; } else if (!n.classList.contains('tlfill')) prevSep = false; });
+    }
+    const offCfg = MC.cfg.onChange(() => { applyUiHide(); renderTop(); renderRail(); renderPanels(); });
+    applyUiHide();
+    function setLayout(o) {
+      o = o || {}; const g = LY.geo;
+      Object.assign(LY, LAYOUT_DEF, o, { dock: Object.assign({}, DEF_DOCK, o.dock || {}), geo: g, last: [] });
+      if (LY.hr) { LY.hy = LY.hp = true; LY.hr = false; }
+      applyLayout(); saveLayout(); renderTop();
+    }
     { const del0 = ACT.delete; ACT.delete = (e) => { const n = S.hpos, r = del0(e); if (r !== false && S.hpos > n && !document.querySelector('.toast .tact')) undoToast(t('Eliminado', 'Deleted')); return r; }; }
     function onKey(e) {
       if (S.alive && e.key === 'F6') { e.preventDefault(); cycleRegion(e.shiftKey ? -1 : 1); return; }
@@ -3692,7 +3714,7 @@
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { offCfg(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
@@ -3701,7 +3723,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); },
-      refit: () => { fit(); }, redraw: () => { S.dirty = true; renderPanels(); },
+      refit: () => { fit(); }, redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }

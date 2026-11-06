@@ -142,3 +142,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Temas, alto contraste y escala automática
 
 - Temas gris medio, azul noche, sepia y personalizado (acento y fondo propios con aviso de contraste); alto contraste para base clara u oscura; selección con borde y ✓; escala automática en la primera apertura en una tablet.
+
+## Personalizar la interfaz y vistas guardadas
+
+- Preferencias › Interfaz: ocultar herramientas de la línea de tiempo, pestañas y espacios de trabajo; vistas guardadas con nombre (disposición, ocultos, tema, tamaño), exportables e importables como .mcview.
