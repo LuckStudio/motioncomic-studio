@@ -31468,7 +31468,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.15'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.16'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -34001,7 +34001,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           h('div', { style: { display: 'flex', gap: '8px' } }, h('select', { id: selSfx, class: 'input' }, lib.map((x) => h('option', { value: x.id }, t(x.es, x.en)))),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async (e) => { const b2 = e.currentTarget; b2.disabled = true; const c = await addLibrarySound(lib.find((x) => x.id === document.getElementById(selSfx).value), MC.textSpan(tx, p).start); S.cl = c.id; S.tx = null; commit(); MC.toast(t('Sonido añadido en la pista SFX', 'Sound added to the SFX track')); } }, t('Añadir', 'Add')))));
         nodes.push(h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { p.texts = p.texts.filter((x) => x !== tx); S.tx = null; commit(); } }, MC.icon('trash', 14), t('Eliminar texto', 'Delete text')));
-        textSecs.push(sec('texto', t('Texto', 'Text') + ' · ' + ({ bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: t('onomatopeya', 'sound word'), sub: t('subtítulo', 'subtitle') })[tx.kind], nodes));
+        textSecs.push(sec('texto', t('Texto', 'Text') + ' · ' + ({ bubble: t('bocadillo', 'bubble'), box: t('caja', 'box'), sfx: t('onomatopeya', 'sound word'), sub: t('subtítulo', 'subtitle') })[tx.kind], nodes.concat([alignRow(false)])));
       }
       const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', hidden: true, id: 'f-font', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -34552,8 +34552,8 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       }
 
       const ordered = [sec('plano', t('Plano', 'Shot') + ' · ' + sh.name, planoNodes), sec('camara', t('Cámara', 'Camera'), camNodes),
-        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
-        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovNodes), sec('multi', t('Selección múltiple', 'Multiple selection'), mNodes), sec('subs', t('Subtítulos', 'Subtitles') + (sbx ? ' · ' + sbx.name : ''), sbNodes), sec('marker', t('Marcador', 'Marker'), mkNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
+        sec('capa', l ? t('Capa', 'Layer') + ' · ' + l.name : t('Capa', 'Layer'), l ? capaNodes.concat([alignRow(false)]) : capaNodes), sec('proyecto', t('Formato y parallax', 'Format and parallax'), projNodes),
+        sec('overlay', t('Superposición', 'Overlay') + (ovx ? ' · ' + ovx.name : ''), ovx ? ovNodes.concat([alignRow(false)]) : ovNodes), sec('multi', t('Selección múltiple', 'Multiple selection'), mNodes.length ? mNodes.concat([alignRow(true)]) : mNodes), sec('subs', t('Subtítulos', 'Subtitles') + (sbx ? ' · ' + sbx.name : ''), sbNodes), sec('marker', t('Marcador', 'Marker'), mkNodes), sec('vinetas', t('Viñetas del proyecto', 'Project panels'), vinetasNodes), sec('vineta', t('Viñeta del plano', 'Shot panel'), vinetaNodes), sec('transicion', t('Transición de entrada', 'Entry transition'), trNodes)];
       const allP = MC.presets.all(), presIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'f-presets', onChange: async (e) => {
         const f = e.target.files[0]; e.target.value = ''; if (!f) return;
         try { const n = MC.presets.importFrom(await f.text()); renderInspector(); MC.toast(t(n + ' presets importados', n + ' presets imported')); } catch (err) { MC.toast(t('Ese archivo no es de presets de MotionComic Studio.', 'That file is not a MotionComic Studio presets file.')); }
@@ -34944,6 +34944,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       overlay: [['basic', ['Básico', 'Basic'], ['overlay']], ['anim', ['Animación', 'Animation'], ['overlay_anim', 'overlay_kf']], ['d3', ['3D', '3D'], ['overlay_3d']], ['crop', ['Recorte', 'Crop'], ['overlay_crop']], ['look', ['Aspecto', 'Look'], ['overlay_look']]],
     };
     S.autoKf = MC.store.get('autokf', '') === '1';
+    S.alignOn = MC.store.get('alignon', '1') !== '0';
     S.rowK = clamp(+MC.store.get('tlrow', '1') || 1, 0.6, 2.6);
     S.ptab = (() => { try { return JSON.parse(MC.store.get('ptab', '{}')) || {}; } catch (e) { return {}; } })();
     function setPtab(kind, id, keepScroll) { S.ptab[kind] = id; MC.store.set('ptab', JSON.stringify(S.ptab)); if (!keepScroll) el.inspBody.scrollTop = 0; renderPanels(); if (!keepScroll) el.inspBody.scrollTop = 0; }
@@ -35016,6 +35017,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           onClick: () => { S.autoKf = !S.autoKf; MC.store.set('autokf', S.autoKf ? '1' : ''); renderVbar(); MC.announce(S.autoKf ? t('Grabando fotogramas clave', 'Recording keyframes') : t('Grabación apagada', 'Recording off')); if (S.autoKf) MC.toast(t('Grabando: mueve el cabezal y cambia posición, escala o giro; cada cambio crea un fotograma clave.', 'Recording: move the playhead and change position, scale or rotation; every change creates a keyframe.'), { ms: 6000 }); } }, h('i', { class: 'recdot', 'aria-hidden': 'true' }), t('Grabar fotogramas', 'Record keyframes')) : null,
         S.view === 'out' ? h('span', { class: 'vwrap' }, h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.ovMenu), title: t('Guías, zonas seguras, huecos y simulador', 'Guides, safe zones, gaps and simulator'), onClick: () => { S.ovMenu = !S.ovMenu; renderVbar(); if (S.ovMenu) setTimeout(() => { const f = el.vbar.querySelector('.tmenu input'); if (f) f.focus(); }, 0); } }, MC.icon('layersx', 14), t('Superposiciones', 'Overlays')),
           S.ovMenu ? h('div', { class: 'tmenu', role: 'menu', onKeydown: (e) => { if (e.key === 'Escape') { S.ovMenu = false; renderVbar(); } } },
+            h('label', null, h('input', { type: 'checkbox', checked: S.alignOn, onChange: (e) => { S.alignOn = e.target.checked; MC.store.set('alignon', S.alignOn ? '1' : '0'); renderVbar(); } }), t('Alineación automática (Alt la desactiva)', 'Auto alignment (Alt turns it off)')),
             chk('guides', t('Guías (tercios y margen)', 'Guides (thirds and margin)')), chk('safe', t('Zonas seguras de redes', 'Social safe zones'), !portrait), chk('holes', t('Marcar huecos en rojo', 'Mark gaps in red')), chk('rulers', t('Reglas (en píxeles)', 'Rulers (in pixels)')),
             h('label', null, h('input', { type: 'checkbox', checked: !!S.sim, disabled: !portrait, onChange: (e) => { S.sim = e.target.checked ? 'tiktok' : null; renderVbar(); buildSim(); } }), t('Simulador de plataformas', 'Platform simulator')),
             S.sim ? h('div', { style: { padding: '4px 10px 8px' } }, MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network'))) : null,
@@ -35204,6 +35206,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       if (S.safe) drawSafe(ctx, c);
       if (S.guides) drawGuides(ctx, c);
       if (S.view === 'out' && !S.playing) drawCropUI(ctx);
+      if (S.alignGuides) drawAlignGuides(ctx);
       const hit = !S.playing && S.tx && hits.find((x) => x.id === S.tx);
       if (hit) {
         const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', b = hit.bounds;
@@ -35383,6 +35386,83 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     }
     /* interacción con el visor */
     let drag = null;
+    /* ---------- alineación automática (imán del visor) y alinear / distribuir ----------
+       Al arrastrar una capa, superposición o texto en el visor, sus bordes y su centro se pegan al centro del encuadre, a los bordes, a los tercios,
+       a los márgenes y zonas seguras y a los bordes y centros de los demás elementos, con una línea guía. Alt la desactiva mientras arrastras. */
+    const bbOfBox = (b) => {
+      const cr = b.crop || { l: 0, t: 0, r: 0, b: 0 }, X0 = b.x + b.w * cr.l, X1 = b.x + b.w * (1 - cr.r), Y0 = b.y + b.h * cr.t, Y1 = b.y + b.h * (1 - cr.b), m = b.m;
+      const xs = [], ys = []; [[X0, Y0], [X1, Y0], [X1, Y1], [X0, Y1]].forEach((q) => { xs.push(m.a * q[0] + m.c * q[1] + m.e); ys.push(m.b * q[0] + m.d * q[1] + m.f); });
+      return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    };
+    /* cajas de todo lo que se ve en el visor, en píxeles del lienzo: { key, kind, it, x0, y0, x1, y1 } */
+    function viewBoxes() {
+      const c = el.canvas, o = opts(), k2 = c.width / o.W, out = [], sh = shot(), p = S.project;
+      Object.keys(S.cropBoxes || {}).forEach((key) => {
+        const id = key.slice(1); let it = null, kind = '';
+        if (key[0] === 'L') { it = sh && sh.layers.find((l) => l.id === id); kind = 'layer'; } else { it = p.overlays.find((x) => x.id === id); kind = 'overlay'; }
+        if (it) out.push(Object.assign({ key, kind, it }, bbOfBox(S.cropBoxes[key])));
+      });
+      (S.hits || []).forEach((hh) => { const it = txById(hh.id); if (it && hh.bounds) out.push({ key: 'T' + hh.id, kind: 'text', it, x0: hh.bounds.x0 * k2, x1: hh.bounds.x1 * k2, y0: hh.bounds.y0 * k2, y1: hh.bounds.y1 * k2 }); });
+      return out;
+    }
+    const boxOfItem = (it) => viewBoxes().find((b) => b.it === it) || null;
+    function alignSnap(p) {
+      const c = el.canvas; S.alignGuides = null;
+      if (!S.alignOn || S.altSnap || S.view !== 'out' || !drag) return { sx: 0, sy: 0 };
+      if (!drag.bb) { const me = viewBoxes().find((b) => b.it === (drag.l || drag.it)); if (!me) return { sx: 0, sy: 0 }; drag.bb = me; drag.others = viewBoxes().filter((b) => b.it !== me.it); }
+      const W = c.width, H = c.height, dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, bb = drag.bb, thr = 8 * (c.width / c.getBoundingClientRect().width);
+      /* si el elemento ya cubre casi todo el encuadre (fondo, capas con sobreescaneo) solo se pega su centro: sus bordes siempre rondan los del encuadre */
+      const cur = { x: (bb.x1 - bb.x0 >= W * 0.9) ? [(bb.x0 + bb.x1) / 2 + dx] : [bb.x0 + dx, (bb.x0 + bb.x1) / 2 + dx, bb.x1 + dx], y: (bb.y1 - bb.y0 >= H * 0.9) ? [(bb.y0 + bb.y1) / 2 + dy] : [bb.y0 + dy, (bb.y0 + bb.y1) / 2 + dy, bb.y1 + dy] };
+      const tx = [[0, 'borde'], [W, 'borde'], [W / 2, 'centro'], [W / 3, 'tercio'], [(2 * W) / 3, 'tercio'], [W * 0.05, 'margen'], [W * 0.95, 'margen']], ty = [[0, 'borde'], [H, 'borde'], [H / 2, 'centro'], [H / 3, 'tercio'], [(2 * H) / 3, 'tercio'], [H * 0.05, 'margen'], [H * 0.95, 'margen']];
+      if (W / H < 0.8) { tx.push([W * 0.84, 'segura']); ty.push([H * 0.13, 'segura'], [H * 0.78, 'segura']); }
+      drag.others.forEach((o2) => { tx.push([o2.x0, 'otro'], [(o2.x0 + o2.x1) / 2, 'otro'], [o2.x1, 'otro']); ty.push([o2.y0, 'otro'], [(o2.y0 + o2.y1) / 2, 'otro'], [o2.y1, 'otro']); });
+      const best = (cands, targets) => { let r = null; cands.forEach((cv) => targets.forEach((tg) => { const d = tg[0] - cv; const sc = Math.abs(d) + (tg[1] === 'otro' ? 3 : 0); if (Math.abs(d) <= thr && (!r || sc < r.sc)) r = { d, v: tg[0], kind: tg[1], sc }; })); return r; };
+      const bx = best(cur.x, tx), by = best(cur.y, ty), g = [];
+      if (bx) g.push({ axis: 'x', v: bx.v, kind: bx.kind }); if (by) g.push({ axis: 'y', v: by.v, kind: by.kind });
+      S.alignGuides = g.length ? g : null;
+      return { sx: bx ? bx.d : 0, sy: by ? by.d : 0 };
+    }
+    function drawAlignGuides(ctx) {
+      const g = S.alignGuides; if (!g) return; const c = el.canvas, d = S.dpr;
+      ctx.save(); ctx.strokeStyle = '#ff2d95'; ctx.lineWidth = Math.max(1, 1.5 * d); ctx.setLineDash([5 * d, 4 * d]); ctx.beginPath();
+      g.forEach((q) => { if (q.axis === 'x') { ctx.moveTo(q.v, 0); ctx.lineTo(q.v, c.height); } else { ctx.moveTo(0, q.v); ctx.lineTo(c.width, q.v); } }); ctx.stroke(); ctx.restore();
+    }
+    /* mueve un elemento una distancia en píxeles del lienzo (como arrastrarlo): a un fotograma clave si está animado o grabando */
+    function nudgeDev(it, kind, dxDev, dyDev) {
+      const c = el.canvas, o = opts(); let zl = 1;
+      if (kind === 'layer') { const sh = shot(), img = MC.assets.get(it.assetId), tl = clamp(S.time - curStart(), 0, sh.duration), px2 = MC.panelXf(S.project, sh, o.W, o.H); zl = MC.layerGeom(it, img, MC.camAt(sh, tl, false), o).zl * (px2 && S.view === 'out' ? px2.s : 1); }
+      const fx = dxDev / c.width / zl, fy = dyDev / c.width / zl * (kind === 'layer' ? c.width / c.height : 1);
+      if (kfRecOn(it, ['x', 'y'])) { const kv = kfNow(it); kfPut(it, { x: kv.x + fx, y: kv.y + fy }); } else { it.x = (it.x || 0) + fx; it.y = (it.y || 0) + fy; }
+    }
+    /* alinear lo seleccionado (con el encuadre o, con varios elementos, entre sí) o repartirlo con huecos iguales */
+    function alignItems(edge, multi) {
+      if (S.view !== 'out') { S.view = 'out'; renderVbar(); fit(); S.dirty = true; MC.toast(t('Vuelve a pulsar: antes hay que ver la salida.', 'Press again: the output has to be shown first.')); return; }
+      const c = el.canvas, W = c.width, H = c.height; let items;
+      if (multi) items = multiItems().map((q) => boxOfItem(q.it)).filter(Boolean);
+      else { const T = tgt(); const b = T && boxOfItem(T.it); items = b ? [b] : []; }
+      if (!items.length) { MC.toast(t('No hay nada visible que alinear en este instante.', 'Nothing visible to align at this moment.')); return; }
+      const grp = multi ? { x0: Math.min(...items.map((b) => b.x0)), x1: Math.max(...items.map((b) => b.x1)), y0: Math.min(...items.map((b) => b.y0)), y1: Math.max(...items.map((b) => b.y1)) } : { x0: 0, x1: W, y0: 0, y1: H };
+      const mv = new Map();
+      if (edge === 'dh' || edge === 'dv') {
+        if (items.length < 3) { MC.toast(t('Para repartir hacen falta al menos tres elementos.', 'Distributing needs at least three items.')); return; }
+        const hz = edge === 'dh', a = (b) => (hz ? b.x0 : b.y0), z = (b) => (hz ? b.x1 : b.y1), sorted = items.slice().sort((p1, p2) => a(p1) - a(p2)), span = z(sorted[sorted.length - 1]) - a(sorted[0]), used = sorted.reduce((n, b) => n + (z(b) - a(b)), 0), gap = (span - used) / (sorted.length - 1);
+        let pos = a(sorted[0]); sorted.forEach((b) => { mv.set(b, [hz ? pos - a(b) : 0, hz ? 0 : pos - a(b)]); pos += z(b) - a(b) + gap; });
+      } else items.forEach((b) => {
+        const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+        mv.set(b, [edge === 'l' ? grp.x0 - b.x0 : edge === 'c' ? (grp.x0 + grp.x1) / 2 - cx : edge === 'r' ? grp.x1 - b.x1 : 0, edge === 't' ? grp.y0 - b.y0 : edge === 'm' ? (grp.y0 + grp.y1) / 2 - cy : edge === 'b' ? grp.y1 - b.y1 : 0]);
+      });
+      let n = 0; mv.forEach((d, b) => { if (Math.abs(d[0]) > 0.5 || Math.abs(d[1]) > 0.5) { nudgeDev(b.it, b.kind, d[0], d[1]); n++; } });
+      commit(); MC.announce(n ? t('Alineado', 'Aligned') : t('Ya estaba alineado', 'Already aligned'));
+    }
+    function alignRow(multi) {
+      const B = (edge, es, en, glyph) => h('button', { class: 'btn btn-s btn-sm', type: 'button', title: t(es, en), 'aria-label': t(es, en), onClick: () => alignItems(edge, multi) }, glyph);
+      const ref = multi ? t('entre sí', 'to each other') : t('en el encuadre', 'in the frame');
+      return h('div', { class: 'field alignrow' }, h('span', { class: 'cap' }, t('Alinear ', 'Align ') + ref),
+        h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+          B('l', 'Alinear a la izquierda', 'Align left', '⇤ ' + t('Izq.', 'Left')), B('c', 'Centrar en horizontal', 'Centre horizontally', '↔ ' + t('Centro', 'Centre')), B('r', 'Alinear a la derecha', 'Align right', t('Der.', 'Right') + ' ⇥'),
+          B('t', 'Alinear arriba', 'Align top', '⤒ ' + t('Arriba', 'Top')), B('m', 'Centrar en vertical', 'Centre vertically', '↕ ' + t('Medio', 'Middle')), B('b', 'Alinear abajo', 'Align bottom', t('Abajo', 'Bottom') + ' ⤓'),
+          multi ? [B('dh', 'Repartir en horizontal con huecos iguales', 'Distribute horizontally with equal gaps', '⇔ ' + t('Repartir H', 'Distribute H')), B('dv', 'Repartir en vertical con huecos iguales', 'Distribute vertically with equal gaps', '⇕ ' + t('Repartir V', 'Distribute V'))] : null));
+    }
     /* ---------- mover en el visor con fotogramas clave ----------
        Si el elemento ya tiene fotogramas clave de esa propiedad (o está activado «Grabar fotogramas»), lo que se mueve en el visor no cambia el valor base:
        crea o actualiza UN fotograma clave en el cabezal con todos los cambios a la vez (por ejemplo X e Y juntos). */
@@ -35516,6 +35596,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0) / MC.uz(); S.vz.y = drag.vy + (e.clientY - drag.y0) / MC.uz(); applyViewXf(); return; }
         const p = px(e), sh = shot();
         if (drag.m === 'crop') { cropDrag(p); S.dirty = true; scheduleSave(); return; }
+        if (drag.m === 'layer' || drag.m === 'ovmove' || drag.m === 'text') { const sn = alignSnap(p); p.x += sn.sx; p.y += sn.sy; }
         if (drag.m === 'orbit') { S.v3.yaw = drag.yaw + (p.x - drag.p0.x) * 0.35; S.v3.pitch = clamp(drag.pitch - (p.y - drag.p0.y) * 0.3, -85, 85); S.dirty = true; return; }
         if (drag.m === 'depthz') { const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, vl = Math.hypot(drag.vx, drag.vy); let dz; if (vl > 4 * S.dpr) dz = ((dx * drag.vx + dy * drag.vy) / (vl * vl)) * 0.1 / V3.span; else dz = dx / (c.width * 0.4); drag.l.z = clamp(Math.round((drag.z0 + dz) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
         if (drag.m === 'pnmove') {
@@ -35564,6 +35645,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       });
       const up = () => {
         if (!drag) return;
+        if (S.alignGuides) { S.alignGuides = null; S.dirty = true; }
         if (drag.m === 'spnew') {
           const wt = shot().webtoon; if (!drag.moved) { const sp = { id: MC.uid(), y: Math.round(drag.y * 1000) / 1000, hold: 1.5, zoom: 1, x: 0 }; wt.stops.push(sp); S.sp = sp.id; }
         }
