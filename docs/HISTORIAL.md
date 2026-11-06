@@ -264,3 +264,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - `MC.styleLines` / `MC.styleDiff` describen en palabras «Mi estilo» y su diferencia con el proyecto abierto; la pestaña Estilo enseña la fecha de guardado (`mystyleAt`), el contenido y las diferencias.
 - «Mi guía de estilo» (`src/js/styleguide.js`, `MC.styleGuide`): notas en Markdown con plantilla editable, tarjeta en el inicio, editor con autoguardado, importar/exportar `.md` y «Copiar para una IA» (notas + ajustes). Idea abierta: valorar más adelante si conviene otro formato o campos guiados por transición.
 - MCP: herramienta `leer_estilo` (solo lectura) y los proyectos nuevos informan de si aplicaron «Mi estilo».
+
+## Fase A del plan nuevo: correcciones y detalles (versión 0.14)
+
+- Fotogramas clave desde el visor: `dragXY`/`kfPut` escriben un fotograma por instante con X e Y a la vez si el elemento ya tiene fotogramas de esa propiedad o si está activado `S.autoKf` («Grabar fotogramas»); al empezar a grabar se añade un fotograma de origen en 0. Aplica a mover (capa, superposición, texto), escalar y girar (superposición), rueda y deslizadores.
+- Línea de tiempo: altura de filas (`S.rowK`, 0,6–2,6) con botones y Alt + rueda, guardada en `tlrow`; el panel puede crecer hasta el 82 %.
+- Versión: `MC.VERSION = '0.14'`; se decide mantener 0.x hasta que la persona decida que es la 1.0.
+- Decisiones tomadas con la persona: no se hará nada de 3D (formas ni modelos); el curso «Aprender» será solo en español (inglés: «próximamente»).
