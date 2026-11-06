@@ -888,6 +888,9 @@ a.btn { text-decoration: none; }
 .hovtag { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
 .hovtag[hidden] { display: none; }
 
+.sp-ded { display: grid; gap: 2px; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.45; } .sp-ded b { font-size: 14px; }
+.sp-card.static { width: 100%; height: auto; min-height: 330px; box-shadow: none; animation: none; margin: 8px 0; } .sp-card.static .sp-img { min-height: 220px; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -31345,11 +31348,9 @@ module.exports = ZStream;
       settings: () => h('div', { style: { display: 'grid', gap: '12px' } },
         h('p', { class: 'cap' }, t('Tema, tamaño de la interfaz, animaciones, idioma, datos guardados en este equipo, instalación y rendimiento están en las preferencias.', 'Theme, interface size, animations, language, data stored on this device, installation and performance are in the preferences.')),
         h('button', { class: 'btn btn-p', type: 'button', style: { justifySelf: 'start' }, onClick: () => { modal.close(); MC.openPrefs(); } }, MC.icon('gear', 15), t('Abrir las preferencias', 'Open preferences'))),
-      about: () => h('div', { style: { display: 'grid', gap: '10px' } },
-        h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
-        h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
+      about: () => h('div', { style: { display: 'grid', gap: '10px' } }, MC.splash.card(),
         h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese. Los proyectos viven en este navegador; exporta copias de vez en cuando.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it. Projects live in this browser; export backups from time to time.')),
-        h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT) y pdf.js (Apache-2.0).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT) and pdf.js (Apache-2.0).'))),
+        h('p', { class: 'cap' }, t('Incluye mp4-muxer (MIT), ag-psd (MIT) y pdf.js (Apache-2.0).', 'Includes mp4-muxer (MIT), ag-psd (MIT) and pdf.js (Apache-2.0).'))),
     };
 
     function capture(id) {
@@ -31672,10 +31673,10 @@ module.exports = ZStream;
             h('button', { class: 'btn btn-s', type: 'button', onClick: () => { modal.close(); MC.openHelp('tutorials'); } }, t('Tutoriales cortos', 'Short tutorials'))));
       },
       async about(el) {
-        MC.put(el, h('h3', null, t('Acerca de', 'About')), h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))), h('p', null, MC.repoLink(t('Código y novedades en GitHub', 'Source code and news on GitHub'))),
-          h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
+        MC.put(el, h('h3', null, t('Acerca de', 'About')), MC.splash.card(),
           h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it.')),
-          h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) y las tipografías Bricolage Grotesque, Bangers, Comic Neue y Permanent Marker (OFL).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) and the fonts Bricolage Grotesque, Bangers, Comic Neue and Permanent Marker (OFL).')));
+          h('p', { class: 'cap' }, t('Incluye mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) y las tipografías Bricolage Grotesque, Bangers, Comic Neue y Permanent Marker (OFL).', 'Includes mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) and the fonts Bricolage Grotesque, Bangers, Comic Neue and Permanent Marker (OFL).')),
+          h('div', null, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { const s2 = MC.splash.start(true); s2.ready.then(s2.hide); } }, MC.icon('play', 14), t('Ver la pantalla de carga', 'Show the loading screen'))));
       },
     };
     draw();
@@ -31915,19 +31916,30 @@ module.exports = ZStream;
   }
   const art = () => { const own = MC.store.get(K.img, ''); if (own) return own; if (!defaultUrl) defaultUrl = pattern(760, 920); return defaultUrl; };
 
-  function build() {
-    const credit = MC.store.get(K.credit, '').trim(), yr = new Date().getFullYear();
+  /* la tarjeta (texto a la izquierda, imagen a la derecha) se usa en la pantalla de carga y en «Acerca de» */
+  function cardParts(o) {
+    const credit = MC.store.get(K.credit, '').trim();
     const status = h('p', { class: 'sp-status', role: 'status', 'aria-live': 'polite' }, t('Preparando el espacio de trabajo…', 'Preparing the workspace…'));
     const bar = h('i');
-    const node = h('div', { class: 'splash', role: 'dialog', 'aria-label': t('MotionComic Studio se está cargando', 'MotionComic Studio is loading'), 'aria-busy': 'true' },
-      h('div', { class: 'sp-card' },
-        h('div', { class: 'sp-copy' },
-          h('div', { class: 'sp-brand' }, MC.mark(40), h('b', null, 'MotionComic'), h('span', null, 'Studio')),
-          h('p', { class: 'sp-tag' }, t('Del papel al vídeo, sin salir de tu equipo.', 'From paper to video, without leaving your device.')),
-          h('p', { class: 'sp-art' }, t('Imagen: ', 'Artwork: '), credit || t('patrón de MotionComic Studio', 'MotionComic Studio pattern')),
-          h('p', { class: 'sp-small' }, '© ' + yr + ' LuckStudio. ' + t('Todos los derechos reservados.', 'All rights reserved.'), h('br'), t('Todo ocurre en este dispositivo: tu arte no sale de aquí.', 'Everything happens on this device: your art never leaves it.')),
-          h('div', { class: 'sp-foot' }, status, h('div', { class: 'sp-bar', 'aria-hidden': 'true' }, bar), h('p', { class: 'sp-small' }, t('Versión ', 'Version '), BUILD, ' · ', t('toca o pulsa una tecla para saltar', 'tap or press a key to skip')))),
-        h('div', { class: 'sp-img', 'aria-hidden': 'true', style: { backgroundImage: 'url("' + art() + '")' } })));
+    const ded = h('div', { class: 'sp-ded' }, h('b', null, t('Dedicado a GotiDraw', 'Dedicated to GotiDraw')),
+      h('span', null, t('mi gran amigo y artista. Esta herramienta existe para dar movimiento a su arte.', 'my dear friend and artist. This tool exists to bring his art to life.')));
+    const foot = o.static
+      ? h('div', { class: 'sp-foot' }, h('p', { class: 'sp-small' }, t('Versión ', 'Version ') + (MC.VERSION || '') + (BUILD && BUILD !== 'dev' ? ' · ' + BUILD : ''), h('br'), t('Desarrollado por LuckStudio, en desarrollo continuo.', 'Developed by LuckStudio, in continuous development.')), MC.repoLink ? MC.repoLink(t('Código y novedades en GitHub', 'Source code and news on GitHub')) : null)
+      : h('div', { class: 'sp-foot' }, status, h('div', { class: 'sp-bar', 'aria-hidden': 'true' }, bar), h('p', { class: 'sp-small' }, t('Versión ', 'Version '), BUILD, ' · ', t('toca o pulsa una tecla para saltar', 'tap or press a key to skip')));
+    const card = h('div', { class: 'sp-card' + (o.static ? ' static' : '') },
+      h('div', { class: 'sp-copy' },
+        h('div', { class: 'sp-brand' }, MC.mark(40), h('b', null, 'MotionComic'), h('span', null, 'Studio')),
+        h('p', { class: 'sp-tag' }, t('Del papel al vídeo, sin salir de tu equipo.', 'From paper to video, without leaving your device.')),
+        ded,
+        h('p', { class: 'sp-art' }, t('Imagen: ', 'Artwork: '), credit || t('patrón provisional de MotionComic Studio', 'provisional MotionComic Studio pattern')),
+        h('p', { class: 'sp-small' }, t('Todo ocurre en este dispositivo: tu arte no sale de aquí.', 'Everything happens on this device: your art never leaves it.')),
+        foot),
+      h('div', { class: 'sp-img', role: o.static ? 'img' : null, 'aria-hidden': o.static ? null : 'true', 'aria-label': o.static ? t('Imagen de portada', 'Cover image') : null, style: { backgroundImage: 'url("' + art() + '")' } }));
+    return { card, status, bar };
+  }
+  function build() {
+    const { card, status, bar } = cardParts({});
+    const node = h('div', { class: 'splash', role: 'dialog', 'aria-label': t('MotionComic Studio se está cargando', 'MotionComic Studio is loading'), 'aria-busy': 'true' }, card);
     return { node, status, bar };
   }
 
@@ -31971,7 +31983,7 @@ module.exports = ZStream;
         h('input', { id: cid, class: 'input', value: MC.store.get(K.credit, ''), placeholder: t('Nombre del artista', 'Artist name'), onInput: (e) => MC.store.set(K.credit, e.target.value) }),
         file)));
   }
-  MC.splash = { start, fields, enabled };
+  MC.splash = { start, fields, enabled, card: () => cardParts({ static: true }).card };
 })();
 
 /* Conexión con IA (MCP): el estudio se conecta a un conector local que tú ejecutas, solo si lo activas. */

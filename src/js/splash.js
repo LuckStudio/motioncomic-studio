@@ -49,19 +49,30 @@
   }
   const art = () => { const own = MC.store.get(K.img, ''); if (own) return own; if (!defaultUrl) defaultUrl = pattern(760, 920); return defaultUrl; };
 
-  function build() {
-    const credit = MC.store.get(K.credit, '').trim(), yr = new Date().getFullYear();
+  /* la tarjeta (texto a la izquierda, imagen a la derecha) se usa en la pantalla de carga y en «Acerca de» */
+  function cardParts(o) {
+    const credit = MC.store.get(K.credit, '').trim();
     const status = h('p', { class: 'sp-status', role: 'status', 'aria-live': 'polite' }, t('Preparando el espacio de trabajo…', 'Preparing the workspace…'));
     const bar = h('i');
-    const node = h('div', { class: 'splash', role: 'dialog', 'aria-label': t('MotionComic Studio se está cargando', 'MotionComic Studio is loading'), 'aria-busy': 'true' },
-      h('div', { class: 'sp-card' },
-        h('div', { class: 'sp-copy' },
-          h('div', { class: 'sp-brand' }, MC.mark(40), h('b', null, 'MotionComic'), h('span', null, 'Studio')),
-          h('p', { class: 'sp-tag' }, t('Del papel al vídeo, sin salir de tu equipo.', 'From paper to video, without leaving your device.')),
-          h('p', { class: 'sp-art' }, t('Imagen: ', 'Artwork: '), credit || t('patrón de MotionComic Studio', 'MotionComic Studio pattern')),
-          h('p', { class: 'sp-small' }, '© ' + yr + ' LuckStudio. ' + t('Todos los derechos reservados.', 'All rights reserved.'), h('br'), t('Todo ocurre en este dispositivo: tu arte no sale de aquí.', 'Everything happens on this device: your art never leaves it.')),
-          h('div', { class: 'sp-foot' }, status, h('div', { class: 'sp-bar', 'aria-hidden': 'true' }, bar), h('p', { class: 'sp-small' }, t('Versión ', 'Version '), BUILD, ' · ', t('toca o pulsa una tecla para saltar', 'tap or press a key to skip')))),
-        h('div', { class: 'sp-img', 'aria-hidden': 'true', style: { backgroundImage: 'url("' + art() + '")' } })));
+    const ded = h('div', { class: 'sp-ded' }, h('b', null, t('Dedicado a GotiDraw', 'Dedicated to GotiDraw')),
+      h('span', null, t('mi gran amigo y artista. Esta herramienta existe para dar movimiento a su arte.', 'my dear friend and artist. This tool exists to bring his art to life.')));
+    const foot = o.static
+      ? h('div', { class: 'sp-foot' }, h('p', { class: 'sp-small' }, t('Versión ', 'Version ') + (MC.VERSION || '') + (BUILD && BUILD !== 'dev' ? ' · ' + BUILD : ''), h('br'), t('Desarrollado por LuckStudio, en desarrollo continuo.', 'Developed by LuckStudio, in continuous development.')), MC.repoLink ? MC.repoLink(t('Código y novedades en GitHub', 'Source code and news on GitHub')) : null)
+      : h('div', { class: 'sp-foot' }, status, h('div', { class: 'sp-bar', 'aria-hidden': 'true' }, bar), h('p', { class: 'sp-small' }, t('Versión ', 'Version '), BUILD, ' · ', t('toca o pulsa una tecla para saltar', 'tap or press a key to skip')));
+    const card = h('div', { class: 'sp-card' + (o.static ? ' static' : '') },
+      h('div', { class: 'sp-copy' },
+        h('div', { class: 'sp-brand' }, MC.mark(40), h('b', null, 'MotionComic'), h('span', null, 'Studio')),
+        h('p', { class: 'sp-tag' }, t('Del papel al vídeo, sin salir de tu equipo.', 'From paper to video, without leaving your device.')),
+        ded,
+        h('p', { class: 'sp-art' }, t('Imagen: ', 'Artwork: '), credit || t('patrón provisional de MotionComic Studio', 'provisional MotionComic Studio pattern')),
+        h('p', { class: 'sp-small' }, t('Todo ocurre en este dispositivo: tu arte no sale de aquí.', 'Everything happens on this device: your art never leaves it.')),
+        foot),
+      h('div', { class: 'sp-img', role: o.static ? 'img' : null, 'aria-hidden': o.static ? null : 'true', 'aria-label': o.static ? t('Imagen de portada', 'Cover image') : null, style: { backgroundImage: 'url("' + art() + '")' } }));
+    return { card, status, bar };
+  }
+  function build() {
+    const { card, status, bar } = cardParts({});
+    const node = h('div', { class: 'splash', role: 'dialog', 'aria-label': t('MotionComic Studio se está cargando', 'MotionComic Studio is loading'), 'aria-busy': 'true' }, card);
     return { node, status, bar };
   }
 
@@ -105,5 +116,5 @@
         h('input', { id: cid, class: 'input', value: MC.store.get(K.credit, ''), placeholder: t('Nombre del artista', 'Artist name'), onInput: (e) => MC.store.set(K.credit, e.target.value) }),
         file)));
   }
-  MC.splash = { start, fields, enabled };
+  MC.splash = { start, fields, enabled, card: () => cardParts({ static: true }).card };
 })();
