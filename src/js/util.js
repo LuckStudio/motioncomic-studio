@@ -155,14 +155,18 @@
 
   /* Controles reutilizables */
   const ui = (MC.ui = {});
-  ui.seg = (opts, val, onChange, label) =>
-    h('div', { class: 'seg', role: 'group', 'aria-label': label || '' },
+  ui.seg = (opts, val, onChange, label) => {
+    /* el valor actual se lleva aquí: así se puede volver a la opción anterior sin tener que redibujar el panel */
+    let cur = val;
+    return h('div', { class: 'seg', role: 'group', 'aria-label': label || '' },
       opts.map((o) => h('button', { type: 'button', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: (e) => {
-        if (o.v === val) return;
+        if (o.v === cur) return;
+        cur = o.v;
         e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
         e.currentTarget.setAttribute('aria-pressed', 'true');
         onChange(o.v);
       } }, o.l)));
+  };
   ui.chips = (opts, val, onChange) =>
     h('div', { class: 'chips' }, opts.map((o) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: () => onChange(o.v) }, o.l)));
   ui.slider = (o) => {

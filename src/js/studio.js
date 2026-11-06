@@ -781,7 +781,17 @@
       const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 64, 64);
       const blob = await new Promise((res) => c.toBlob(res, 'image/png')), a = await MC.assets.add(blob, t('Color ', 'Colour ') + col + '.png'); await assetsToLayers([a.id], S.li >= 0 ? S.li + 1 : null);
     }
+    /* Si se escribe en un campo y se pulsa otro control, el campo "confirma" al perder el foco y el panel se redibuja antes de que llegue el clic:
+       el botón ya no existe y hay que pulsar dos veces. Mientras dura esa pulsación se aplaza el redibujado y se hace justo después. */
+    const RG = { on: false, x: 0, y: 0, pend: new Set() };
+    function rgFlush() { RG.on = false; const list = [renderLayers, renderPanels, renderTimeline].filter((f) => RG.pend.has(f)); RG.pend.clear(); list.forEach((f) => f()); }
+    function rgDefer(fn) { if (!RG.on) return false; RG.pend.add(fn); return true; }
+    function rgDown(e) { const a = document.activeElement; RG.on = !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a !== e.target && !(e.target.closest && e.target.closest('input, textarea, select'))); RG.x = e.clientX; RG.y = e.clientY; }
+    function rgMove(e) { if (RG.on && Math.hypot(e.clientX - RG.x, e.clientY - RG.y) > 6) rgFlush(); }
+    function rgUp() { if (RG.on) setTimeout(() => { if (S.alive) rgFlush(); }, 40); }
+    document.addEventListener('pointerdown', rgDown, true); document.addEventListener('pointermove', rgMove, true); document.addEventListener('pointerup', rgUp, true); document.addEventListener('pointercancel', rgUp, true);
     function renderLayers() {
+      if (rgDefer(renderLayers)) return;
       const b = el.layersBody, sh = shot(); MC.clear(b);
       if (!sh) return;
       const sel = sh.layers[S.li], free = !(sh.page || sh.webtoon);
@@ -1943,6 +1953,7 @@
       return { bar, body };
     }
     function renderPanels() {
+      if (rgDefer(renderPanels)) return;
       S.animCtl = []; const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
@@ -2659,6 +2670,7 @@
       return n;
     }
     function renderTimeline() {
+      if (rgDefer(renderTimeline)) return;
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
       const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
       const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
@@ -3933,7 +3945,7 @@
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); document.removeEventListener('pointerdown', rgDown, true); document.removeEventListener('pointermove', rgMove, true); document.removeEventListener('pointerup', rgUp, true); document.removeEventListener('pointercancel', rgUp, true); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },

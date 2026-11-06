@@ -158,7 +158,7 @@
             h('button', { class: 'btn btn-s', type: 'button', onClick: () => { modal.close(); MC.openHelp('tutorials'); } }, t('Tutoriales cortos', 'Short tutorials'))));
       },
       async about(el) {
-        MC.put(el, h('h3', null, t('Acerca de', 'About')), h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
+        MC.put(el, h('h3', null, t('Acerca de', 'About')), h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))), h('p', null, MC.repoLink(t('Código y novedades en GitHub', 'Source code and news on GitHub'))),
           h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
           h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it.')),
           h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) y las tipografías Bricolage Grotesque, Bangers, Comic Neue y Permanent Marker (OFL).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) and the fonts Bricolage Grotesque, Bangers, Comic Neue and Permanent Marker (OFL).')));

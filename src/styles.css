@@ -815,3 +815,4 @@ html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol
 .sp-set { display: flex; gap: 12px; align-items: flex-start; margin-top: 8px; } .sp-thumb { width: 84px; height: 100px; border-radius: 8px; border: 1px solid var(--line); background-size: cover; background-position: center; flex: none; }
 @media (max-width: 640px) { .sp-card { grid-template-columns: 1fr; grid-template-rows: 36% 1fr; height: min(560px, calc(100vh - 32px)); } .sp-img { order: -1; } .sp-copy { padding: 20px; } .sp-brand { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .splash, .sp-card { transition: none; animation: none; } }
+a.btn { text-decoration: none; }
