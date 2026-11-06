@@ -32766,7 +32766,7 @@ module.exports = ZStream;
     function dockCtl(id) {
       const more = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: t('Opciones del panel: mover, sacar a otra ventana, ocultar', 'Panel options: move, detach to a window, hide'), 'aria-label': t('Opciones del panel ', 'Panel options ') + t(PANEL_NAME[id][0], PANEL_NAME[id][1]), onClick: (e) => panelMenu(id, e.currentTarget) }, MC.icon('dots', 16));
       const grip = h('button', { class: 'btn btn-g btn-ic grip-btn', type: 'button', tabindex: '-1', 'aria-hidden': 'true', title: t('Arrastra para mover el panel de lado; suéltalo fuera de la ventana para sacarlo a otra pantalla', 'Drag to move the panel to the other side; drop it outside the window to detach it to another screen'), onPointerdown: (e) => dragPanel(id, e) }, '⠿');
-      return h('span', { class: 'dockctl' }, grip, more);
+      return h('span', { class: 'dockctl', 'data-pid': id }, grip, more);
     }
     function dragPanel(id, e) {
       if (e.button || POP[id] || innerWidth <= 900) return; e.preventDefault();
@@ -32827,7 +32827,7 @@ module.exports = ZStream;
     /* ---------- barra superior ---------- */
     function renderTop() {
       if (el.h1) el.h1.textContent = 'MotionComic Studio · ' + (S.project.name || t('Sin título', 'Untitled'));
-      const wsBtn = (v) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), title: t(WS[v].es, WS[v].en), onClick: () => setWs(v) }, MC.icon(WS[v].icon, 18), h('span', null, t(WS[v].es, WS[v].en)));
+      const wsBtn = (v) => h('button', { type: 'button', role: 'tab', 'data-ws': v, 'aria-selected': String(S.ws === v), title: t(WS[v].es, WS[v].en), onClick: () => setWs(v) }, MC.icon(WS[v].icon, 18), h('span', null, t(WS[v].es, WS[v].en)));
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
       el.jobChip = h('button', { class: 'btn btn-s btn-sm', type: 'button', hidden: true, onClick: openExport });
       updateJobChip(MC.exportJob);
@@ -33719,7 +33719,7 @@ module.exports = ZStream;
     /* ---------- carril y paneles ---------- */
     function renderRail() {
       MC.clear(el.rail);
-      MC.put(el.rail, wsTabs(S.ws).map((id) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; if (S.ws === 'montaje') { tabView(id); renderVbar(); buildSim(); fit(); } renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
+      MC.put(el.rail, wsTabs(S.ws).map((id) => h('button', { type: 'button', role: 'tab', 'data-tab': id, 'aria-selected': String(curTab() === id), title: tabLabel(id), onClick: () => { S.tab[S.ws] = id; if (S.ws === 'montaje') { tabView(id); renderVbar(); buildSim(); fit(); } renderRail(); renderPanels(); [el.leftEl].forEach((n) => { n.classList.remove('wsfade'); void n.offsetWidth; n.classList.add('wsfade'); }); } }, MC.icon(TABS[id][0], 22), tabLabel(id))));
     }
     const thumbCache = new Map();
     const djb = (str) => { let hh = 5381; for (let i = 0; i < str.length; i++) hh = ((hh << 5) + hh + str.charCodeAt(i)) | 0; return hh; };
@@ -35719,8 +35719,60 @@ module.exports = ZStream;
       if (c.k === 'otrack') { const ot = p.otracks[c.i], busy = p.overlays.some((o) => o.track === c.i); return [I('edit', t('Renombrar la pista', 'Rename the track'), () => askName(t('Nombre de la pista', 'Track name'), ot.name, (v) => { ot.name = v; commit(); })), I('plus', t('Añadir una superposición aquí', 'Add an overlay here'), () => { fileOv.dataset.track = c.i; fileOv.click(); }), I('trash', t('Quitar la pista vacía', 'Remove the empty track'), () => { p.overlays.forEach((o) => { if (o.track > c.i) o.track--; }); p.otracks.splice(c.i, 1); commit(); }, busy || p.otracks.length < 2)]; }
       return [];
     }
+
+    /* ---------- clic derecho en toda la interfaz: ocultar lo que se puede ocultar y atajos a lo demás ---------- */
+    function hideLabel(id) {
+      const C = MC.cfg; let r;
+      if (id.startsWith('tb:')) { r = C.TB.find((q) => 'tb:' + q[0] === id); if (id === 'tb:zoom') return t('Zoom de la línea de tiempo', 'Timeline zoom'); }
+      else if (id.startsWith('tab:m:')) r = C.TABS_M.find((q) => 'tab:m:' + q[0] === id);
+      else if (id.startsWith('tab:c:')) r = C.TABS_C.find((q) => 'tab:c:' + q[0] === id);
+      else if (id.startsWith('ws:')) r = C.WSS.find((q) => 'ws:' + q[0] === id);
+      return r ? t(r[1], r[2]) : id;
+    }
+    function confirmHide(id, name) {
+      MC.modal(t('¿Ocultar «' + name + '»?', 'Hide “' + name + '”?'), h('div', { style: { display: 'grid', gap: '8px' } },
+        h('p', null, t('Dejará de verse en la interfaz. No se borra nada: sigue funcionando con su atajo de teclado.', 'It will no longer show in the interface. Nothing is deleted: it keeps working with its keyboard shortcut.')),
+        h('p', { class: 'cap' }, t('Para recuperarlo: clic derecho en la barra → «Mostrar…», o Preferencias → Interfaz.', 'To get it back: right-click the bar → “Show…”, or Preferences → Interface.'))),
+        (close) => [h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
+          h('button', { class: 'btn btn-p', type: 'button', onClick: () => { close(); MC.cfg.set(id, true); MC.toast(t('Oculto: ', 'Hidden: ') + name, { label: t('Deshacer', 'Undo'), onClick: () => MC.cfg.set(id, false), ms: 8000 }); } }, t('Ocultar', 'Hide'))]);
+    }
+    function hideTargetFor(n0) {
+      const C = MC.cfg; let n;
+      if ((n = n0.closest('[data-tb]')) && n.dataset.tb !== 'target') { const k = n.dataset.tb, g = Object.keys(C.TB_GROUPS).find((q) => C.TB_GROUPS[q].includes(k)); return { id: 'tb:' + (g || k), kind: 'bar' }; }
+      if ((n = n0.closest('.rail [data-tab]'))) return { id: 'tab:' + (S.ws === 'montaje' ? 'm' : 'c') + ':' + n.dataset.tab, kind: 'rail' };
+      if ((n = n0.closest('.s-tabs [data-ws]')) && n.dataset.ws === 'creativo') return { id: 'ws:' + n.dataset.ws, kind: 'ws' };
+      return null;
+    }
+    function uiCtx(e, host) {
+      const n0 = e.target; if (!n0 || !n0.closest) return false;
+      const C = MC.cfg, I = (ic, l, fn, dis) => ({ ic, l, fn, dis });
+      let n, title = t('Interfaz', 'Interface'); const items = [];
+      /* cabecera de un panel: mismo menú que el botón ⋮ */
+      if ((n = n0.closest('.ph')) && !n0.closest('button')) { const dc = n.querySelector('.dockctl[data-pid]'); if (dc) { closeCtx(); panelMenu(dc.dataset.pid, dc.querySelector('button[aria-haspopup]')); return true; } }
+      const tg = hideTargetFor(n0);
+      if (tg) { const nm = hideLabel(tg.id); title = nm; items.push(I('close', t('Ocultar «' + nm + '»…', 'Hide “' + nm + '”…'), () => confirmHide(tg.id, nm))); }
+      /* visor */
+      if (!tg && n0.closest('.stage, .viewer')) {
+        title = t('Visor', 'Viewer');
+        items.push(I('frame', t('Ajustar al visor', 'Fit to viewer'), () => fit()), I('frame', t('Pantalla completa (F)', 'Full screen (F)'), () => ACT.fullscreen()),
+          I('frame', S.guides ? t('Quitar las guías', 'Hide guides') : t('Mostrar guías', 'Show guides'), () => { S.guides = !S.guides; S.dirty = true; renderVbar(); }), I('sliders', S.rulers ? t('Quitar las reglas', 'Hide rulers') : t('Mostrar reglas', 'Show rulers'), () => { S.rulers = !S.rulers; S.dirty = true; renderVbar(); }));
+      }
+      /* cabecera de pista de la línea de tiempo */
+      if (!tg && (n = n0.closest('.trl[data-k]')) && !/^[ox]\d+$/.test(n.dataset.k) && n.dataset.k !== 'kf') {
+        const k = n.dataset.k; title = trackName(k);
+        if (hasEye(k)) items.push(I(AU.includes(k) ? 'speaker' : 'eye', trackOff(k) ? t('Volver a mostrar / activar la pista', 'Show / turn the track back on') : AU.includes(k) ? t('Silenciar la pista', 'Mute the track') : t('Quitar la pista del vídeo', 'Take the track out of the video'), () => { setTrackOff(k, !trackOff(k)); commit(); }));
+        items.push(I('up', t('Plegar la fila', 'Fold the row'), () => { setTrackFold(k, true); commit(); }), I('layers', t('Gestionar las pistas…', 'Manage tracks…'), () => openTracksMenu()));
+      }
+      const hidden = C.list().filter((id) => hideLabel(id) !== id);
+      if (tg || hidden.length) {
+        if (hidden.length) { if (items.length) items.push('-'); hidden.slice(0, 6).forEach((id) => items.push(I('eye', t('Mostrar «' + hideLabel(id) + '»', 'Show “' + hideLabel(id) + '”'), () => C.set(id, false)))); items.push(I('undo', t('Mostrar todo lo oculto (' + hidden.length + ')', 'Show everything hidden (' + hidden.length + ')'), () => C.reset())); }
+      }
+      if (items.length) items.push('-');
+      items.push(I('sliders', t('Personalizar la interfaz…', 'Customize the interface…'), () => MC.openPrefs('ui')), I('text', t('Atajos y ayuda…', 'Shortcuts and help…'), () => MC.openHelp()));
+      ctxMenu(host, e.clientX, e.clientY, title, items); return true;
+    }
     function openCtx(e, host) {
-      const c = ctxFor(e); if (!c) return false;
+      const c = ctxFor(e); if (!c) return uiCtx(e, host);
       renderPanels(); renderLayers(); renderTimeline();
       const items = ctxItems(c); if (!items.length) return false;
       const ttl = { shot: t('Plano', 'Shot'), layer: t('Capa', 'Layer'), clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), xshot: t('Plano superpuesto', 'Overlapping shot'), subs: t('Subtítulo', 'Subtitle'), kf: t('Fotograma clave', 'Keyframe'), kftrack: t('Fotogramas clave', 'Keyframes'), otrack: t('Pista', 'Track') }[c.k];
