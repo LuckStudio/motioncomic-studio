@@ -2,7 +2,7 @@
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.14'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.15'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -204,7 +204,8 @@
       keys: () => {
         const K = MC.keys, wrap = h('div', { style: { display: 'grid', gap: '12px' } });
         wrap.append(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Base de atajos', 'Shortcut set')),
-          MC.ui.seg(Object.keys(K.PRESET_NAMES).map((k) => ({ v: k, l: K.PRESET_NAMES[k] })), K.base(), (v) => { K.setBase(v); draw(); MC.toast(t('Atajos de ' + K.PRESET_NAMES[v], K.PRESET_NAMES[v] + ' shortcuts')); }, t('Base de atajos', 'Shortcut set')),
+          MC.ui.chips(Object.keys(K.PRESET_NAMES).map((k) => ({ v: k, l: K.PRESET_NAMES[k] })), K.base(), (v) => { K.setBase(v); draw(); MC.toast(t('Atajos de ' + K.PRESET_NAMES[v], K.PRESET_NAMES[v] + ' shortcuts')); }),
+          K.PRESET_REVIEW[K.base()] ? h('span', { class: 'cap warn' }, t('⚠ Esta base está escrita con los atajos más habituales de ' + K.PRESET_NAMES[K.base()] + ', de memoria y sin consultarlos en el programa: pueden diferir según la versión. Revísalos y cambia los que no coincidan; lo que ' + K.PRESET_NAMES[K.base()] + ' no tiene aparece «sin atajo».', '⚠ This set is written with the most common ' + K.PRESET_NAMES[K.base()] + ' shortcuts, from memory and without checking them in the program: they may differ by version. Check them and change any that do not match; what ' + K.PRESET_NAMES[K.base()] + ' does not have shows as “none”.')) : null,
           h('span', { class: 'cap' }, t('Cambiar de base descarta tus cambios. Puedes cambiar cada atajo con «Cambiar».', 'Switching the set discards your changes. You can change each shortcut with “Change”.'))));
         Object.keys(K.GROUPS).forEach((g) => {
           wrap.append(h('div', { class: 'eyebrow' }, t(K.GROUPS[g][0], K.GROUPS[g][1])), h('div', { style: { display: 'grid', gap: '2px' } }, K.ACTIONS.filter((a) => a.g === g).map((a) => {
@@ -214,6 +215,12 @@
               h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => capture(a.id) }, t('Cambiar', 'Change')));
           })));
         });
+        /* tabla de comparación: la misma acción en cada base, para pasar de un programa a otro */
+        const bases = Object.keys(K.PRESET_NAMES);
+        wrap.append(h('details', { class: 'keycmp' }, h('summary', null, t('Comparar las bases de atajos (qué tecla hace cada cosa en cada programa)', 'Compare the shortcut sets (which key does what in each program)')),
+          h('div', { class: 'keycmpw', tabindex: '0', role: 'region', 'aria-label': t('Tabla de atajos por programa', 'Shortcuts by program table') }, h('table', null,
+            h('thead', null, h('tr', null, h('th', null, t('Acción', 'Action')), bases.map((b2) => h('th', null, K.PRESET_NAMES[b2])))),
+            h('tbody', null, K.ACTIONS.map((a) => h('tr', null, h('th', { scope: 'row' }, t(a.es, a.en)), bases.map((b2) => { const ks = K.baseKeys(b2, a.id); return h('td', null, ks.length ? ks.map((c) => h('kbd', null, K.pretty(c))) : h('span', { class: 'cap' }, '—')); }))))))));
         wrap.append(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { K.reset(); draw(); } }, t('Restablecer los atajos de esta base', 'Reset this set’s shortcuts')),
           h('p', { class: 'cap' }, t('Fijos: Esc cierra o cancela, Intro cierra un polígono, Tab y Mayús+Tab recorren los controles.', 'Fixed: Esc closes or cancels, Enter closes a polygon, Tab and Shift+Tab move through controls.')));
         return wrap;

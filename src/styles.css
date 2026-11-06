@@ -876,3 +876,9 @@ a.btn { text-decoration: none; }
 .recbtn[aria-pressed="true"] .recdot { background: #fff; animation: recpulse 1.2s ease-in-out infinite; }
 @keyframes recpulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .recbtn .recdot { animation: none !important; } }
+
+/* comparación de atajos */
+.keycmp summary { cursor: pointer; font-weight: 600; padding: 6px 0; } .keycmpw { overflow: auto; max-height: 48vh; border: 1px solid var(--line); margin-top: 8px; }
+.keycmpw table { border-collapse: collapse; font-size: 12px; min-width: 900px; width: 100%; } .keycmpw th, .keycmpw td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+.keycmpw thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; } .keycmpw tbody th { font-weight: 500; min-width: 190px; } .keycmpw kbd { margin: 0 3px 3px 0; display: inline-block; }
+.cap.warn { color: var(--fg); background: var(--accent-tint); padding: 6px 10px; border-left: 3px solid var(--accent); display: block; }

@@ -906,6 +906,12 @@ a.btn { text-decoration: none; }
 @keyframes recpulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .recbtn .recdot { animation: none !important; } }
 
+/* comparación de atajos */
+.keycmp summary { cursor: pointer; font-weight: 600; padding: 6px 0; } .keycmpw { overflow: auto; max-height: 48vh; border: 1px solid var(--line); margin-top: 8px; }
+.keycmpw table { border-collapse: collapse; font-size: 12px; min-width: 900px; width: 100%; } .keycmpw th, .keycmpw td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+.keycmpw thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; } .keycmpw tbody th { font-weight: 500; min-width: 190px; } .keycmpw kbd { margin: 0 3px 3px 0; display: inline-block; }
+.cap.warn { color: var(--fg); background: var(--accent-tint); padding: 6px 10px; border-left: 3px solid var(--accent); display: block; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -31335,24 +31341,51 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     { id: 'fullscreen', g: 'view', es: 'Pantalla completa del visor', en: 'Viewer full screen' },
     { id: 'zoomIn', g: 'view', es: 'Acercar la línea de tiempo', en: 'Zoom the timeline in' },
     { id: 'zoomOut', g: 'view', es: 'Alejar la línea de tiempo', en: 'Zoom the timeline out' },
+    { id: 'selectTool', g: 'tools', es: 'Herramienta de selección', en: 'Selection tool' },
+    { id: 'blade', g: 'tools', es: 'Cuchilla (cortar donde pulsas)', en: 'Blade (cut where you click)' },
+    { id: 'trimStart', g: 'tools', es: 'Recortar el principio hasta el cabezal', en: 'Trim the start to the playhead' },
+    { id: 'trimEnd', g: 'tools', es: 'Recortar el final desde el cabezal', en: 'Trim the end from the playhead' },
+    { id: 'snap', g: 'tools', es: 'Activar o desactivar el imán', en: 'Turn the magnet on or off' },
+    { id: 'keyframe', g: 'tools', es: 'Añadir un fotograma clave en el cabezal', en: 'Add a keyframe at the playhead' },
     { id: 'export', g: 'app', es: 'Exportar', en: 'Export' },
     { id: 'help', g: 'app', es: 'Abrir la ayuda', en: 'Open help' },
     { id: 'keys', g: 'app', es: 'Ver los atajos', en: 'Show shortcuts' },
   ];
-  const GROUPS = { play: ['Reproducción y tiempo', 'Playback and time'], edit: ['Edición', 'Editing'], view: ['Vista', 'View'], app: ['Aplicación', 'Application'] };
+  const GROUPS = { play: ['Reproducción y tiempo', 'Playback and time'], edit: ['Edición', 'Editing'], tools: ['Herramientas', 'Tools'], view: ['Vista', 'View'], app: ['Aplicación', 'Application'] };
 
   const BASE = {
     motioncomic: {
       play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'],
       start: ['Home'], end: ['End'], prevShot: ['['], nextShot: [']'], split: ['S'], delete: ['Delete', 'Backspace'], undo: ['Ctrl+Z'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'],
       addBubble: ['T'], save: ['Ctrl+S'], duplicate: ['Ctrl+D', 'Ctrl+J'], selectAll: ['Ctrl+A'], marker: ['M'], tapBeat: ['B'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
+      selectTool: ['V'], blade: ['X'], trimStart: ['Q'], trimEnd: ['W'], snap: ['N'], keyframe: ['I'],
     },
   };
   /* Premiere: J K L, Ctrl+K para cortar, flechas arriba y abajo entre cortes, Ctrl+M para exportar. */
   BASE.premiere = Object.assign({}, BASE.motioncomic, { split: ['Ctrl+K', 'S'], prevShot: ['ArrowUp'], nextShot: ['ArrowDown'], export: ['Ctrl+M'], zoomIn: ['=', 'Plus'], zoomOut: ['-'] });
   /* Photoshop: T para texto, Ctrl+Alt+Z para deshacer varios pasos, Ctrl+Alt+Mayús+S para exportar. */
   BASE.photoshop = Object.assign({}, BASE.motioncomic, { undo: ['Ctrl+Z', 'Ctrl+Alt+Z'], addBubble: ['T'], zoomIn: ['Ctrl+=', 'Ctrl+Plus'], zoomOut: ['Ctrl+-'], export: ['Ctrl+Alt+Shift+S'], viewSwitch: ['C'] });
-  const PRESET_NAMES = { motioncomic: 'MotionComic Studio', premiere: 'Premiere', photoshop: 'Photoshop' };
+  /* Bases de otros programas, escritas con los atajos habituales de cada uno y llevadas a las acciones de este estudio. Lo que el programa no tiene queda «sin atajo». */
+  BASE.aftereffects = Object.assign({}, BASE.motioncomic, {
+    play: ['Space'], pause: [], forward: [], back1: [], stepBack: ['PageUp', 'Ctrl+ArrowLeft'], stepFwd: ['PageDown', 'Ctrl+ArrowRight'], secBack: ['Shift+PageUp'], secFwd: ['Shift+PageDown'], start: ['Home'], end: ['End'],
+    prevShot: ['J'], nextShot: ['K'], split: ['Ctrl+Shift+D'], duplicate: ['Ctrl+D'], addBubble: ['Ctrl+T'], marker: ['*'], tapBeat: [], fullscreen: ['`'], zoomIn: ['='], zoomOut: ['-'], export: ['Ctrl+M'], help: ['F1'],
+    selectTool: ['V'], blade: [], trimStart: ['Alt+['], trimEnd: ['Alt+]'], snap: [], keyframe: [] });
+  BASE.affinity = Object.assign({}, BASE.photoshop, { duplicate: ['Ctrl+J'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'], zoomIn: ['Ctrl+=', 'Ctrl+Plus'], zoomOut: ['Ctrl+-'], addBubble: ['T'], selectTool: ['V'], export: ['Ctrl+E'] });
+  BASE.capcut = Object.assign({}, BASE.motioncomic, {
+    play: ['Space'], pause: [], forward: [], back1: [], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'], start: ['Home'], end: ['End'], prevShot: ['ArrowUp'], nextShot: ['ArrowDown'],
+    split: ['Ctrl+B'], duplicate: ['Ctrl+D'], marker: ['M'], tapBeat: [], fullscreen: ['Ctrl+F'], zoomIn: ['Ctrl+=', 'Ctrl+Plus'], zoomOut: ['Ctrl+-'], export: ['Ctrl+E'],
+    selectTool: ['V'], blade: [], trimStart: ['Q'], trimEnd: ['W'], snap: ['S'], keyframe: ['Ctrl+K'] });
+  BASE.resolve = Object.assign({}, BASE.motioncomic, {
+    play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'], start: ['Home'], end: ['End'], prevShot: ['ArrowUp'], nextShot: ['ArrowDown'],
+    split: ['Ctrl+\\'], delete: ['Backspace', 'Delete'], marker: ['M'], tapBeat: [], fullscreen: ['Ctrl+F'], zoomIn: ['Ctrl+=', 'Ctrl+Plus'], zoomOut: ['Ctrl+-'],
+    selectTool: ['A'], blade: ['B'], trimStart: [], trimEnd: [], snap: ['N'], keyframe: [] });
+  BASE.blender = Object.assign({}, BASE.motioncomic, {
+    play: ['Space'], pause: [], forward: [], back1: [], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: [], secFwd: [], start: ['Shift+ArrowLeft'], end: ['Shift+ArrowRight'], prevShot: ['ArrowDown'], nextShot: ['ArrowUp'],
+    split: ['K'], delete: ['X', 'Delete'], addBubble: ['Shift+A'], duplicate: ['Shift+D'], selectAll: ['A'], marker: ['M'], tapBeat: [], viewSwitch: [], fullscreen: ['Ctrl+Space'], zoomIn: ['Plus'], zoomOut: ['-'], export: ['F12'], help: ['F1'],
+    selectTool: ['W'], blade: [], trimStart: [], trimEnd: [], snap: ['Shift+Tab'], keyframe: ['I'] });
+  const PRESET_NAMES = { motioncomic: 'MotionComic Studio', premiere: 'Premiere', photoshop: 'Photoshop', aftereffects: 'After Effects', affinity: 'Affinity', capcut: 'CapCut', resolve: 'DaVinci Resolve', blender: 'Blender' };
+  /* las bases de programas ajenos están escritas de memoria con los atajos más habituales: se avisa de que conviene revisarlas */
+  const PRESET_REVIEW = { aftereffects: 1, affinity: 1, capcut: 1, resolve: 1, blender: 1 };
 
   const load = () => { try { return JSON.parse(MC.store.get('keymap', '')) || {}; } catch (e) { return {}; } };
   const save = (m) => MC.store.set('keymap', JSON.stringify(m));
@@ -31371,7 +31404,9 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
   };
   const pretty = (c) => c.replace(/ArrowLeft/, '←').replace(/ArrowRight/, '→').replace(/ArrowUp/, '↑').replace(/ArrowDown/, '↓').replace(/Plus/, '+').replace(/Space/, t('Espacio', 'Space')).replace(/Delete/, t('Supr', 'Del')).replace(/Backspace/, t('Retroceso', 'Backspace')).replace(/Ctrl/, /Mac/i.test(navigator.platform || '') ? '⌘' : 'Ctrl');
 
-  const K = (MC.keys = { ACTIONS, GROUPS, PRESET_NAMES, combo, pretty });
+  const K = (MC.keys = { ACTIONS, GROUPS, PRESET_NAMES, PRESET_REVIEW, BASE, combo, pretty });
+  /* atajos de una acción en una base concreta (para la tabla de comparación) */
+  K.baseKeys = (base, id) => (BASE[base] && BASE[base][id]) || [];
   K.base = () => (load().base && BASE[load().base] ? load().base : 'motioncomic');
   K.setBase = (b) => { const m = load(); m.base = b; m.custom = {}; save(m); };
   K.bindings = (id) => { const m = load(), c = m.custom && m.custom[id]; return c || (BASE[K.base()][id] || []); };
@@ -31433,7 +31468,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.14'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.15'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -31635,7 +31670,8 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       keys: () => {
         const K = MC.keys, wrap = h('div', { style: { display: 'grid', gap: '12px' } });
         wrap.append(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Base de atajos', 'Shortcut set')),
-          MC.ui.seg(Object.keys(K.PRESET_NAMES).map((k) => ({ v: k, l: K.PRESET_NAMES[k] })), K.base(), (v) => { K.setBase(v); draw(); MC.toast(t('Atajos de ' + K.PRESET_NAMES[v], K.PRESET_NAMES[v] + ' shortcuts')); }, t('Base de atajos', 'Shortcut set')),
+          MC.ui.chips(Object.keys(K.PRESET_NAMES).map((k) => ({ v: k, l: K.PRESET_NAMES[k] })), K.base(), (v) => { K.setBase(v); draw(); MC.toast(t('Atajos de ' + K.PRESET_NAMES[v], K.PRESET_NAMES[v] + ' shortcuts')); }),
+          K.PRESET_REVIEW[K.base()] ? h('span', { class: 'cap warn' }, t('⚠ Esta base está escrita con los atajos más habituales de ' + K.PRESET_NAMES[K.base()] + ', de memoria y sin consultarlos en el programa: pueden diferir según la versión. Revísalos y cambia los que no coincidan; lo que ' + K.PRESET_NAMES[K.base()] + ' no tiene aparece «sin atajo».', '⚠ This set is written with the most common ' + K.PRESET_NAMES[K.base()] + ' shortcuts, from memory and without checking them in the program: they may differ by version. Check them and change any that do not match; what ' + K.PRESET_NAMES[K.base()] + ' does not have shows as “none”.')) : null,
           h('span', { class: 'cap' }, t('Cambiar de base descarta tus cambios. Puedes cambiar cada atajo con «Cambiar».', 'Switching the set discards your changes. You can change each shortcut with “Change”.'))));
         Object.keys(K.GROUPS).forEach((g) => {
           wrap.append(h('div', { class: 'eyebrow' }, t(K.GROUPS[g][0], K.GROUPS[g][1])), h('div', { style: { display: 'grid', gap: '2px' } }, K.ACTIONS.filter((a) => a.g === g).map((a) => {
@@ -31645,6 +31681,12 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
               h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => capture(a.id) }, t('Cambiar', 'Change')));
           })));
         });
+        /* tabla de comparación: la misma acción en cada base, para pasar de un programa a otro */
+        const bases = Object.keys(K.PRESET_NAMES);
+        wrap.append(h('details', { class: 'keycmp' }, h('summary', null, t('Comparar las bases de atajos (qué tecla hace cada cosa en cada programa)', 'Compare the shortcut sets (which key does what in each program)')),
+          h('div', { class: 'keycmpw', tabindex: '0', role: 'region', 'aria-label': t('Tabla de atajos por programa', 'Shortcuts by program table') }, h('table', null,
+            h('thead', null, h('tr', null, h('th', null, t('Acción', 'Action')), bases.map((b2) => h('th', null, K.PRESET_NAMES[b2])))),
+            h('tbody', null, K.ACTIONS.map((a) => h('tr', null, h('th', { scope: 'row' }, t(a.es, a.en)), bases.map((b2) => { const ks = K.baseKeys(b2, a.id); return h('td', null, ks.length ? ks.map((c) => h('kbd', null, K.pretty(c))) : h('span', { class: 'cap' }, '—')); }))))))));
         wrap.append(h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { K.reset(); draw(); } }, t('Restablecer los atajos de esta base', 'Reset this set’s shortcuts')),
           h('p', { class: 'cap' }, t('Fijos: Esc cierra o cancela, Intro cierra un polígono, Tab y Mayús+Tab recorren los controles.', 'Fixed: Esc closes or cancels, Enter closes a polygon, Tab and Shift+Tab move through controls.')));
         return wrap;
@@ -36861,7 +36903,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       const sec = (title, rows, hot) => h('section', { class: 'kssec' + (hot ? ' hot' : '') }, h('h3', null, title), ...rows);
       const ws = S.ws, tab = curTab();
       const ctxRows = ws === 'creativo' && tab === 'subtitulos' ? [row('Intro', t('Marcar la palabra que se dice en el cabezal', 'Mark the word being said at the playhead')), row('.', t('Marcar un silencio', 'Mark a silence')), row('Retroceso', t('Quitar la última marca', 'Remove the last mark'))]
-        : ws === 'exportar' ? [act('export')] : ws === 'creativo' ? [act('addBubble'), row('Intro o Espacio', t('Pulsar el botón enfocado', 'Press the focused button'))] : [row('V', t('Herramienta de selección', 'Select tool')), row('X', t('Cuchilla: pulsa un clip para cortarlo', 'Blade: click a clip to cut it')), row('Q o W', t('Recortar el principio o el final hasta el cabezal', 'Trim the start or the end to the playhead')), row('N', t('Imán activado o desactivado', 'Magnet on or off')), act('split'), act('marker')];
+        : ws === 'exportar' ? [act('export')] : ws === 'creativo' ? [act('addBubble'), row('Intro o Espacio', t('Pulsar el botón enfocado', 'Press the focused button'))] : ['selectTool', 'blade', 'trimStart', 'trimEnd', 'snap', 'keyframe', 'split', 'marker'].map(act);
       const body = h('div', { class: 'ks' },
         sec(ws === 'montaje' ? t('Montaje', 'Edit') : ws === 'creativo' ? t('Efectos y audio', 'Effects and audio') : t('Exportar', 'Export'), ctxRows, true),
         sec(t('Reproducción', 'Playback'), ['play', 'stepBack', 'stepFwd', 'secBack', 'secFwd', 'start', 'end', 'prevShot', 'nextShot', 'back1', 'pause', 'forward'].map(act)),
@@ -37028,6 +37070,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
       zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
       export: () => openExport(), help: () => shortcutSheet(), keys: () => MC.openHelp('keys'),
+      selectTool: () => setTool('sel'), blade: () => setTool('blade'), trimStart: () => trimEdge('start'), trimEnd: () => trimEdge('end'), snap: () => toggleSnap(), keyframe: () => addKfHere(),
       delete: () => {
         if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
         else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
@@ -37076,12 +37119,10 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         if (e.key === '.') { e.preventDefault(); silenceHere(); return; }
         if (e.key === 'Backspace') { e.preventDefault(); unmarkWord(); return; }
       }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !(S.ws === 'creativo' && curTab() === 'subtitulos')) {
-        const kk = e.key.toLowerCase();
-        if (kk === 'v') { setTool('sel'); return; } if (kk === 'x') { setTool('blade'); return; } if (kk === 'q') { trimEdge('start'); return; } if (kk === 'w') { trimEdge('end'); return; } if (kk === 'n') { toggleSnap(); return; }
-      }
       const id = MC.keys.match(e), c = MC.keys.combo(e);
       if (!id || !ACT[id]) return;
+      /* las herramientas de una sola letra no se usan mientras se escribe en el editor de subtítulos */
+      if (['selectTool', 'blade', 'trimStart', 'trimEnd', 'snap', 'keyframe'].includes(id) && S.ws === 'creativo' && curTab() === 'subtitulos' && !e.ctrlKey && !e.metaKey && !e.altKey) return;
       if (/^(BUTTON|A)$/.test(e.target.tagName) && (c === 'Space' || c === 'Enter')) return; // el control enfocado lo usa
       if (ACT[id](e) !== false) e.preventDefault();
     }
