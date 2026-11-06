@@ -221,11 +221,9 @@
       settings: () => h('div', { style: { display: 'grid', gap: '12px' } },
         h('p', { class: 'cap' }, t('Tema, tamaño de la interfaz, animaciones, idioma, datos guardados en este equipo, instalación y rendimiento están en las preferencias.', 'Theme, interface size, animations, language, data stored on this device, installation and performance are in the preferences.')),
         h('button', { class: 'btn btn-p', type: 'button', style: { justifySelf: 'start' }, onClick: () => { modal.close(); MC.openPrefs(); } }, MC.icon('gear', 15), t('Abrir las preferencias', 'Open preferences'))),
-      about: () => h('div', { style: { display: 'grid', gap: '10px' } },
-        h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
-        h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
+      about: () => h('div', { style: { display: 'grid', gap: '10px' } }, MC.splash.card(),
         h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese. Los proyectos viven en este navegador; exporta copias de vez en cuando.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it. Projects live in this browser; export backups from time to time.')),
-        h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT) y pdf.js (Apache-2.0).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT) and pdf.js (Apache-2.0).'))),
+        h('p', { class: 'cap' }, t('Incluye mp4-muxer (MIT), ag-psd (MIT) y pdf.js (Apache-2.0).', 'Includes mp4-muxer (MIT), ag-psd (MIT) and pdf.js (Apache-2.0).'))),
     };
 
     function capture(id) {

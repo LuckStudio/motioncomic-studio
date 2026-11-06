@@ -229,3 +229,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Las vistas previas al pasar el cursor (que ya existían para cámara y efectos) se generalizan: entradas, salidas y bucles de capas, superposiciones y textos, y transiciones entre planos. Se reproducen en el visor con los planos reales, mueven solo el cabezal (sin cambiar de plano ni de selección), restauran el proyecto al salir sin tocar el historial y se cierran solas si el botón desaparece. Funcionan con ratón, con Tab y con pulsación larga. Etiqueta «Vista previa» sobre el visor.
 - `MC.studioApi.project()` y `time()` para pruebas y para la conexión con IA.
+
+## Pantalla de carga: dedicatoria y «Acerca de»
+
+- Se quita el texto de derechos reservados y de «herramienta gratuita»; se sustituye por la dedicatoria a GotiDraw (la imagen definitiva de su arte sustituirá al patrón provisional cuando esté lista).
+- La tarjeta (`MC.splash.card()`) se reutiliza en Preferencias → Acerca de y Ayuda → Acerca de, con versión, «desarrollado por LuckStudio, en desarrollo continuo», enlace a GitHub y botón «Ver la pantalla de carga».

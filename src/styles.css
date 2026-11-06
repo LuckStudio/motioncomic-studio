@@ -858,3 +858,6 @@ a.btn { text-decoration: none; }
 
 .hovtag { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
 .hovtag[hidden] { display: none; }
+
+.sp-ded { display: grid; gap: 2px; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.45; } .sp-ded b { font-size: 14px; }
+.sp-card.static { width: 100%; height: auto; min-height: 330px; box-shadow: none; animation: none; margin: 8px 0; } .sp-card.static .sp-img { min-height: 220px; }
