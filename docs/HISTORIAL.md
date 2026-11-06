@@ -207,3 +207,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Doble clic: al escribir en un campo y pulsar otro control, el campo confirmaba al perder el foco, el panel se redibujaba y el clic se perdía. Ahora el redibujado se aplaza hasta soltar el botón (y se libera enseguida si se arrastra).
 - Enlace al repositorio de GitHub en el inicio (barra superior y pie) y en Preferencias → Acerca de.
 - README actualizado: tres espacios de trabajo, sección de conexión con IA, tabla de archivos al día y enlace al repositorio; README propio del conector MCP.
+
+## Bloque 2 del plan: clic derecho en toda la interfaz
+
+- Menú contextual general: herramientas de la barra, pestañas laterales y espacio «Efectos y audio» se pueden ocultar con clic derecho (con confirmación y «Deshacer») y recuperar desde el mismo menú; cabecera de panel, visor y cabecera de pista tienen su menú; cualquier hueco ofrece personalizar y ayuda. Los menús de la línea de tiempo (plano, capa, clip, etc.) no cambian.
