@@ -249,3 +249,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - `MC.layerGeom` calcula el desplazamiento por eje (`fx`, `fy`), la respuesta al zoom y al giro a partir de `layer.px` ({x, y, zoom, rot, off}) y de la curva del proyecto (`pxGamma`); las capas fijas, al revés o solo en un eje salen igual en el visor y en la exportación, y el cubrimiento automático de huecos usa los mismos valores.
 - Pestaña Parallax en las propiedades de la capa (el límite de desplazamiento se muda aquí desde Pivote), curva de profundidad en Proyecto y profundidad de campo por plano (`shot.dof`, `MC.dofBlur`) junto al rack focus.
+
+## Bloque 10 del plan: viñetas personalizables
+
+- El marco de viñeta gana `radius` (esquinas redondeadas con curvas dentro de `panelGeom`, así clip, trazo y sombra coinciden), `bgGrad`/`bg2`/`bgAngle` (calle con degradado vía `MC.gradFill`, incluido en la clave de caché del fondo), `strokeGrad`/`color2`/`strokeAngle` y `shadowAngle`/`shadowBlur`. «Mis estilos de viñeta» se guarda en el almacenamiento local (`framestyles`).

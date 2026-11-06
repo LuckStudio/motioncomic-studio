@@ -27513,7 +27513,7 @@ module.exports = ZStream;
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
   /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
-  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000' };
+  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000', radius: 0, bgGrad: 'none', bg2: '#8c7cff', bgAngle: 90, strokeGrad: 'none', color2: '#ffffff', strokeAngle: 0, shadowBlur: 0, shadowAngle: 45 };
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
@@ -28249,6 +28249,13 @@ module.exports = ZStream;
     { v: 'none', es: 'Sin viñeta', en: 'No panel', f: { gutter: 0, width: 0, style: 'none', shape: 'rect', shadow: 0, pattern: 'plain' } },
   ];
 
+  /* Mis estilos de viñeta: se guardan en este equipo con nombre (sin el interruptor «on») */
+  const FS_KEYS = ['gutter', 'bg', 'pattern', 'patColor', 'width', 'color', 'style', 'shape', 'amount', 'shadow', 'shadowColor', 'radius', 'bgGrad', 'bg2', 'bgAngle', 'strokeGrad', 'color2', 'strokeAngle', 'shadowBlur', 'shadowAngle'];
+  MC.frameStyles = () => { try { const l = JSON.parse(MC.store.get('framestyles', '[]')); return Array.isArray(l) ? l.filter((x) => x && x.name && x.f) : []; } catch (e) { return []; } };
+  MC.saveFrameStyle = (name, f) => { const o = {}; FS_KEYS.forEach((k) => { if (f[k] !== undefined) o[k] = f[k]; }); const l = MC.frameStyles().filter((x) => x.name !== name); l.push({ name, f: o }); MC.store.set('framestyles', JSON.stringify(l.slice(-30))); };
+  MC.removeFrameStyle = (name) => MC.store.set('framestyles', JSON.stringify(MC.frameStyles().filter((x) => x.name !== name)));
+  MC.applyFrameStyle = (f, st) => { Object.assign(f, MC.FRAME_DEF, { on: f.on }, st); if (f.on === undefined) delete f.on; };
+
   /* Marco efectivo de un plano: el del plano si lo personaliza; si no, el del proyecto. */
   MC.frameOf = (project, shot) => {
     const base = Object.assign({}, MC.FRAME_DEF, project && (project.frame || { on: (project.mode || 'free') === 'free' }));
@@ -28290,6 +28297,16 @@ module.exports = ZStream;
       case 'circle': { poly = []; for (let i = 0; i < 96; i++) { const th = (i / 96) * Math.PI * 2; poly.push([cx + Math.cos(th) * bw / 2, cy + Math.sin(th) * bh / 2]); } break; }
       default: poly = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
     }
+    /* esquinas redondeadas: solo en formas de pocos vértices; cada esquina se sustituye por una curva suave */
+    if (f.radius > 0 && poly.length <= 8) {
+      const rr = clamp(f.radius, 0, 0.5) * Math.min(bw, bh), out = [], n = poly.length;
+      for (let i = 0; i < n; i++) {
+        const v = poly[i], a = poly[(i + n - 1) % n], b = poly[(i + 1) % n], la = Math.hypot(a[0] - v[0], a[1] - v[1]) || 1, lb = Math.hypot(b[0] - v[0], b[1] - v[1]) || 1, d = Math.min(rr, la / 2, lb / 2);
+        const p1 = [v[0] + ((a[0] - v[0]) * d) / la, v[1] + ((a[1] - v[1]) * d) / la], p2 = [v[0] + ((b[0] - v[0]) * d) / lb, v[1] + ((b[1] - v[1]) * d) / lb];
+        for (let k = 0; k <= 8; k++) { const u = k / 8, w = 1 - u; out.push([w * w * p1[0] + 2 * u * w * v[0] + u * u * p2[0], w * w * p1[1] + 2 * u * w * v[1] + u * u * p2[1]]); }
+      }
+      poly = out;
+    }
     let px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
     poly.forEach((q) => { px0 = Math.min(px0, q[0]); py0 = Math.min(py0, q[1]); px1 = Math.max(px1, q[0]); py1 = Math.max(py1, q[1]); });
     const s = Math.max((px1 - px0) / W, (py1 - py0) / H) || 1;
@@ -28310,16 +28327,26 @@ module.exports = ZStream;
     return { c, g };
   };
 
+  /* Color liso o degradado (lineal con ángulo, o radial) que cubre la caja x0,y0 → x1,y1 */
+  MC.gradFill = (g, kind, c1, c2, angle, x0, y0, x1, y1) => {
+    if (kind !== 'linear' && kind !== 'radial') return c1;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, w = x1 - x0, hh = y1 - y0;
+    let gr;
+    if (kind === 'radial') gr = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, Math.hypot(w, hh) / 2));
+    else { const a = ((angle == null ? 90 : angle) * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a), L = Math.abs(w * dx) / 2 + Math.abs(hh * dy) / 2; gr = g.createLinearGradient(cx - dx * L, cy - dy * L, cx + dx * L, cy + dy * L); }
+    gr.addColorStop(0, c1); gr.addColorStop(1, c2); return gr;
+  };
+
   /* Fondo de la calle (color + textura), cacheado por tamaño y ajustes */
   const bgCache = new Map();
   MC.drawPanelBg = (ctx, f, W, H) => {
-    const key = [W, H, f.bg, f.pattern, f.patColor].join('|');
+    const key = [W, H, f.bg, f.pattern, f.patColor, f.bgGrad, f.bg2, f.bgAngle].join('|');
     let c = bgCache.get(key);
     if (!c) {
       if (bgCache.size > 24) bgCache.clear();
       c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : document.createElement('canvas'); c.width = W; c.height = H;
       const g = c.getContext('2d'), m = Math.min(W, H), pc = f.patColor || '#000000';
-      g.fillStyle = f.bg || '#ffffff'; g.fillRect(0, 0, W, H);
+      g.fillStyle = MC.gradFill(g, f.bgGrad, f.bg || '#ffffff', f.bg2 || '#000000', f.bgAngle, 0, 0, W, H); g.fillRect(0, 0, W, H);
       g.fillStyle = pc; g.strokeStyle = pc;
       if (f.pattern === 'halftone') {
         const st = m / 70, rot = Math.PI / 4, d = Math.hypot(W, H);
@@ -28373,7 +28400,7 @@ module.exports = ZStream;
   MC.drawPanelStroke = (ctx, f, pan, W, H) => {
     const m = Math.min(W, H), w = clamp(f.width || 0, 0, 0.05) * m;
     if (!w || f.style === 'none') return;
-    ctx.save(); ctx.strokeStyle = f.color || '#111'; ctx.lineJoin = 'miter'; ctx.miterLimit = 6; ctx.lineCap = 'butt';
+    ctx.save(); ctx.strokeStyle = MC.gradFill(ctx, f.strokeGrad, f.color || '#111', f.color2 || '#ffffff', f.strokeAngle, pan.x0, pan.y0, pan.x1, pan.y1); ctx.lineJoin = 'miter'; ctx.miterLimit = 6; ctx.lineCap = 'butt';
     const poly = pan.poly;
     if (f.style === 'ink') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w, 3, w * 0.35, w * 1.2, true); handLine(ctx, poly, w * 0.55, 17, w * 0.5, w * 0.6, true); }
     else if (f.style === 'sketch') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w * 0.6, 5, w * 1.6, w * 3, false); handLine(ctx, poly, w * 0.45, 29, w * 1.8, w * 4, false); }
@@ -28383,8 +28410,10 @@ module.exports = ZStream;
   };
   MC.drawPanelShadow = (ctx, f, pan, W, H) => {
     if (!(f.shadow > 0)) return;
-    const d = f.shadow * 0.022 * Math.min(W, H);
-    ctx.save(); ctx.translate(d, d); ctx.fillStyle = f.shadowColor || '#000'; pathPoly(ctx, pan.poly); ctx.fill(); ctx.restore();
+    const d = f.shadow * 0.022 * Math.min(W, H), a = ((f.shadowAngle == null ? 45 : f.shadowAngle) * Math.PI) / 180, k = Math.abs(ctx.getTransform().a) || 1, bl = (f.shadowBlur || 0) * 0.03 * Math.min(W, H) * k;
+    ctx.save(); ctx.translate(Math.cos(a) * d * Math.SQRT2, Math.sin(a) * d * Math.SQRT2); ctx.fillStyle = f.shadowColor || '#000';
+    if (bl > 0) { ctx.shadowColor = f.shadowColor || '#000'; ctx.shadowBlur = bl; }
+    pathPoly(ctx, pan.poly); ctx.fill(); ctx.restore();
   };
 
   /* ---------- transiciones ---------- */
@@ -31423,7 +31452,7 @@ module.exports = ZStream;
   /* id: [[título, para qué sirve, cómo se usa], [title, what it is for, how to use it], tutorial] */
   const D = {
     planos: [['Planos', 'Un plano es una escena del vídeo: una ilustración (o varias capas) con su propia cámara y duración. Esta lista es el orden del montaje.', 'Pulsa «Añadir planos desde imágenes» para crear uno por archivo. Arrastra para reordenar, haz clic para seleccionar y usa el menú de cada plano para duplicar, renombrar o borrar. Estira el final del plano en la línea de tiempo para cambiar su duración.'], ['Shots', 'A shot is one scene of the video: an illustration (or several layers) with its own camera and length. This list is the order of the edit.', 'Press “Add shots from images” to create one per file. Drag to reorder, click to select and use each shot’s menu to duplicate, rename or delete. Stretch the end of the shot on the timeline to change its length.'], 'importar'],
-    vinetas: [['Viñetas', 'Define cómo se ve el marco de cada plano: borde de cómic, esquinas, calle entre viñetas y sombra. Es el aspecto «de página» del vídeo.', 'Elige un estilo para todo el proyecto y, si quieres, cambia el de un plano concreto desde sus propiedades. Verás el resultado al momento en el visor.'], ['Panels', 'Sets how each shot’s frame looks: comic border, corners, gutter and shadow. It is the “page” look of the video.', 'Pick a style for the whole project and, if you want, change a single shot from its properties. You see the result right away in the viewer.'], 'vinetas'],
+    vinetas: [['Viñetas', 'Define cómo se ve el marco de cada plano: borde de cómic, esquinas, calle entre viñetas y sombra. Es el aspecto «de página» del vídeo.', 'Elige un estilo para todo el proyecto y, si quieres, cambia el de un plano concreto desde sus propiedades. Personaliza colores y degradados de la calle y del trazo, esquinas redondeadas, sombra con dirección y desenfoque, y guarda tus estilos con nombre. Verás el resultado al momento en el visor.'], ['Panels', 'Sets how each shot’s frame looks: comic border, corners, gutter and shadow. It is the “page” look of the video.', 'Pick a style for the whole project and, if you want, change a single shot from its properties. Customise gutter and stroke colours and gradients, rounded corners, shadow direction and blur, and save your styles with a name. You see the result right away in the viewer.'], 'vinetas'],
     camara: [['Cámara', 'Controla el movimiento de la cámara dentro de un plano: dónde empieza y dónde termina el encuadre, cuánto dura y con qué curva acelera.', 'Coloca el cabezal al inicio o al final del plano y arrastra el visor para encuadrar. Los presets de cámara aplican movimientos típicos (zoom, paneo, deriva). Con una trayectoria dibujada la cámara sigue una ruta libre.'], ['Camera', 'Controls how the camera moves inside a shot: where the framing starts and ends, how long it takes and which curve it eases with.', 'Put the playhead at the start or the end of the shot and drag the viewer to frame it. Camera presets apply typical moves (zoom, pan, drift). With a drawn route the camera follows a free path.'], 'parallax'],
     curvas: [['Curvas', 'Editor gráfico de los fotogramas clave. Muestra cómo cambia una propiedad (posición, escala, giro, opacidad…) a lo largo del tiempo y te deja suavizar o endurecer cada tramo.', 'Elige la propiedad, arrastra los rombos en tiempo y valor y usa los tiradores para cambiar la curva. «Lineal» va a velocidad constante; «Suave» acelera y frena; «Rebote» y «Elástico» pasan de largo y vuelven.'], ['Curves', 'Graph editor for keyframes. It shows how a property (position, scale, rotation, opacity…) changes over time and lets you soften or harden each stretch.', 'Pick the property, drag the diamonds in time and value, and use the handles to change the curve. “Linear” keeps a constant speed; “Smooth” eases in and out; “Bounce” and “Elastic” overshoot and settle.'], 'curvas'],
     dof: [['Profundidad de campo', 'Desenfoca las capas según lo lejos que estén de la profundidad enfocada, como una cámara real: lo que está en el foco sale nítido y lo demás se difumina.', 'Actívala, elige qué profundidad (z) está enfocada (o pulsa «Enfocar la capa…»), la zona nítida y el desenfoque máximo. Es fijo durante el plano; para pasar el foco de una capa a otra usa el rack focus.'], ['Depth of field', 'Blurs layers according to how far they are from the focused depth, like a real camera: what is in focus stays sharp and the rest is softened.', 'Turn it on, choose which depth (z) is focused (or press “Focus layer…”), the sharp zone and the maximum blur. It is fixed during the shot; to move focus from one layer to another use rack focus.']],
@@ -33948,24 +33977,44 @@ module.exports = ZStream;
       /* viñeta: contenedor del proyecto y del plano */
       const colorIn = (label, value, fn) => { const id = 'c-' + MC.uid(); return h('div', { class: 'field' }, h('label', { for: id }, label), h('input', { type: 'color', id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: value || '#000000', onInput: (e) => { fn(e.target.value); touch(); }, onChange: commit })); };
       const swatches = (value, fn, list) => h('div', { class: 'swatches' }, list.map((q) => h('button', { type: 'button', class: 'sw', title: q[1], 'aria-label': q[1], 'aria-pressed': String((value || '').toLowerCase() === q[0]), style: { background: q[0] }, onClick: () => { fn(q[0]); commit(); } })));
+      /* mis estilos de viñeta: guardar el actual con un nombre, aplicarlo o borrarlo */
+      const ownStyles = (f) => {
+        const list = MC.frameStyles(), nid = 'fs-' + MC.uid(), inp = h('input', { class: 'input', id: nid, placeholder: t('Nombre del estilo', 'Style name'), maxlength: 40, 'aria-label': t('Nombre del estilo de viñeta', 'Panel style name') });
+        const save = () => { const n = inp.value.trim(); if (!n) { inp.focus(); return; } MC.saveFrameStyle(n, f); MC.toast(t('Estilo guardado: ', 'Style saved: ') + n); renderPanels(); };
+        return h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mis estilos de viñeta', 'My panel styles')),
+          list.length ? h('div', { class: 'views' }, list.map((q) => h('div', { class: 'viewrow' }, h('b', null, q.name),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.applyFrameStyle(f, q.f); commit(); } }, t('Aplicar', 'Apply')),
+            h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-label': t('Borrar el estilo ', 'Delete style ') + q.name, onClick: () => { MC.removeFrameStyle(q.name); renderPanels(); } }, MC.icon('trash', 14))))) : h('span', { class: 'cap' }, t('Aún no has guardado ninguno.', 'You have not saved any yet.')),
+          h('div', { class: 'viewadd' }, inp, h('button', { class: 'btn btn-s', type: 'button', onClick: save }, MC.icon('bookmark', 14), t('Guardar el estilo actual', 'Save the current style'))));
+      };
       const frameEditor = (f, scope) => {
         const shapeAmt = !['rect', 'circle'].includes(f.shape || 'rect');
         const BGS = [['#ffffff', t('Blanco', 'White')], ['#000000', t('Negro', 'Black')], ['#fbf7ee', t('Papel', 'Paper')], ['#e9e6df', t('Gris cálido', 'Warm grey')], ['#ffd84a', t('Amarillo', 'Yellow')], ['#16181b', t('Grafito', 'Graphite')]];
         return [
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilos de viñeta', 'Panel styles')),
-            MC.ui.chips(MC.FRAME_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), null, (v) => { const pr = MC.FRAME_PRESETS.find((x) => x.v === v); Object.assign(f, { pattern: 'plain', shadow: 0, amount: 0.5 }, pr.f); commit(); })),
+            MC.ui.chips(MC.FRAME_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), null, (v) => { const pr = MC.FRAME_PRESETS.find((x) => x.v === v); Object.assign(f, { pattern: 'plain', shadow: 0, amount: 0.5, radius: 0, bgGrad: 'none', strokeGrad: 'none', shadowBlur: 0, shadowAngle: 45 }, pr.f); commit(); })),
+          ownStyles(f),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Calle (espacio entre viñetas)', 'Gutter (space between panels)')), swatches(f.bg, (v) => { f.bg = v; }, BGS)),
           MC.ui.slider({ label: t('Ancho de la calle', 'Gutter width'), min: 0, max: 0.15, step: 0.002, value: f.gutter || 0, fmt: (v) => (v * 100).toFixed(1) + ' %', onInput: (v) => { f.gutter = v; touch(); }, onChange: commit }),
           colorIn(t('Color de la calle', 'Gutter colour'), f.bg, (v) => { f.bg = v; }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Relleno de la calle', 'Gutter fill')), MC.ui.chips([{ v: 'none', l: t('Color liso', 'Solid colour') }, { v: 'linear', l: t('Degradado lineal', 'Linear gradient') }, { v: 'radial', l: t('Degradado radial', 'Radial gradient') }], f.bgGrad || 'none', (v) => { f.bgGrad = v; commit(); })),
+          f.bgGrad && f.bgGrad !== 'none' ? colorIn(t('Segundo color de la calle', 'Second gutter colour'), f.bg2, (v) => { f.bg2 = v; }) : null,
+          f.bgGrad === 'linear' ? MC.ui.slider({ label: t('Ángulo del degradado', 'Gradient angle'), min: 0, max: 360, step: 5, value: f.bgAngle == null ? 90 : f.bgAngle, fmt: (v) => v + '°', onInput: (v) => { f.bgAngle = v; touch(); }, onChange: commit }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Textura de la calle', 'Gutter texture')), MC.ui.chips(MC.FRAME_BGS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.pattern || 'plain', (v) => { f.pattern = v; commit(); })),
           f.pattern && f.pattern !== 'plain' ? colorIn(t('Color de la textura', 'Texture colour'), f.patColor, (v) => { f.patColor = v; }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma de la viñeta', 'Panel shape')), MC.ui.chips(MC.FRAME_SHAPES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.shape || 'rect', (v) => { f.shape = v; commit(); })),
+          !['circle', 'burst', 'wave'].includes(f.shape || 'rect') ? MC.ui.slider({ label: t('Esquinas redondeadas', 'Rounded corners'), min: 0, max: 0.5, step: 0.01, value: f.radius || 0, fmt: (v) => (v ? Math.round(v * 200) + ' %' : t('rectas', 'sharp')), onInput: (v) => { f.radius = v; touch(); }, onChange: commit }) : null,
           shapeAmt ? MC.ui.slider({ label: t('Intensidad de la forma', 'Shape amount'), min: 0, max: 1, step: 0.01, value: f.amount == null ? 0.5 : f.amount, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.amount = v; touch(); }, onChange: commit }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Trazo que la bordea', 'Border stroke')), MC.ui.chips(MC.FRAME_STROKES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.style || 'solid', (v) => { f.style = v; if (v !== 'none' && !(f.width > 0)) f.width = 0.006; commit(); })),
           f.style !== 'none' ? MC.ui.slider({ label: t('Grosor del trazo', 'Stroke width'), min: 0, max: 0.03, step: 0.0005, value: f.width || 0, fmt: (v) => (v * 1000).toFixed(1) + ' ‰', onInput: (v) => { f.width = v; touch(); }, onChange: commit }) : null,
           f.style !== 'none' ? colorIn(t('Color del trazo', 'Stroke colour'), f.color, (v) => { f.color = v; }) : null,
+          f.style !== 'none' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Relleno del trazo', 'Stroke fill')), MC.ui.chips([{ v: 'none', l: t('Color liso', 'Solid colour') }, { v: 'linear', l: t('Degradado', 'Gradient') }], f.strokeGrad || 'none', (v) => { f.strokeGrad = v; commit(); })) : null,
+          f.style !== 'none' && f.strokeGrad === 'linear' ? colorIn(t('Segundo color del trazo', 'Second stroke colour'), f.color2, (v) => { f.color2 = v; }) : null,
+          f.style !== 'none' && f.strokeGrad === 'linear' ? MC.ui.slider({ label: t('Ángulo del degradado del trazo', 'Stroke gradient angle'), min: 0, max: 360, step: 5, value: f.strokeAngle == null ? 0 : f.strokeAngle, fmt: (v) => v + '°', onInput: (v) => { f.strokeAngle = v; touch(); }, onChange: commit }) : null,
           MC.ui.slider({ label: t('Sombra de la viñeta', 'Panel shadow'), min: 0, max: 1, step: 0.01, value: f.shadow || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.shadow = v; touch(); }, onChange: commit }),
           f.shadow > 0 ? colorIn(t('Color de la sombra', 'Shadow colour'), f.shadowColor, (v) => { f.shadowColor = v; }) : null,
+          f.shadow > 0 ? MC.ui.slider({ label: t('Desenfoque de la sombra', 'Shadow blur'), min: 0, max: 1, step: 0.01, value: f.shadowBlur || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.shadowBlur = v; touch(); }, onChange: commit }) : null,
+          f.shadow > 0 ? MC.ui.slider({ label: t('Dirección de la sombra', 'Shadow direction'), min: 0, max: 360, step: 5, value: f.shadowAngle == null ? 45 : f.shadowAngle, fmt: (v) => v + '°', onInput: (v) => { f.shadowAngle = v; touch(); }, onChange: commit }) : null,
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileOver.click() }, MC.icon('plus', 14), t('Añadir ilustración por encima', 'Add artwork on top')),
             scope === 'shot' ? null : h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.shots.some((x) => x.frame), onClick: () => { p.shots.forEach((x) => { x.frame = null; }); commit(); MC.toast(t('Todas las viñetas usan el estilo del proyecto', 'All panels use the project style')); } }, t('Quitar personalizaciones', 'Clear overrides'))),

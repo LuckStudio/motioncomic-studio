@@ -33,6 +33,13 @@
     { v: 'none', es: 'Sin viñeta', en: 'No panel', f: { gutter: 0, width: 0, style: 'none', shape: 'rect', shadow: 0, pattern: 'plain' } },
   ];
 
+  /* Mis estilos de viñeta: se guardan en este equipo con nombre (sin el interruptor «on») */
+  const FS_KEYS = ['gutter', 'bg', 'pattern', 'patColor', 'width', 'color', 'style', 'shape', 'amount', 'shadow', 'shadowColor', 'radius', 'bgGrad', 'bg2', 'bgAngle', 'strokeGrad', 'color2', 'strokeAngle', 'shadowBlur', 'shadowAngle'];
+  MC.frameStyles = () => { try { const l = JSON.parse(MC.store.get('framestyles', '[]')); return Array.isArray(l) ? l.filter((x) => x && x.name && x.f) : []; } catch (e) { return []; } };
+  MC.saveFrameStyle = (name, f) => { const o = {}; FS_KEYS.forEach((k) => { if (f[k] !== undefined) o[k] = f[k]; }); const l = MC.frameStyles().filter((x) => x.name !== name); l.push({ name, f: o }); MC.store.set('framestyles', JSON.stringify(l.slice(-30))); };
+  MC.removeFrameStyle = (name) => MC.store.set('framestyles', JSON.stringify(MC.frameStyles().filter((x) => x.name !== name)));
+  MC.applyFrameStyle = (f, st) => { Object.assign(f, MC.FRAME_DEF, { on: f.on }, st); if (f.on === undefined) delete f.on; };
+
   /* Marco efectivo de un plano: el del plano si lo personaliza; si no, el del proyecto. */
   MC.frameOf = (project, shot) => {
     const base = Object.assign({}, MC.FRAME_DEF, project && (project.frame || { on: (project.mode || 'free') === 'free' }));
@@ -74,6 +81,16 @@
       case 'circle': { poly = []; for (let i = 0; i < 96; i++) { const th = (i / 96) * Math.PI * 2; poly.push([cx + Math.cos(th) * bw / 2, cy + Math.sin(th) * bh / 2]); } break; }
       default: poly = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
     }
+    /* esquinas redondeadas: solo en formas de pocos vértices; cada esquina se sustituye por una curva suave */
+    if (f.radius > 0 && poly.length <= 8) {
+      const rr = clamp(f.radius, 0, 0.5) * Math.min(bw, bh), out = [], n = poly.length;
+      for (let i = 0; i < n; i++) {
+        const v = poly[i], a = poly[(i + n - 1) % n], b = poly[(i + 1) % n], la = Math.hypot(a[0] - v[0], a[1] - v[1]) || 1, lb = Math.hypot(b[0] - v[0], b[1] - v[1]) || 1, d = Math.min(rr, la / 2, lb / 2);
+        const p1 = [v[0] + ((a[0] - v[0]) * d) / la, v[1] + ((a[1] - v[1]) * d) / la], p2 = [v[0] + ((b[0] - v[0]) * d) / lb, v[1] + ((b[1] - v[1]) * d) / lb];
+        for (let k = 0; k <= 8; k++) { const u = k / 8, w = 1 - u; out.push([w * w * p1[0] + 2 * u * w * v[0] + u * u * p2[0], w * w * p1[1] + 2 * u * w * v[1] + u * u * p2[1]]); }
+      }
+      poly = out;
+    }
     let px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
     poly.forEach((q) => { px0 = Math.min(px0, q[0]); py0 = Math.min(py0, q[1]); px1 = Math.max(px1, q[0]); py1 = Math.max(py1, q[1]); });
     const s = Math.max((px1 - px0) / W, (py1 - py0) / H) || 1;
@@ -94,16 +111,26 @@
     return { c, g };
   };
 
+  /* Color liso o degradado (lineal con ángulo, o radial) que cubre la caja x0,y0 → x1,y1 */
+  MC.gradFill = (g, kind, c1, c2, angle, x0, y0, x1, y1) => {
+    if (kind !== 'linear' && kind !== 'radial') return c1;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, w = x1 - x0, hh = y1 - y0;
+    let gr;
+    if (kind === 'radial') gr = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, Math.hypot(w, hh) / 2));
+    else { const a = ((angle == null ? 90 : angle) * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a), L = Math.abs(w * dx) / 2 + Math.abs(hh * dy) / 2; gr = g.createLinearGradient(cx - dx * L, cy - dy * L, cx + dx * L, cy + dy * L); }
+    gr.addColorStop(0, c1); gr.addColorStop(1, c2); return gr;
+  };
+
   /* Fondo de la calle (color + textura), cacheado por tamaño y ajustes */
   const bgCache = new Map();
   MC.drawPanelBg = (ctx, f, W, H) => {
-    const key = [W, H, f.bg, f.pattern, f.patColor].join('|');
+    const key = [W, H, f.bg, f.pattern, f.patColor, f.bgGrad, f.bg2, f.bgAngle].join('|');
     let c = bgCache.get(key);
     if (!c) {
       if (bgCache.size > 24) bgCache.clear();
       c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : document.createElement('canvas'); c.width = W; c.height = H;
       const g = c.getContext('2d'), m = Math.min(W, H), pc = f.patColor || '#000000';
-      g.fillStyle = f.bg || '#ffffff'; g.fillRect(0, 0, W, H);
+      g.fillStyle = MC.gradFill(g, f.bgGrad, f.bg || '#ffffff', f.bg2 || '#000000', f.bgAngle, 0, 0, W, H); g.fillRect(0, 0, W, H);
       g.fillStyle = pc; g.strokeStyle = pc;
       if (f.pattern === 'halftone') {
         const st = m / 70, rot = Math.PI / 4, d = Math.hypot(W, H);
@@ -157,7 +184,7 @@
   MC.drawPanelStroke = (ctx, f, pan, W, H) => {
     const m = Math.min(W, H), w = clamp(f.width || 0, 0, 0.05) * m;
     if (!w || f.style === 'none') return;
-    ctx.save(); ctx.strokeStyle = f.color || '#111'; ctx.lineJoin = 'miter'; ctx.miterLimit = 6; ctx.lineCap = 'butt';
+    ctx.save(); ctx.strokeStyle = MC.gradFill(ctx, f.strokeGrad, f.color || '#111', f.color2 || '#ffffff', f.strokeAngle, pan.x0, pan.y0, pan.x1, pan.y1); ctx.lineJoin = 'miter'; ctx.miterLimit = 6; ctx.lineCap = 'butt';
     const poly = pan.poly;
     if (f.style === 'ink') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w, 3, w * 0.35, w * 1.2, true); handLine(ctx, poly, w * 0.55, 17, w * 0.5, w * 0.6, true); }
     else if (f.style === 'sketch') { ctx.lineCap = 'round'; ctx.lineJoin = 'round'; handLine(ctx, poly, w * 0.6, 5, w * 1.6, w * 3, false); handLine(ctx, poly, w * 0.45, 29, w * 1.8, w * 4, false); }
@@ -167,8 +194,10 @@
   };
   MC.drawPanelShadow = (ctx, f, pan, W, H) => {
     if (!(f.shadow > 0)) return;
-    const d = f.shadow * 0.022 * Math.min(W, H);
-    ctx.save(); ctx.translate(d, d); ctx.fillStyle = f.shadowColor || '#000'; pathPoly(ctx, pan.poly); ctx.fill(); ctx.restore();
+    const d = f.shadow * 0.022 * Math.min(W, H), a = ((f.shadowAngle == null ? 45 : f.shadowAngle) * Math.PI) / 180, k = Math.abs(ctx.getTransform().a) || 1, bl = (f.shadowBlur || 0) * 0.03 * Math.min(W, H) * k;
+    ctx.save(); ctx.translate(Math.cos(a) * d * Math.SQRT2, Math.sin(a) * d * Math.SQRT2); ctx.fillStyle = f.shadowColor || '#000';
+    if (bl > 0) { ctx.shadowColor = f.shadowColor || '#000'; ctx.shadowBlur = bl; }
+    pathPoly(ctx, pan.poly); ctx.fill(); ctx.restore();
   };
 
   /* ---------- transiciones ---------- */
