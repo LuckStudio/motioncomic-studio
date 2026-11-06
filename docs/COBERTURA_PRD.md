@@ -77,6 +77,7 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | Teclado completo (visor, línea de tiempo, F6 entre paneles), regiones y enlaces para saltar, hoja de atajos con ? por espacio de trabajo | ✔ | Alt+Mayús+flechas recortan |
 | Temas (gris medio, azul noche, sepia, personalizado), alto contraste, selección con símbolo y escala automática en tablet | ✔ | Preferencias › Apariencia |
 | Ocultar herramientas, pestañas y espacios de trabajo; vistas guardadas con nombre y exportables (.mcview) | ✔ | Preferencias › Interfaz |
+| Aviso de versión nueva con actualización guardando el proyecto, y ayuda para forzar la recarga si el navegador conserva una copia vieja | ✔ | version.json y meta mc-build lo escribe tools/pack.js |
 | Paneles acoplables (izquierda/derecha/arriba), disposiciones predefinidas y ventanas separadas para varias pantallas | ✔ | Menú ⋮ y asa ⠿ en cada panel; la ventana nueva recibe el panel con sus atajos y se devuelve al cerrarla |
 | Paneles acoplables y flotantes, barra de herramientas | ✘ | Disposición fija |
 | Atajos configurables con mapas de Premiere y Photoshop | ✔ | |

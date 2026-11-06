@@ -146,3 +146,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Personalizar la interfaz y vistas guardadas
 
 - Preferencias › Interfaz: ocultar herramientas de la línea de tiempo, pestañas y espacios de trabajo; vistas guardadas con nombre (disposición, ocultos, tema, tamaño), exportables e importables como .mcview.
+
+## Aviso de versión nueva
+
+- Tarjeta de actualización (versión nueva lista o copia vieja en caché) con Actualizar ahora, Más tarde y Forzar actualización; comprobación al abrir, al volver a la pestaña y cada 20 minutos; la publicación escribe version.json y la versión dentro de index.html para detectar copias antiguas.

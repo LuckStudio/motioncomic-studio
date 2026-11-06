@@ -61,16 +61,7 @@
     await MC.app.render();
     if (autoZoom) setTimeout(() => MC.toast(t('Hemos puesto la interfaz al ', 'We set the interface to ') + Math.round(autoZoom * 100) + t(' % para tu tablet. Puedes cambiarlo en Preferencias.', '% for your tablet. You can change it in Preferences.'), { label: t('Cambiar', 'Change'), onClick: () => MC.openPrefs(), ms: 10000 }), 600);
     if (/[?&]new=1/.test(location.search)) { history.replaceState(null, '', location.pathname + location.hash); MC.newProjectDialog(); }
-    if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-      navigator.serviceWorker.register('./sw.js').then((reg) => {
-        const watch = (w) => w && w.addEventListener('statechange', () => {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) { MC.swWaiting = w; MC.toast(t('Hay una versión nueva. Actualiza desde Inicio.', 'A new version is available. Update from Home.')); if (!MC.studioApi) MC.app.render(); }
-        });
-        if (reg.waiting && navigator.serviceWorker.controller) MC.swWaiting = reg.waiting;
-        reg.addEventListener('updatefound', () => watch(reg.installing));
-      }).catch(() => { /* sin modo sin conexión */ });
-      navigator.serviceWorker.addEventListener('controllerchange', () => { if (MC.reloadOnUpdate) location.reload(); });
-    }
+    if (MC.update) MC.update.start();
   }
   boot();
 })();

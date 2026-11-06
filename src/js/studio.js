@@ -665,7 +665,7 @@
         h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
         el.fmt,
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).filter((v) => v === S.ws || !MC.cfg.isHidden('ws:' + v)).map(wsBtn)),
-        el.jobChip, el.status, el.undo, el.redo,
+        el.jobChip, MC.update && MC.update.state ? h('button', { class: 'btn btn-p btn-sm updchip', type: 'button', title: t('Hay una versión nueva del estudio', 'There is a new version of the studio'), onClick: () => MC.update.show() }, MC.icon('download', 14), t('Actualizar', 'Update')) : null, el.status, el.undo, el.redo,
         h('span', { class: 'vwrap' }, el.fileBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.fileOpen), title: t('Archivo: copia en archivo, versiones y biblioteca', 'File: file copy, versions and library'), 'aria-label': t('Menú de archivo', 'File menu'), onClick: () => { S.fileOpen = !S.fileOpen; S.viewOpen = false; renderTop(); } }, MC.icon('folder'))),
         h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; S.fileOpen = false; renderTop(); } }, MC.icon('sliders'))),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales (?)', 'Help, shortcuts and tutorials (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
@@ -3676,6 +3676,7 @@
       kids.forEach((n, i) => { if (n.classList.contains('tlsep')) { const next = kids.slice(i + 1).find((q) => !q.classList.contains('tlsep') && !q.classList.contains('tlfill')); n.style.display = prevSep || !next ? 'none' : ''; if (n.style.display !== 'none') prevSep = true; } else if (!n.classList.contains('tlfill')) prevSep = false; });
     }
     const offCfg = MC.cfg.onChange(() => { applyUiHide(); renderTop(); renderRail(); renderPanels(); });
+    const offUpd = MC.update ? MC.update.on(() => renderTop()) : () => {};
     applyUiHide();
     function setLayout(o) {
       o = o || {}; const g = LY.geo;
@@ -3714,7 +3715,7 @@
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { offCfg(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
@@ -3723,7 +3724,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); },
-      refit: () => { fit(); }, redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
+      refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }

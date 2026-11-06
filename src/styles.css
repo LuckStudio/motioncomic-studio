@@ -698,3 +698,8 @@ html[data-marks="1"] .rail button[aria-selected="true"], html[data-marks="1"] .s
 .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 14px; }
 .views { display: grid; gap: 6px; } .viewrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); padding: 6px 10px; } .viewrow b { flex: 1; min-width: 100px; }
 .viewadd { display: flex; gap: 8px; flex-wrap: wrap; } .viewadd .input { flex: 1; min-width: 180px; }
+
+/* ---------- aviso de versión nueva ---------- */
+.updcard { position: fixed; right: 16px; bottom: 16px; z-index: 250; width: min(380px, calc(100vw - 32px)); background: var(--panel); color: var(--fg); border: 2px solid var(--accent); box-shadow: 0 14px 40px rgba(0,0,0,.5); padding: 16px 18px; display: grid; gap: 10px; }
+.updcard h3 { font-size: 16px; } .updcard p { font-size: 14px; color: var(--muted); } .updbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+html[data-touch="1"] .updcard .btn { min-height: 44px; }

@@ -20,15 +20,18 @@ include.forEach(walk);
 const hash = crypto.createHash('sha1');
 files.filter((f) => f !== 'sw.js').forEach((f) => { hash.update(f); hash.update(fs.readFileSync(path.join(root, f))); });
 const version = hash.digest('hex').slice(0, 10);
-const core = files.filter((f) => f !== 'sw.js' && f !== '.htaccess' && !/\.(LICENSE|txt|svg)$/i.test(f) && f !== 'icons/share.png' || f === 'icons/icon.svg');
+const core = files.filter((f) => f !== 'sw.js' && f !== 'version.json' && f !== '.htaccess' && !/\.(LICENSE|txt|svg)$/i.test(f) && f !== 'icons/share.png' || f === 'icons/icon.svg');
 files.forEach((f) => {
   const dst = path.join(out, f); fs.mkdirSync(path.dirname(dst), { recursive: true });
   if (f === 'sw.js') fs.writeFileSync(dst, fs.readFileSync(path.join(root, f), 'utf8').replace("const VERSION = 'dev';", "const VERSION = '" + version + "';").replace('/*CORE*/[]', JSON.stringify(core)));
-  else if (f === 'index.html' && SITE) {
-    /* las etiquetas de compartir llevan direcciones absolutas (WhatsApp las exige): se cambian por las de tu dominio */
-    fs.writeFileSync(dst, fs.readFileSync(path.join(root, f), 'utf8').split(DEFAULT_SITE).join(SITE + '/'));
+  else if (f === 'index.html') {
+    /* la versión va dentro de la página para que sepa si el navegador le está sirviendo una copia vieja; las etiquetas de compartir llevan direcciones absolutas (WhatsApp las exige) */
+    let html = fs.readFileSync(path.join(root, f), 'utf8').replace('<meta name="mc-build" content="dev">', '<meta name="mc-build" content="' + version + '">');
+    if (SITE) html = html.split(DEFAULT_SITE).join(SITE + '/');
+    fs.writeFileSync(dst, html);
   } else fs.copyFileSync(path.join(root, f), dst);
 });
+fs.writeFileSync(path.join(out, 'version.json'), JSON.stringify({ version }) + '\n');
 const size = files.reduce((a, f) => a + fs.statSync(path.join(root, f)).size, 0);
 if (!SITE) console.log('Las etiquetas de compartir apuntan a ' + DEFAULT_SITE + '. Si publicas en otro dominio: SITE_URL=https://tudominio.com node tools/pack.js');
 console.log('public/ listo · versión ' + version + ' · ' + files.length + ' archivos · ' + (size / 1048576).toFixed(1) + ' MB');

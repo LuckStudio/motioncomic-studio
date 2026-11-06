@@ -188,7 +188,7 @@
     MC.put(MC.clear(root), h('div', { class: 'home' },
       MC.topBar(),
       MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
-        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Actualizar ahora', 'Update now'))) : null,
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.update.now(); } }, t('Actualizar ahora', 'Update now'))) : null,
       (() => {
         const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
         if (standalone || MC.store.get('hintInstall', '') === '1') return null;

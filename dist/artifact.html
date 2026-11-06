@@ -728,6 +728,11 @@ html[data-marks="1"] .rail button[aria-selected="true"], html[data-marks="1"] .s
 .views { display: grid; gap: 6px; } .viewrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); padding: 6px 10px; } .viewrow b { flex: 1; min-width: 100px; }
 .viewadd { display: flex; gap: 8px; flex-wrap: wrap; } .viewadd .input { flex: 1; min-width: 180px; }
 
+/* ---------- aviso de versión nueva ---------- */
+.updcard { position: fixed; right: 16px; bottom: 16px; z-index: 250; width: min(380px, calc(100vw - 32px)); background: var(--panel); color: var(--fg); border: 2px solid var(--accent); box-shadow: 0 14px 40px rgba(0,0,0,.5); padding: 16px 18px; display: grid; gap: 10px; }
+.updcard h3 { font-size: 16px; } .updcard p { font-size: 14px; color: var(--muted); } .updbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+html[data-touch="1"] .updcard .btn { min-height: 44px; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -31293,7 +31298,9 @@ module.exports = ZStream;
           MC.installEvt && !d.standalone ? h('button', { class: 'btn btn-p', type: 'button', style: { justifySelf: 'start' }, onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); await ev.userChoice.catch(() => {}); draw(); } }, MC.icon('download', 15), t('Instalar ahora', 'Install now')) : null,
           h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Tu dispositivo', 'Your device')), h('span', { class: 'cap' }, [d.iOS ? 'iPhone/iPad' : d.android ? 'Android' : d.mac ? 'Mac' : d.win ? 'Windows' : t('Ordenador', 'Computer'), d.edge ? 'Edge' : d.chrome ? 'Chrome' : d.firefox ? 'Firefox' : d.safari ? 'Safari' : '', d.standalone ? t('instalada', 'installed') : t('en el navegador', 'in the browser')].filter(Boolean).join(' · '))),
           h('div', { class: 'field' }, h('span', { class: 'eyebrow' }, t('Modo sin conexión', 'Offline mode')), h('span', { class: sw ? 'good' : 'warn' }, sw ? t('Activo: puedes abrir MotionComic Studio sin internet.', 'Active: you can open MotionComic Studio without internet.') : t('Aún no está activo. Se activa tras la primera carga completa desde la dirección publicada.', 'Not active yet. It turns on after the first full load from the published address.'))),
-          MC.swWaiting ? h('button', { class: 'btn btn-p btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Hay una versión nueva: actualizar ahora', 'A new version is available: update now')) : null);
+          h('p', { class: 'cap' }, t('Versión de esta copia: ', 'Version of this copy: ') + (MC.update ? MC.update.build : '')),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.update.check(true) }, MC.icon('undo', 14), t('Buscar actualizaciones', 'Check for updates')),
+            MC.update && MC.update.state ? h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => MC.update.now() }, t('Hay una versión nueva: actualizar ahora', 'A new version is available: update now')) : null));
       },
       async perf(el) {
         const lim = MC.limits(), bench = (() => { try { return JSON.parse(MC.store.get('bench', '')); } catch (e) { return null; } })(), out = h('div', { class: 'calc' });
@@ -31375,6 +31382,84 @@ module.exports = ZStream;
     },
   };
   wireDoc(document);
+})();
+
+/* Avisos de versión nueva: registra el modo sin conexión, vigila si hay una versión más reciente y ofrece actualizar (o forzarlo si el navegador se queda con una copia vieja). */
+(() => {
+  const MC = window.MC, h = MC.h, t = (a, b) => MC.t(a, b);
+  const BUILD = (document.querySelector('meta[name="mc-build"]') || {}).content || 'dev';
+  const U = (MC.update = { state: null, reg: null, last: 0, build: BUILD });
+  const subs = new Set();
+  U.on = (f) => { subs.add(f); return () => subs.delete(f); };
+  const emit = () => subs.forEach((f) => { try { f(); } catch (e) { /* un suscriptor roto no frena a los demás */ } });
+  const snoozed = () => { try { return sessionStorage.getItem('mc-upd-snooze') === U.state; } catch (e) { return false; } };
+  const snooze = () => { try { sessionStorage.setItem('mc-upd-snooze', U.state || ''); } catch (e) { /* sin sessionStorage */ } };
+  /* qué combinación de teclas fuerza la recarga completa en este equipo */
+  U.platform = () => {
+    const ua = navigator.userAgent || '', ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), android = /Android/.test(ua), mac = !ios && /Mac/.test(navigator.platform || ua);
+    const safari = /Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR|CriOS|FxiOS|Android/.test(ua), firefox = /Firefox/.test(ua);
+    return { ios, android, mac, safari, firefox };
+  };
+  U.howTo = () => {
+    const p = U.platform(), standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+    if (p.ios || (p.android && standalone)) return t('Cierra la app del todo (desliza hacia arriba desde el selector de apps) y vuelve a abrirla. Si sigue igual, pulsa «Forzar actualización».', 'Close the app completely (swipe up in the app switcher) and open it again. If it is still the same, press “Force update”.');
+    if (p.android) return t('Abre el menú del navegador (⋮) › Actualizar, o cierra la pestaña y ábrela de nuevo. Si sigue igual, pulsa «Forzar actualización».', 'Open the browser menu (⋮) › Reload, or close the tab and open it again. If it is still the same, press “Force update”.');
+    if (p.mac && p.safari) return t('Pulsa Cmd + Opción + E para vaciar la caché y luego Cmd + R. Si sigue igual, pulsa «Forzar actualización».', 'Press Cmd + Option + E to empty the cache, then Cmd + R. If it is still the same, press “Force update”.');
+    if (p.mac) return t('Pulsa Cmd + Mayús + R (recarga sin usar la copia guardada).', 'Press Cmd + Shift + R (reloads without using the stored copy).');
+    return t('Pulsa Ctrl + Mayús + R (o Ctrl + F5): recarga sin usar la copia guardada.', 'Press Ctrl + Shift + R (or Ctrl + F5): reloads without using the stored copy.');
+  };
+  const saveFirst = async () => { try { if (MC.studioApi && MC.studioApi.saveNow) await MC.studioApi.saveNow(); } catch (e) { /* se guarda de todos modos al cerrar */ } };
+  /* actualizar: guarda el proyecto, activa la versión nueva y recarga */
+  U.now = async () => {
+    await saveFirst();
+    const w = U.reg && U.reg.waiting;
+    if (w) { MC.reloadOnUpdate = true; w.postMessage('SKIP_WAITING'); setTimeout(() => location.reload(), 2500); } else U.force();
+  };
+  /* forzar: quita el modo sin conexión y las copias guardadas del programa (los proyectos no se tocan) y recarga */
+  U.force = async () => {
+    await saveFirst();
+    try { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map((r) => r.unregister())); const ks = await caches.keys(); await Promise.all(ks.filter((k) => k.startsWith('motioncomic-')).map((k) => caches.delete(k))); } catch (e) { /* sin SW */ }
+    location.reload();
+  };
+  function setState(s) { if (U.state === s) return; U.state = s; emit(); if (!snoozed()) U.show(); }
+  U.show = () => {
+    document.querySelectorAll('.updcard').forEach((n) => n.remove());
+    if (!U.state) return;
+    const stale = U.state === 'stale', close = () => card.remove();
+    const card = h('div', { class: 'updcard', role: 'alertdialog', 'aria-labelledby': 'upd-t', 'aria-describedby': 'upd-d' },
+      h('h3', { id: 'upd-t' }, stale ? t('Tu navegador tiene una versión anterior', 'Your browser has an older version') : t('Hay una versión nueva del estudio', 'There is a new version of the studio')),
+      h('p', { id: 'upd-d' }, stale ? t('Se ha publicado una versión más reciente, pero el navegador sigue mostrando la guardada. ', 'A newer version has been published, but the browser is still showing the stored one. ') + U.howTo()
+        : t('Se actualiza en un momento. Antes se guarda tu proyecto y no pierdes nada.', 'It updates in a moment. Your project is saved first and you lose nothing.')),
+      h('div', { class: 'updbtns' },
+        h('button', { class: 'btn btn-p', type: 'button', onClick: () => { U.now(); } }, stale ? t('Forzar actualización', 'Force update') : t('Actualizar ahora', 'Update now')),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: () => { snooze(); close(); } }, t('Más tarde', 'Later'))));
+    document.body.append(card); const b = card.querySelector('button'); if (b && !(MC.studioApi && document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) b.focus({ preventScroll: true });
+  };
+  U.check = async (manual) => {
+    if (!/^https?:$/.test(location.protocol) || window.MC_PREVIEW || BUILD === 'dev') { if (manual) MC.toast(t('Esta copia es de desarrollo: no comprueba versiones.', 'This is a development copy: it does not check versions.')); return; }
+    U.last = Date.now();
+    try { if (U.reg) await U.reg.update(); } catch (e) { /* sin red */ }
+    if (U.reg && U.reg.waiting && navigator.serviceWorker.controller) { MC.swWaiting = U.reg.waiting; setState('waiting'); return; }
+    try {
+      const r = await fetch('version.json?' + Date.now(), { cache: 'no-store' });
+      if (r.ok) { const j = await r.json(); if (j && j.version && j.version !== BUILD) { setState('stale'); return; } }
+      if (manual) MC.toast(t('Ya tienes la última versión.', 'You already have the latest version.'));
+    } catch (e) { if (manual) MC.toast(t('No se pudo comprobar ahora (¿sin conexión?).', 'Could not check right now (offline?).')); }
+  };
+  U.start = () => {
+    if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        U.reg = reg;
+        const watch = (w) => w && w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) { MC.swWaiting = w; setState('waiting'); } });
+        if (reg.waiting && navigator.serviceWorker.controller) { MC.swWaiting = reg.waiting; setState('waiting'); }
+        reg.addEventListener('updatefound', () => watch(reg.installing));
+        U.check();
+      }).catch(() => { /* sin modo sin conexión */ });
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (MC.reloadOnUpdate) location.reload(); });
+    } else setTimeout(() => U.check(), 1500);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - U.last > 5 * 60 * 1000) U.check(); });
+    setInterval(() => { if (document.visibilityState === 'visible') U.check(); }, 20 * 60 * 1000);
+  };
 })();
 
 /* Pantalla de inicio: proyectos guardados, proyecto nuevo, copia de seguridad (PRD 12 y 13). */
@@ -31567,7 +31652,7 @@ module.exports = ZStream;
     MC.put(MC.clear(root), h('div', { class: 'home' },
       MC.topBar(),
       MC.swWaiting ? h('div', { class: 'notice' }, h('span', null, t('Hay una versión nueva de MotionComic Studio. Tus proyectos no se tocan.', 'There is a new version of MotionComic Studio. Your projects are not touched.')),
-        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.reloadOnUpdate = true; MC.swWaiting.postMessage('SKIP_WAITING'); } }, t('Actualizar ahora', 'Update now'))) : null,
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => { MC.update.now(); } }, t('Actualizar ahora', 'Update now'))) : null,
       (() => {
         const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
         if (standalone || MC.store.get('hintInstall', '') === '1') return null;
@@ -32314,7 +32399,7 @@ module.exports = ZStream;
         h('input', { class: 'ttl', 'aria-label': t('Nombre del proyecto', 'Project name'), value: S.project.name, onChange: (e) => { S.project.name = e.target.value.trim() || S.project.name; commit(); } }),
         el.fmt,
         h('div', { class: 's-tabs', role: 'tablist', 'aria-label': t('Espacios de trabajo', 'Workspaces') }, Object.keys(WS).filter((v) => v === S.ws || !MC.cfg.isHidden('ws:' + v)).map(wsBtn)),
-        el.jobChip, el.status, el.undo, el.redo,
+        el.jobChip, MC.update && MC.update.state ? h('button', { class: 'btn btn-p btn-sm updchip', type: 'button', title: t('Hay una versión nueva del estudio', 'There is a new version of the studio'), onClick: () => MC.update.show() }, MC.icon('download', 14), t('Actualizar', 'Update')) : null, el.status, el.undo, el.redo,
         h('span', { class: 'vwrap' }, el.fileBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': String(!!S.fileOpen), title: t('Archivo: copia en archivo, versiones y biblioteca', 'File: file copy, versions and library'), 'aria-label': t('Menú de archivo', 'File menu'), onClick: () => { S.fileOpen = !S.fileOpen; S.viewOpen = false; renderTop(); } }, MC.icon('folder'))),
         h('span', { class: 'vwrap' }, el.viewBtn = h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': String(!!S.viewOpen), title: t('Vista: paneles y tamaño de la interfaz', 'View: panels and interface size'), 'aria-label': t('Vista de la interfaz', 'Interface view'), onClick: () => { S.viewOpen = !S.viewOpen; S.fileOpen = false; renderTop(); } }, MC.icon('sliders'))),
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales (?)', 'Help, shortcuts and tutorials (?)'), 'aria-label': t('Ayuda y atajos', 'Help and shortcuts'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
@@ -35325,6 +35410,7 @@ module.exports = ZStream;
       kids.forEach((n, i) => { if (n.classList.contains('tlsep')) { const next = kids.slice(i + 1).find((q) => !q.classList.contains('tlsep') && !q.classList.contains('tlfill')); n.style.display = prevSep || !next ? 'none' : ''; if (n.style.display !== 'none') prevSep = true; } else if (!n.classList.contains('tlfill')) prevSep = false; });
     }
     const offCfg = MC.cfg.onChange(() => { applyUiHide(); renderTop(); renderRail(); renderPanels(); });
+    const offUpd = MC.update ? MC.update.on(() => renderTop()) : () => {};
     applyUiHide();
     function setLayout(o) {
       o = o || {}; const g = LY.geo;
@@ -35363,7 +35449,7 @@ module.exports = ZStream;
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { offCfg(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
@@ -35372,7 +35458,7 @@ module.exports = ZStream;
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); },
-      refit: () => { fit(); }, redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
+      refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
@@ -35442,16 +35528,7 @@ module.exports = ZStream;
     await MC.app.render();
     if (autoZoom) setTimeout(() => MC.toast(t('Hemos puesto la interfaz al ', 'We set the interface to ') + Math.round(autoZoom * 100) + t(' % para tu tablet. Puedes cambiarlo en Preferencias.', '% for your tablet. You can change it in Preferences.'), { label: t('Cambiar', 'Change'), onClick: () => MC.openPrefs(), ms: 10000 }), 600);
     if (/[?&]new=1/.test(location.search)) { history.replaceState(null, '', location.pathname + location.hash); MC.newProjectDialog(); }
-    if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-      navigator.serviceWorker.register('./sw.js').then((reg) => {
-        const watch = (w) => w && w.addEventListener('statechange', () => {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) { MC.swWaiting = w; MC.toast(t('Hay una versión nueva. Actualiza desde Inicio.', 'A new version is available. Update from Home.')); if (!MC.studioApi) MC.app.render(); }
-        });
-        if (reg.waiting && navigator.serviceWorker.controller) MC.swWaiting = reg.waiting;
-        reg.addEventListener('updatefound', () => watch(reg.installing));
-      }).catch(() => { /* sin modo sin conexión */ });
-      navigator.serviceWorker.addEventListener('controllerchange', () => { if (MC.reloadOnUpdate) location.reload(); });
-    }
+    if (MC.update) MC.update.start();
   }
   boot();
 })();

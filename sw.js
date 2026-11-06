@@ -14,6 +14,6 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (VERSION === 'dev' || req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (VERSION === 'dev' || req.method !== 'GET' || new URL(req.url).origin !== location.origin || /\/version\.json$/.test(new URL(req.url).pathname)) return;
   e.respondWith(caches.match(req, { ignoreSearch: req.mode === 'navigate' }).then((hit) => hit || fetch(req).catch(() => (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
 });
