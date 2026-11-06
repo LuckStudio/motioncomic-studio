@@ -914,6 +914,13 @@ a.btn { text-decoration: none; }
 
 .cap.ok { color: var(--muted); }
 
+/* fotogramas clave avanzados: una fila por propiedad */
+.tl-track.kft.adv { background: color-mix(in srgb, var(--warn) 5%, var(--bg)); }
+.kfrow { position: absolute; left: 0; right: 0; height: 22px; border-top: 1px dashed var(--line); } .kfrow.on { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.kfd.kfp { width: 11px; height: 11px; margin-left: 1.5px; }
+.tl-labels .trl.kfl { position: relative; } .tl-labels .trl.kfl .kfhead { display: flex; align-items: center; gap: 6px; } .tl-labels .trl.kfl .kfadv { height: 20px; padding: 0 6px; font-size: 11px; width: auto; border: 1px solid var(--line); }
+.tl-labels .trl.kfl .kfpl { position: absolute; left: 12px; height: 22px; line-height: 22px; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; } .tl-labels .trl.kfl .kfpl.on { color: var(--accent); text-decoration: underline; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -31471,7 +31478,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.17'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.18'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -33178,6 +33185,26 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     }
     const clipById = (id) => S.project.clips.find((c) => c.id === id);
     /* elemento con fotogramas clave seleccionado (capa u superposición) y su tiempo local */
+    /* ---------- fotogramas clave avanzados (una fila por propiedad, como en After Effects) ---------- */
+    S.kfAdv = MC.store.get('kfadv', '') === '1';
+    const KFADV_CORE = ['x', 'y', 'sc', 'rot', 'op'];
+    const KFROW = 22;
+    /* filas visibles: las cinco principales siempre (para poder crear fotogramas en ellas) y las demás solo si ya se animan */
+    const kfAdvProps = (it) => MC.KF_PROPS.filter((pr) => KFADV_CORE.includes(pr) || (it.kf || []).some((q) => q[pr] != null));
+    const kfPropName = (pr) => { const d = KFP.find((q) => q[0] === pr); return d ? t(d[1], d[2]) : pr; };
+    /* mueve solo UNA propiedad de un fotograma a otro instante: si había más propiedades en él, se separa en un fotograma nuevo; si ya hay uno en ese instante, se une */
+    function kfMoveProp(it, q, pr, newT) {
+      newT = round2(newT); if (Math.abs(newT - q.t) < 0.0001) return q;
+      const others = Object.keys(q).some((k) => MC.KF_PROPS.includes(k) && k !== pr && q[k] != null);
+      const dest = (it.kf || []).find((z) => z !== q && Math.abs(z.t - newT) < 0.015);
+      if (!others && !dest) { q.t = newT; return q; }
+      const val = q[pr]; delete q[pr];
+      if (!others) it.kf = it.kf.filter((z) => z !== q);
+      if (dest) { dest[pr] = val; return dest; }
+      const nq = { id: MC.uid(), t: newT, ease: q.ease || 'smooth' }; nq[pr] = val; it.kf.push(nq); return nq;
+    }
+    function kfDelProp(it, q, pr) { delete q[pr]; if (!Object.keys(q).some((k) => MC.KF_PROPS.includes(k) && q[k] != null)) it.kf = it.kf.filter((z) => z !== q); }
+    function kfAdvToggle() { S.kfAdv = !S.kfAdv; MC.store.set('kfadv', S.kfAdv ? '1' : ''); renderTimeline(); }
     const kfTarget = () => {
       const sel = S.selKind;
       if (sel === 'overlay' && S.ov && ovById(S.ov)) { const it = ovById(S.ov); return { it, start: it.start, dur: it.dur, kind: 'overlay' }; }
@@ -35798,6 +35825,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     function layoutLanes() {
       const LH0 = parseFloat(getComputedStyle(el.tlContent).getPropertyValue('--lh')) || 34;
       el.tlContent.querySelectorAll('.tl-track').forEach((row) => {
+        if (row.dataset.k === 'kf') return; /* la fila de fotogramas clave fija su propia altura */
         const LH = row.dataset.k === 'subs' ? Math.max(LH0, 46) : LH0;
         const clips = [...row.children].filter((c) => c.classList.contains('clip') && !c.classList.contains('thin'));
         const items = clips.map((c) => ({ c, a: parseFloat(c.style.left) || 0, b: (parseFloat(c.style.left) || 0) + (parseFloat(c.style.width) || 0) })).sort((x, y) => x.a - y.a || x.b - y.b);
@@ -35948,7 +35976,12 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           h('span', { class: 'trb' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir un plano encima', 'Add a shot on top'), 'aria-label': t('Añadir plano superpuesto', 'Add overlapping shot'), onClick: () => openAssetPicker({ title: t('Plano superpuesto: elige imágenes', 'Overlapping shot: choose images'), onPick: (ids) => addXShots(ids, i, S.time) }) }, MC.icon('plus', 13)),
             h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(xts[i].visible !== false), title: t('Mostrar u ocultar la pista', 'Show or hide the track'), 'aria-label': t('Mostrar u ocultar ', 'Show or hide ') + xts[i].name, onClick: () => { xts[i].visible = xts[i].visible === false; commit(); } }, MC.icon(xts[i].visible === false ? 'eyeoff' : 'eye', 13)),
             xts.length > 1 && !p.xshots.some((x) => (x.xtrack || 0) === i) ? h('button', { class: 'btn btn-g', type: 'button', 'aria-label': t('Quitar ', 'Remove ') + xts[i].name, onClick: () => { p.xshots.forEach((x) => { if ((x.xtrack || 0) > i) x.xtrack--; }); xts.splice(i, 1); commit(); } }, MC.icon('trash', 13)) : null)); }
-        if (k === 'kf') return h('div', { class: 'trl kfl', 'data-k': k }, h('span', null, t('Fotogramas clave', 'Keyframes')));
+        if (k === 'kf') {
+          const lab = h('div', { class: 'trl kfl' + (S.kfAdv ? ' adv' : ''), 'data-k': k }, h('span', { class: 'kfhead' }, t('Fotogramas clave', 'Keyframes'), h('button', { class: 'btn btn-g kfadv', type: 'button', 'aria-pressed': String(S.kfAdv), title: t('Vista avanzada: una fila por propiedad (posición, escala, giro…)', 'Advanced view: one row per property (position, scale, rotation…)'), 'aria-label': t('Vista avanzada de fotogramas clave', 'Advanced keyframe view'), onClick: kfAdvToggle }, S.kfAdv ? t('Simple', 'Simple') : t('Avanzada', 'Advanced'))));
+          if (S.kfAdv && kft) kfAdvProps(kft.it).forEach((pr, i) => lab.append(h('span', { class: 'kfpl' + (S.kfprop === pr ? ' on' : ''), style: { top: 26 + i * KFROW + 'px' }, onClick: () => { S.kfprop = S.kfprop === pr ? null : pr; renderTimeline(); } }, kfPropName(pr))));
+          if (S.kfAdv && kft) lab.style.setProperty('height', 26 + kfAdvProps(kft.it).length * KFROW + 'px', 'important');
+          return lab;
+        }
         if (k === 'fxr') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Efectos', 'Effects')));
         if (k === 'subs') return h('div', { class: 'trl', 'data-k': k }, h('span', null, t('Subtítulos', 'Subtitles')), h('span', { class: 'trb' }, h('button', { class: 'btn btn-g', type: 'button', title: t('Nuevo subtítulo', 'New subtitle'), 'aria-label': t('Nuevo subtítulo', 'New subtitle'), onClick: () => newSubLayer(false) }, MC.icon('plus', 13))));
         const ix = ['shots', 'text', 'voz', 'sfx', 'musica'].indexOf(k), tr = TRACKS[ix];
@@ -35980,7 +36013,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         if (/^x\d+$/.test(k)) { R[k] = h('div', { class: 'tl-track xtr' + (p.xshots.some((x) => (x.xtrack || 0) === +k.slice(1)) ? '' : ' off'), 'data-k': k, 'data-hint': t('Arrastra aquí una imagen o un vídeo: se verá a la vez que el plano principal', 'Drag an image or video here: it shows at the same time as the main shot') }); el.tlContent.append(R[k]); return; }
         if (k === 'subs') { R.subs = h('div', { class: 'tl-track' + (p.subs.length ? '' : ' off'), 'data-k': 'subs', 'data-hint': t('Pulsa + para crear un subtítulo: una capa con todas las palabras y sus tiempos', 'Press + to create a subtitle: one layer with all the words and their timings') }); el.tlContent.append(R.subs); return; }
         if (k === 'fxr') { R.fxr = h('div', { class: 'tl-track' + (p.shots.some((q) => q.fx && q.fx.length) ? '' : ' off'), 'data-k': 'fxr', 'data-hint': t('Los efectos de cada plano (temblor, lluvia, niebla…) aparecen aquí', 'Each shot’s effects (shake, rain, fog…) show up here') }); el.tlContent.append(R.fxr); return; }
-        if (k === 'kf') { R.kf = h('div', { class: 'tl-track kft', 'data-k': 'kf', 'data-hint': '' }); el.tlContent.append(R.kf); return; }
+        if (k === 'kf') { R.kf = h('div', { class: 'tl-track kft' + (S.kfAdv ? ' adv' : ''), 'data-k': 'kf', 'data-hint': '' }); if (S.kfAdv && kft) { const ps = kfAdvProps(kft.it); R.kf.style.setProperty('height', 26 + ps.length * KFROW + 'px', 'important'); ps.forEach((pr, i) => R.kf.append(h('div', { class: 'kfrow' + (S.kfprop === pr ? ' on' : ''), 'data-kp': pr, style: { top: 26 + i * KFROW + 'px' } }))); } el.tlContent.append(R.kf); return; }
         R[k] = h('div', { class: 'tl-track' + (ov ? ' ovt' : '') + ((audio && !p.clips.some((c) => c.track === k)) || (ov && !p.overlays.some((o) => o.track === +k.slice(1))) ? ' off' : ''), 'data-k': k,
           'data-hint': ov ? t('Pulsa + para añadir una imagen o un vídeo por encima de la ilustración', 'Press + to add an image or video above the artwork') : t('Importa o graba audio con los botones de la izquierda', 'Import or record audio with the buttons on the left') });
         el.tlContent.append(R[k]);
@@ -36222,8 +36255,20 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         });
         R.kf.append(d);
       });
+      if (kft && R.kf && S.kfAdv) kfAdvProps(kft.it).forEach((pr, i) => (kft.it.kf || []).filter((q) => q[pr] != null).forEach((q) => {
+        const d = h('button', { type: 'button', class: 'kfd kfp' + (q.id === S.kfid && S.kfprop === pr ? ' on' : ''), 'data-kf': q.id, 'data-kp': pr, style: { top: 26 + i * KFROW + 4 + 'px' }, title: kfPropName(pr) + ' · ' + q.t.toFixed(2) + ' s', 'aria-label': kfPropName(pr) + t(': fotograma clave en ', ': keyframe at ') + q.t.toFixed(2) + ' s' });
+        d.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); d.setPointerCapture(e.pointerId); S.kfid = q.id; S.kfprop = pr; let cur = q;
+          R.kf.querySelectorAll('.kfd.on').forEach((n) => n.classList.remove('on')); d.classList.add('on');
+          const x0 = e.clientX, t0 = q.t; let moved = false;
+          const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; const nt = clamp(round2(t0 + fineDx(ev, x0) / S.pps), 0, kft.dur); cur = kfMoveProp(kft.it, cur, pr, nt); S.kfid = cur.id; d.dataset.kf = cur.id; d.dataset.mv = '1'; d.style.left = (kft.start + cur.t) * S.pps - 7 + 'px'; S.dirty = true; touch(); };
+          const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up); if (moved) commit(); else { setTime(kft.start + clamp(q.t, 0, Math.max(0, kft.dur - 0.001))); renderInspector(); renderTimeline(); } };
+          d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
+        });
+        R.kf.append(d);
+      }));
       if (kft && R.kf) R.kf.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.kfd')) return; const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps - kft.start, 0, kft.dur);
+        if (e.target.closest('.kfd') || e.target.closest('.kfrow')) return; const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps - kft.start, 0, kft.dur);
         const q = newKf(kft.it, local); kft.it.kf = (kft.it.kf || []).concat([q]); S.kfid = q.id; commit();
       });
       el.playhead = h('div', { class: 'playhead' }); el.tlContent.append(el.playhead);
@@ -36320,6 +36365,16 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           c.addEventListener('pointermove', mv); c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up); return;
         }
         if (S.multi.length) { S.multi = []; markMulti(); }
+      }, true);
+      /* doble pulsación en una fila de propiedad (vista avanzada): crea un fotograma clave solo de esa propiedad. Se detecta con dos pulsaciones seguidas porque una pulsación sencilla en la fila no mueve el cabezal (para eso están la regla y los rombos). */
+      el.tlContent.addEventListener('pointerdown', (e) => {
+        const row = e.target.closest && e.target.closest('.kfrow'), kt = row && !e.target.closest('.kfd') && kfTarget(); if (!kt) return;
+        e.stopPropagation(); const now = performance.now(), L = S.kfLast; S.kfLast = { t: now, x: e.clientX, pr: row.dataset.kp };
+        if (L && now - L.t < 450 && Math.abs(L.x - e.clientX) < 8 && L.pr === row.dataset.kp) {
+          e.stopPropagation(); e.preventDefault(); S.kfLast = null;
+          const local = clamp((e.clientX - el.tlContent.getBoundingClientRect().left) / MC.uz() / S.pps - kt.start, 0, kt.dur), q = newKf(kt.it, local, [row.dataset.kp]);
+          kt.it.kf = (kt.it.kf || []).concat([q]); S.kfid = q.id; S.kfprop = row.dataset.kp; commit();
+        }
       }, true);
       el.tlContent.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.clip') || e.target.closest('.mkn')) return;
@@ -36801,7 +36856,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       const n0 = e.target; if (!n0 || !n0.closest) return null;
       const rc = el.tlContent.getBoundingClientRect(), tm = clamp((e.clientX - rc.left) / MC.uz() / S.pps, 0, MC.totalTime(S.project));
       let n;
-      if ((n = n0.closest('.kfd')) && kfTarget()) { S.kfid = n.dataset.kf; return { k: 'kf', tm }; }
+      if ((n = n0.closest('.kfd')) && kfTarget()) { S.kfid = n.dataset.kf; S.kfpd = n.dataset.kp || null; return { k: 'kf', tm }; }
       if ((n = n0.closest('.lyrbar'))) { const si = +n.dataset.si, li = +n.dataset.li, sg = n0.closest('.lseg'); if (S.si !== si) selectShot(si, false); S.li = li; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; if (sg) S.sg = +sg.dataset.r; return { k: 'layer', tm, bar: true }; }
       if ((n = n0.closest('.lrow2'))) { S.li = +n.dataset.idx; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; return { k: 'layer', tm: S.time, bar: false }; }
       if ((n = n0.closest('.clip[data-c]'))) { S.cl = n.dataset.c; S.selKind = 'clip'; S.tx = S.ov = null; S.li = -1; S.multi = []; return { k: 'clip', tm }; }
@@ -36825,7 +36880,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       if (c.k === 'text') return [split, kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
       if (c.k === 'overlay') return [split, '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
       if (c.k === 'xshot' || c.k === 'subs') return [del];
-      if (c.k === 'kf') { const kt = kfTarget(), q = kt && (kt.it.kf || []).find((z) => z.id === S.kfid); return [I('play', t('Ir a este fotograma clave', 'Go to this keyframe'), () => { if (q) setTime(kt.start + clamp(q.t, 0, Math.max(0, kt.dur - 0.001))); }), I('curve', t('Movimiento suave hasta el siguiente', 'Smooth motion to the next'), () => { if (q) { q.ease = 'smooth'; commit(); } }), I('minus', t('Movimiento lineal', 'Linear motion'), () => { if (q) { q.ease = 'linear'; commit(); } }), '-', I('trash', t('Eliminar el fotograma clave', 'Delete the keyframe'), () => { if (kt && q) { kt.it.kf = kt.it.kf.filter((z) => z.id !== q.id); S.kfid = null; commit(); } })]; }
+      if (c.k === 'kf') { const kt = kfTarget(), q = kt && (kt.it.kf || []).find((z) => z.id === S.kfid); return [I('play', t('Ir a este fotograma clave', 'Go to this keyframe'), () => { if (q) setTime(kt.start + clamp(q.t, 0, Math.max(0, kt.dur - 0.001))); }), I('curve', t('Movimiento suave hasta el siguiente', 'Smooth motion to the next'), () => { if (q) { q.ease = 'smooth'; commit(); } }), I('minus', t('Movimiento lineal', 'Linear motion'), () => { if (q) { q.ease = 'linear'; commit(); } }), '-', ...(S.kfpd ? [I('trash', t('Eliminar solo ', 'Delete only ') + kfPropName(S.kfpd), () => { if (kt && q) { kfDelProp(kt.it, q, S.kfpd); S.kfid = null; commit(); } })] : []), I('trash', S.kfpd ? t('Eliminar el fotograma clave entero', 'Delete the whole keyframe') : t('Eliminar el fotograma clave', 'Delete the keyframe'), () => { if (kt && q) { kt.it.kf = kt.it.kf.filter((z) => z.id !== q.id); S.kfid = null; commit(); } })]; }
       if (c.k === 'kftrack') return [I('diamond', t('Fotograma clave aquí', 'Keyframe here'), () => { setTime(clamp(tm, 0, MC.totalTime(p) - 0.001)); addKfHere(); })];
       if (c.k === 'otrack') { const ot = p.otracks[c.i], busy = p.overlays.some((o) => o.track === c.i); return [I('edit', t('Renombrar la pista', 'Rename the track'), () => askName(t('Nombre de la pista', 'Track name'), ot.name, (v) => { ot.name = v; commit(); })), I('plus', t('Añadir una superposición aquí', 'Add an overlay here'), () => { fileOv.dataset.track = c.i; fileOv.click(); }), I('trash', t('Quitar la pista vacía', 'Remove the empty track'), () => { p.overlays.forEach((o) => { if (o.track > c.i) o.track--; }); p.otracks.splice(c.i, 1); commit(); }, busy || p.otracks.length < 2)]; }
       return [];

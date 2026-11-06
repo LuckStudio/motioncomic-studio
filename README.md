@@ -565,9 +565,15 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - **Posición rápida de subtítulos**: Arriba (zona segura), Centro, Tercio inferior y Abajo (zona segura), con valores distintos según el formato del proyecto. Está en la pestaña Subtítulos (de cada capa) y en «Idiomas y subtítulos» del panel Proyecto (valor por defecto de todos).
 - **Aviso**: en la capa de subtítulos y en el panel de cada texto aparece si el texto se sale de la zona segura en ese instante (se recalcula al mover el cabezal o editar), diciendo qué invade. El botón «Llevar a la zona segura» lo recoloca (los subtítulos centrados se estrechan si invaden los botones de la derecha). Para comprobarlo hay que colocar el cabezal sobre el texto.
 
+## Fotogramas clave avanzados (0.18)
+
+- En la fila **Fotogramas clave** de la línea de tiempo, el botón **Avanzada** despliega una fila por propiedad, como en After Effects: Posición X, Posición Y, Escala, Giro y Opacidad siempre, y las demás (giro 3D, estirar, recorte) cuando ya se animan. **Simple** vuelve a la fila única. La vista se recuerda.
+- Cada rombo de una fila pertenece a esa propiedad: **arrástralo** para cambiar su instante sin mover las demás (si el fotograma llevaba más propiedades, se separa en uno nuevo; si ya hay uno en ese instante, se une a él). **Doble pulsación** en una fila crea un fotograma solo de esa propiedad. **Clic derecho** en un rombo: ir a él, suave o lineal, «Eliminar solo …» (esa propiedad) o eliminar el fotograma entero. Pulsar el nombre de una fila la elige para el editor de curvas.
+- Una pulsación sencilla en una fila vacía no mueve el cabezal (usa la regla o pulsa un rombo).
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.17): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.18): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
