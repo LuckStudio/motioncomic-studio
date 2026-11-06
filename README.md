@@ -576,11 +576,12 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - Curso práctico **dentro del estudio**, solo en español (en inglés dice «Coming soon»). Se abre desde la tarjeta de la pantalla de inicio o desde Ayuda → Aprender.
 - Cada lección es una lista de pasos que te piden hacer algo **en tu proyecto**; el programa lo comprueba solo (cada medio segundo) y marca «¡Hecho!». «Mostrar dónde» resalta la parte de la interfaz, «Saltar» pasa de paso y «Atrás» vuelve. Un panel flotante abajo a la derecha te acompaña sin tapar el visor; cerrarlo guarda por dónde vas y «Continuar» te devuelve ahí. Si no hay proyecto abierto, empieza con el de ejemplo; también sirve el tuyo.
 - Contenido de esta entrega: módulo 1 «Tu primer vídeo» (importar, profundidad y cámara, varios planos, texto, exportar) y módulo 2 «Dar vida y pulir» (fotogramas clave, alinear, subtítulos y zonas seguras), un **reto** por módulo, **glosario** con buscador (20 términos) y barra de progreso. El progreso se guarda en este equipo y se puede borrar.
+- **Segunda entrega (0.20):** tres módulos nuevos — «Sonido y voz» (música, efectos de sonido, mezclador, locución), «Transiciones, efectos y estilo» (transiciones entre planos, efectos visuales, aspecto y estilo) y «Publicar donde quieras» (formato y plataforma, simulador, exportar, varios idiomas) — con un reto cada uno y 8 términos más en el glosario. Ya son 5 módulos y 15 lecciones. «Llevarme allí» abre la pestaña que pide el paso. El panel del curso se **arrastra por la cabecera** (se recuerda dónde lo dejas) y se **pliega** con el botón «–», para que no tape lo que estás haciendo.
 - Se irá ampliando con más lecciones. Código: `src/js/learn.js` (el curso es una lista de datos: cada paso lleva su texto y su comprobación).
 
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.19): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.20): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

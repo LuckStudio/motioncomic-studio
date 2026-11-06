@@ -901,3 +901,4 @@ a.btn { text-decoration: none; }
 @keyframes lpulse { 50% { outline-color: transparent; } }
 .gloss { display: grid; gap: 4px; margin: 0; } .gloss dt { font-weight: 600; margin-top: 6px; } .gloss dd { margin: 0; color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .learn-pulse { animation: none; } }
+.lc-head { cursor: grab; touch-action: none; } .learn-coach.min > :not(.lc-head) { display: none; } .lc-min { width: 28px; padding: 0; }

@@ -305,3 +305,11 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - `src/js/learn.js`: curso como datos (módulos → lecciones → pasos con texto y comprobación sobre el proyecto), panel flotante con comprobación automática, progreso en el equipo, glosario, retos, tarjeta de inicio y pestaña en Ayuda. `studioApi.learn()` expone la selección y el espacio de trabajo; studio.js avisa de alinear e imán (`MC.learnEvent`).
 - Probado con Playwright (flujo real de la lección 1 con el proyecto de ejemplo: auto-hecho, seleccionar capa, arrastrar en el visor, cerrar/continuar, saltar, progreso, reto, glosario, inglés «Coming soon»).
 - Por hacer en siguientes entregas: más módulos y lecciones (transiciones, audio y voz, efectos, estilo, IA/MCP, exportación avanzada), capturas guiadas, y comprobar uno a uno los pasos de la lección 2 y del módulo 2 con ratón real (en esta entrega se probó a fondo la lección 1).
+
+## Aprender, segunda entrega (versión 0.20)
+
+- Módulos 3 (Sonido y voz), 4 (Transiciones, efectos y estilo) y 5 (Publicar donde quieras): 7 lecciones nuevas, 3 retos, 8 términos de glosario. Pasos con `open: [espacio, pestaña]` para llevar a la persona a la pestaña correcta.
+- Panel del curso arrastrable y plegable (se tapaba el panel de propiedades), con la posición guardada.
+- Recorrido completo de todos los pasos: los de datos (clips, efectos, transiciones, aspecto, idiomas, textos, subtítulos…) se prueban cambiando el proyecto y comprobando que el paso se marca hecho; los de interfaz (grabar fotogramas, imán, botón Centro, zonas seguras, simulador, Espacio, abrir pestañas) con ratón y teclado reales.
+- Arreglado al probar: el paso de escribir texto se daba por hecho con el texto por defecto (ahora exige un cambio); el botón «Centro» no contaba si la capa ya estaba centrada (ahora siempre cuenta); «Zonas seguras» solo existe en vertical y el paso lo avisa.
+- Límite: el reto del módulo 3 (sonido) se probó dentro de la prueba de esos pasos; el resto de la regresión de los retos de los módulos 1 y 2 se comprobó con fotogramas y subtítulos añadidos a mano.
