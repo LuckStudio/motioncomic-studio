@@ -3900,6 +3900,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); },
+      importFiles: (files, mode) => importFiles(files, mode), info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };

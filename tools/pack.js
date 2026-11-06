@@ -2,7 +2,7 @@
 // Copia solo lo necesario, calcula la versión a partir del contenido y escribe la lista de archivos del modo sin conexión.
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), cp = require('child_process');
 const root = path.join(__dirname, '..'), out = path.join(root, 'public');
-const include = ['index.html', 'manifest.webmanifest', '.htaccess', 'sw.js', 'src/styles.css', 'src/fonts.css', 'icons', 'src/js', 'src/vendor', 'src/fonts'];
+const include = ['tools/mcp/server.js', 'index.html', 'manifest.webmanifest', '.htaccess', 'sw.js', 'src/styles.css', 'src/fonts.css', 'icons', 'src/js', 'src/vendor', 'src/fonts'];
 /* Dirección pública de la web (para las imágenes al compartir): SITE_URL=https://tudominio.com node tools/pack.js, o un archivo tools/site.txt con la dirección */
 const DEFAULT_SITE = 'https://luckstudio.github.io/motioncomic-studio/';
 let SITE = process.env.SITE_URL || '';

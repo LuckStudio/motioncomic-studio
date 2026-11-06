@@ -27,7 +27,7 @@
   MC.openPrefs = (section) => {
     const st = { sec: section || 'look' }, pane = h('div', { class: 'pane' }), nav = h('nav', { role: 'tablist', 'aria-label': t('Secciones de las preferencias', 'Preference sections') });
     let modal = null;
-    const SECS = [['look', 'sliders', t('Apariencia', 'Appearance')], ['ui', 'layers', t('Interfaz', 'Interface')], ['data', 'folder', t('Datos guardados', 'Stored data')], ['install', 'download', t('Instalación', 'Installation')], ['perf', 'film', t('Rendimiento', 'Performance')], ['keys', 'text', t('Atajos y ayuda', 'Shortcuts and help')], ['about', 'star', t('Acerca de', 'About')]];
+    const SECS = [['look', 'sliders', t('Apariencia', 'Appearance')], ['ui', 'layers', t('Interfaz', 'Interface')], ['data', 'folder', t('Datos guardados', 'Stored data')], ['ai', 'star', t('Conexión con IA', 'AI connection')], ['install', 'download', t('Instalación', 'Installation')], ['perf', 'film', t('Rendimiento', 'Performance')], ['keys', 'text', t('Atajos y ayuda', 'Shortcuts and help')], ['about', 'star', t('Acerca de', 'About')]];
     const draw = async () => {
       MC.clear(nav); SECS.forEach((s) => nav.append(h('button', { type: 'button', role: 'tab', 'aria-selected': String(st.sec === s[0]), onClick: () => { st.sec = s[0]; draw(); } }, MC.icon(s[1], 18), s[2])));
       MC.clear(pane); await PANES[st.sec](pane);
@@ -56,6 +56,7 @@
       return h('div', { class: 'fieldgroup' }, ...out);
     };
     const PANES = {
+      async ai(el) { MC.mcp.pane(el, () => { MC.clear(el); PANES.ai(el); }); },
       async look(el) {
         const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system';
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),

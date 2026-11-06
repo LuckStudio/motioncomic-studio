@@ -180,3 +180,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Animaciones de entrada y salida del estudio
 
 - Transición en dos tiempos al abrir un proyecto (el inicio se deshace y el estudio se construye por piezas, unos 2,3 s en total) y al revés al volver al inicio; más lentas y suaves que antes, saltables con un toque o una tecla y desactivadas con animaciones reducidas.
+
+## Conexión con IA (MCP)
+
+- Conector local `tools/mcp/server.js` (MCP por stdio + puente en 127.0.0.1 con código de emparejamiento, límite de intentos y solo orígenes permitidos) y `src/js/mcp.js` en el estudio: permiso al conectar, confirmación en cada acción que cambia algo, desconexión en un clic y panel en Preferencias. Probado de punta a punta con un cliente MCP simulado.
+- Pendiente: WebMCP (herramientas expuestas por la propia página) y más herramientas (texto, exportar).

@@ -107,3 +107,5 @@ Web instalable, español e inglés, accesibilidad por teclado, lectores de panta
 
 
 Notas del paso 17: sombra, resplandor, contorno y color por elemento ✔ (sin capa de ajuste independiente); personaje por capas con parpadeo y boca según la voz ✔ (sin rig de huesos); dolly zoom ✔; GIF, WebM, secuencia PNG y solo audio ✔ (H.265 y ProRes no los ofrece el navegador).
+
+| Conexión con IA por MCP (abrir estudio, proyecto nuevo, añadir recursos y planos) | ◐ | Conector local opcional con permiso por acción; sin WebMCP todavía |
