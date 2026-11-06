@@ -281,3 +281,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Imán en el visor al arrastrar capas, superposiciones y textos (centro, bordes, tercios, márgenes, zonas seguras y otros elementos) con línea guía; Alt lo desactiva; interruptor en el menú Superposiciones.
 - Botones de alinear (6 bordes/centros) y repartir (H/V) en capa, superposición, texto y selección múltiple, con fotogramas clave si el elemento está animado.
 - Comprobado con arrastres reales: un arrastre pequeño cerca del centro queda en x=0, con Alt no se pega, «Centro» y «Medio» alinean sin tocar el otro eje. Corregido durante la prueba: los fondos con sobreescaneo se pegaban a los bordes del encuadre en vez de al centro.
+
+## Fase D del plan nuevo: zonas seguras de subtítulos (versión 0.17)
+
+- `safeRects`, `subPresets`, `safeCheck` y `safeNote` en studio.js; `renderSubs` entrega los límites de cada subtítulo al visor para poder medirlos.
+- Posición rápida según formato (antes valores fijos, uno fuera del rango del control) y mismo selector para el valor por defecto del proyecto; rango de altura ampliado a −0,40.
+- Aviso con botón de corrección, recalculado tras cada dibujo del visor para que no vaya con retraso. Probado con Playwright en 9:16 (aviso, corrección, estrechar, «Dentro de la zona segura») y en 16:9 (presets distintos). Corregido en la prueba: el preset «Arriba» caía sobre la barra superior con tres líneas y se dejó más hueco.

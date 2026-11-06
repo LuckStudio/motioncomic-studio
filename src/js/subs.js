@@ -155,7 +155,8 @@
     MC.subActive(p, time).forEach((it) => {
       const cues = MC.subCues(it, lang, it.style); if (!cues.length) return;
       const cue = cues.find((c) => time >= c.s && time < c.e); if (!cue) return;
-      MC.drawSubCue(ctx, p, MC.subStyle(it.style), cue, time, W, H, it.style && it.style.y != null ? it.style.y : null);
+      const bd = MC.drawSubCue(ctx, p, MC.subStyle(it.style), cue, time, W, H, it.style && it.style.y != null ? it.style.y : null);
+      if (o.collect && bd) o.collect.push({ id: it.id, sub: true, bounds: bd }); /* para avisar si se sale de la zona segura */
     });
   };
   /* Miniatura de un estilo (para las tarjetas de presets). */

@@ -882,3 +882,5 @@ a.btn { text-decoration: none; }
 .keycmpw table { border-collapse: collapse; font-size: 12px; min-width: 900px; width: 100%; } .keycmpw th, .keycmpw td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
 .keycmpw thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; } .keycmpw tbody th { font-weight: 500; min-width: 190px; } .keycmpw kbd { margin: 0 3px 3px 0; display: inline-block; }
 .cap.warn { color: var(--fg); background: var(--accent-tint); padding: 6px 10px; border-left: 3px solid var(--accent); display: block; }
+
+.cap.ok { color: var(--muted); }
