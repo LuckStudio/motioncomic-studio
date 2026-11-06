@@ -97,7 +97,7 @@
 
   MC.renderTexts = (ctx, p, time, o) => {
     const items = p.texts || [];
-    if (!items.length) return;
+    if (!items.length || (p.tv && p.tv.text && p.tv.text.off)) return;
     const { W, H } = o, lang = o.lang || p.lang || 'es';
     for (const it of items) {
       if (it.kind === 'sub' && o.subs === false) continue;

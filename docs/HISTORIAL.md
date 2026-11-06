@@ -168,3 +168,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Los fotogramas clave pueden llevar solo las propiedades que animan (una pista por propiedad); los antiguos, que llevan todas, siguen funcionando igual. Rombo con tres estados, flechas para saltar entre fotogramas y creación automática al cambiar el valor, en Escala, Posición, Opacidad, Giro y Tamaño de capas y superposiciones, y filas para todas las propiedades en la pestaña Animación.
 - Nuevas curvas Elástico, Bote y Mantener; 15 movimientos listos; el editor de curvas muestra solo los fotogramas de la propiedad elegida.
+
+## Visibilidad de las pistas
+
+- Ojo por pista (quita texto, subtítulos o efectos del vídeo y la exportación; en audio silencia) y plegado de filas de la línea de tiempo, con menú Pistas, aviso con Mostrar y guardado en el proyecto.

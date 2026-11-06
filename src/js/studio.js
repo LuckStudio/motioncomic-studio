@@ -2662,7 +2662,7 @@
         return h('div', { class: 'trl', 'data-k': k }, h('span', null, t(tr.es, tr.en)),
           ix >= 2 ? h('span', { class: 'trb' }, addBtn(AU[ix - 2]), ix === 2 ? h('button', { class: 'btn btn-g', type: 'button', title: t('Grabar locución', 'Record voice-over'), 'aria-label': t('Grabar locución', 'Record voice-over'), onClick: recordVoice }, MC.icon('mic', 13)) : null) : null);
       };
-      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }), KEYS.map(labelOf));
+      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }, tracksBtn()), KEYS.map((k) => decorateLabel(labelOf(k), k)));
       MC.clear(el.tlContent);
       const ruler = h('div', { class: 'tl-ruler', 'aria-label': t('Regla de tiempo', 'Time ruler') });
       const step = pps >= 55 ? 1 : pps >= 28 ? 2 : 5;
@@ -2692,6 +2692,7 @@
           'data-hint': ov ? t('Pulsa + para añadir una imagen o un vídeo por encima de la ilustración', 'Press + to add an image or video above the artwork') : t('Importa o graba audio con los botones de la izquierda', 'Import or record audio with the buttons on the left') });
         el.tlContent.append(R[k]);
       });
+      KEYS.forEach((k) => { if (k === 'kf') return; const f = trackFold(k), off = trackOff(k); [R[k], el.tlLabels.querySelector('[data-k="' + k + '"]')].forEach((n) => { if (n) { n.dataset.fold = f ? '1' : '0'; n.dataset.off = off ? '1' : '0'; } }); });
       p.shots.forEach((sh, i) => {
         const expd = !!S.expand[sh.id] && !(sh.page || sh.webtoon);
         let thumbU = ''; if (p.shots.length <= 40) { try { thumbU = shotThumbURL(sh); } catch (e) { thumbU = ''; } }
@@ -3752,6 +3753,48 @@
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { it.kf = it.kf.filter((z) => z.id !== cur.id); S.kfid = null; commit(); } }, MC.icon('trash', 14), t('Eliminar este fotograma clave', 'Delete this keyframe')));
       }
       return nodes;
+    }
+
+    /* ---------- visibilidad de las pistas: el ojo las oculta del vídeo (o silencia el audio) y «plegar» quita la fila de la línea de tiempo ---------- */
+    function trkNames() { return { shots: ['Planos', 'Shots'], text: ['Texto', 'Text'], subs: ['Subtítulos', 'Subtitles'], fxr: ['Efectos', 'Effects'], voz: ['Locución', 'Voice'], sfx: ['SFX', 'SFX'], musica: ['Música', 'Music'] }; }
+    function tvOf(k) { const p = S.project; p.tv = p.tv || {}; return (p.tv[k] = p.tv[k] || {}); }
+    function trackFold(k) { const p = S.project; return /^o\d+$/.test(k) ? !!(p.otracks[+k.slice(1)] || {}).fold : /^x\d+$/.test(k) ? !!(p.xtracks[+k.slice(1)] || {}).fold : !!((p.tv || {})[k] || {}).fold; }
+    function trackOff(k) { const p = S.project; if (/^o\d+$/.test(k)) return (p.otracks[+k.slice(1)] || {}).visible === false; if (/^x\d+$/.test(k)) return (p.xtracks[+k.slice(1)] || {}).visible === false; if (AU.includes(k)) return !!((p.mix || {}).mute || {})[k]; return !!((p.tv || {})[k] || {}).off; }
+    function hasEye(k) { return k !== 'kf' && k !== 'shots'; }
+    function setTrackFold(k, v) { const p = S.project; if (/^o\d+$/.test(k)) p.otracks[+k.slice(1)].fold = !!v; else if (/^x\d+$/.test(k)) p.xtracks[+k.slice(1)].fold = !!v; else tvOf(k).fold = !!v; }
+    function setTrackOff(k, v) { const p = S.project; if (/^o\d+$/.test(k)) p.otracks[+k.slice(1)].visible = !v; else if (/^x\d+$/.test(k)) p.xtracks[+k.slice(1)].visible = !v; else if (AU.includes(k)) { p.mix = p.mix || {}; p.mix.mute = p.mix.mute || {}; p.mix.mute[k] = !!v; } else tvOf(k).off = !!v; }
+    function trackName(k) { return /^o\d+$/.test(k) ? S.project.otracks[+k.slice(1)].name : /^x\d+$/.test(k) ? S.project.xtracks[+k.slice(1)].name : t(trkNames()[k][0], trkNames()[k][1]); }
+    function eyeIc(k, off) { return AU.includes(k) ? 'speaker' : off ? 'eyeoff' : 'eye'; }
+    function eyeTitle(k, off) { return (AU.includes(k) ? (off ? t('Activar el sonido de la pista', 'Turn the track sound on') : t('Silenciar la pista', 'Mute the track')) : (off ? t('Mostrar la pista en el vídeo', 'Show the track in the video') : t('Ocultar la pista del vídeo', 'Hide the track from the video'))); }
+    function allTrackKeys() { const p = S.project; return p.otracks.map((q, i) => 'o' + i).concat(p.xtracks.length && (p.xshots.length || S.xs) ? p.xtracks.map((q, i) => 'x' + i) : [], ['shots', 'text', 'subs', 'fxr', 'voz', 'sfx', 'musica']); }
+    function decorateLabel(lab, k) {
+      if (k === 'kf') return lab;
+      let tb = lab.querySelector('.trb'); if (!tb) { tb = h('span', { class: 'trb' }); lab.append(tb); }
+      const off = trackOff(k);
+      if (hasEye(k) && !/^[ox]\d+$/.test(k)) tb.append(h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(!off), title: eyeTitle(k, off), 'aria-label': eyeTitle(k, off) + ' · ' + trackName(k), onClick: () => { setTrackOff(k, !trackOff(k)); commit(); } }, MC.icon(eyeIc(k, off), 13)));
+      tb.append(h('button', { class: 'btn btn-g trfold', type: 'button', title: t('Plegar esta pista (se recupera en el menú Pistas)', 'Fold this track (restore it from the Tracks menu)'), 'aria-label': t('Plegar la pista ', 'Fold the track ') + trackName(k), onClick: () => { setTrackFold(k, true); commit(); MC.toast(t('Pista plegada: ', 'Track folded: ') + trackName(k), { label: t('Mostrar', 'Show'), onClick: () => { setTrackFold(k, false); commit(); }, ms: 5000 }); } }, MC.icon('up', 13)));
+      return lab;
+    }
+    function tracksBtn() {
+      const n = allTrackKeys().filter(trackFold).length;
+      return h('button', { class: 'rsbtn', type: 'button', 'aria-haspopup': 'menu', title: t('Pistas: mostrar, ocultar y plegar', 'Tracks: show, hide and fold'), 'aria-label': t('Menú de pistas', 'Tracks menu') + (n ? ' · ' + n + t(' plegadas', ' folded') : ''), onClick: () => openTracksMenu() }, MC.icon('layers', 13), t('Pistas', 'Tracks'), n ? h('b', { class: 'rsn' }, String(n)) : null);
+    }
+    function openTracksMenu() {
+      closeDockMenu(); closeCtx();
+      const host = studio, btn = el.tlLabels.querySelector('.rsbtn'); if (!btn) return;
+      const rows = allTrackKeys().map((k) => {
+        const off = trackOff(k), fold = trackFold(k);
+        return h('div', { class: 'tkrow' }, h('span', { class: 'tkn' }, trackName(k)),
+          hasEye(k) ? h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-pressed': String(!off), title: eyeTitle(k, off), 'aria-label': eyeTitle(k, off) + ' · ' + trackName(k), onClick: () => { setTrackOff(k, !off); commit(); openTracksMenu(); } }, MC.icon(eyeIc(k, off), 15)) : h('span', { class: 'tkgap' }),
+          h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-pressed': String(!fold), title: fold ? t('Mostrar la fila en la línea de tiempo', 'Show the row in the timeline') : t('Plegar la fila', 'Fold the row'), 'aria-label': (fold ? t('Mostrar la fila de ', 'Show the row of ') : t('Plegar la fila de ', 'Fold the row of ')) + trackName(k), onClick: () => { setTrackFold(k, !fold); commit(); openTracksMenu(); } }, MC.icon(fold ? 'down' : 'up', 15)));
+      });
+      const menu = h('div', { class: 'dockmenu ctxmenu tkmenu', role: 'dialog', 'aria-label': t('Pistas', 'Tracks'), onKeydown: (e) => { if (e.key === 'Escape') { closeCtx(); const b = el.tlLabels.querySelector('.rsbtn'); if (b) b.focus(); } } },
+        h('div', { class: 'eyebrow' }, t('Pistas de la línea de tiempo', 'Timeline tracks')), h('p', { class: 'cap' }, t('El ojo (o el altavoz) quita la pista del vídeo; la flecha quita su fila de la línea de tiempo.', 'The eye (or speaker) removes the track from the video; the arrow removes its row from the timeline.')), ...rows,
+        h('button', { type: 'button', onClick: () => { allTrackKeys().forEach((k) => { setTrackFold(k, false); setTrackOff(k, false); }); commit(); openTracksMenu(); } }, MC.icon('undo', 14), t('Mostrar todas las pistas', 'Show all tracks')));
+      host.append(menu);
+      const f = zf(host), hr = host.getBoundingClientRect(), br = btn.getBoundingClientRect(), hh = menu.offsetHeight;
+      menu.style.left = clamp((br.left - hr.left) / f, 4, Math.max(4, host.offsetWidth - menu.offsetWidth - 4)) + 'px'; menu.style.top = clamp((br.top - hr.top) / f - hh - 6 > 4 ? (br.top - hr.top) / f - hh - 6 : (br.bottom - hr.top) / f + 4, 4, Math.max(4, host.offsetHeight - hh - 4)) + 'px';
+      const first = menu.querySelector('button'); if (first) first.focus();
     }
 
     const ACT = {

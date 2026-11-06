@@ -755,3 +755,15 @@ html[data-marks="1"] .ptab[aria-selected="true"] { text-decoration: underline; t
 .kfrows { display: grid; gap: 10px; } .motions { display: flex; flex-wrap: wrap; gap: 6px; }
 .kfrow b { margin: 0 8px; } .kfrow span { color: var(--muted); font-size: 12px; }
 html[data-touch="1"] .kfbtn { width: 44px; height: 44px; } html[data-touch="1"] .kfnav { width: 34px; height: 44px; }
+
+/* ---------- visibilidad de las pistas ---------- */
+.tl-track[data-fold="1"], .trl[data-fold="1"] { display: none !important; }
+.tl-track[data-off="1"] { opacity: .5; background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(127,127,127,.12) 8px 16px); }
+.trl[data-off="1"] > span:first-child { opacity: .55; text-decoration: line-through; }
+.trl .btn[aria-pressed="false"] { opacity: .65; }
+.rs { display: flex; align-items: center; }
+.rsbtn { display: inline-flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 700; padding: 1px 8px; cursor: pointer; text-transform: uppercase; letter-spacing: .06em; }
+.rsbtn:hover { color: var(--fg); border-color: var(--accent); } .rsn { background: var(--accent); color: var(--on-accent); padding: 0 5px; font-size: 10px; }
+.tkmenu { min-width: 300px; } .tkrow { display: flex; align-items: center; gap: 4px; padding: 2px 6px; } .tkn { flex: 1; font-size: 14px; } .tkgap { width: 32px; }
+.tkrow .btn-ic { width: 32px; height: 32px; } .tkrow .btn[aria-pressed="false"] { color: var(--muted); }
+html[data-touch="1"] .rsbtn { min-height: 30px; } html[data-touch="1"] .tkrow .btn-ic { width: 44px; height: 44px; }

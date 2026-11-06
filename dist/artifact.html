@@ -785,6 +785,18 @@ html[data-marks="1"] .ptab[aria-selected="true"] { text-decoration: underline; t
 .kfrow b { margin: 0 8px; } .kfrow span { color: var(--muted); font-size: 12px; }
 html[data-touch="1"] .kfbtn { width: 44px; height: 44px; } html[data-touch="1"] .kfnav { width: 34px; height: 44px; }
 
+/* ---------- visibilidad de las pistas ---------- */
+.tl-track[data-fold="1"], .trl[data-fold="1"] { display: none !important; }
+.tl-track[data-off="1"] { opacity: .5; background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(127,127,127,.12) 8px 16px); }
+.trl[data-off="1"] > span:first-child { opacity: .55; text-decoration: line-through; }
+.trl .btn[aria-pressed="false"] { opacity: .65; }
+.rs { display: flex; align-items: center; }
+.rsbtn { display: inline-flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 700; padding: 1px 8px; cursor: pointer; text-transform: uppercase; letter-spacing: .06em; }
+.rsbtn:hover { color: var(--fg); border-color: var(--accent); } .rsn { background: var(--accent); color: var(--on-accent); padding: 0 5px; font-size: 10px; }
+.tkmenu { min-width: 300px; } .tkrow { display: flex; align-items: center; gap: 4px; padding: 2px 6px; } .tkn { flex: 1; font-size: 14px; } .tkgap { width: 32px; }
+.tkrow .btn-ic { width: 32px; height: 32px; } .tkrow .btn[aria-pressed="false"] { color: var(--muted); }
+html[data-touch="1"] .rsbtn { min-height: 30px; } html[data-touch="1"] .tkrow .btn-ic { width: 44px; height: 44px; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -27915,7 +27927,8 @@ module.exports = ZStream;
   MC.renderShot = (ctx, shot, tl, o) => {
     const { W, H } = o;
     let cam = o.cam || MC.camAt(shot, tl);
-    const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
+    const fxOff = !!(o.project && o.project.tv && o.project.tv.fxr && o.project.tv.fxr.off);
+    const anim = !o.noClip && !fxOff && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
     const fr = !o.noClip && !o.transparent && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
@@ -27990,7 +28003,7 @@ module.exports = ZStream;
     }
     ctx.save(); content();
     for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
-    if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
+    if (!o.noClip && !fxOff && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
     if (pan) {
       ctx.restore();
@@ -29704,7 +29717,7 @@ module.exports = ZStream;
 
   MC.renderTexts = (ctx, p, time, o) => {
     const items = p.texts || [];
-    if (!items.length) return;
+    if (!items.length || (p.tv && p.tv.text && p.tv.text.off)) return;
     const { W, H } = o, lang = o.lang || p.lang || 'es';
     for (const it of items) {
       if (it.kind === 'sub' && o.subs === false) continue;
@@ -29990,7 +30003,7 @@ module.exports = ZStream;
     return { x0: cx - blockW / 2, x1: cx + blockW / 2, y0: top, y1: top + blockH };
   };
   MC.renderSubs = (ctx, p, time, o) => {
-    const list = p.subs || []; if (!list.length || o.subs === false) return;
+    const list = p.subs || []; if (!list.length || o.subs === false || (p.tv && p.tv.subs && p.tv.subs.off)) return;
     const { W, H } = o, lang = o.lang || p.lang || 'es';
     MC.subActive(p, time).forEach((it) => {
       const cues = MC.subCues(it, lang, it.style); if (!cues.length) return;
@@ -34464,7 +34477,7 @@ module.exports = ZStream;
         return h('div', { class: 'trl', 'data-k': k }, h('span', null, t(tr.es, tr.en)),
           ix >= 2 ? h('span', { class: 'trb' }, addBtn(AU[ix - 2]), ix === 2 ? h('button', { class: 'btn btn-g', type: 'button', title: t('Grabar locución', 'Record voice-over'), 'aria-label': t('Grabar locución', 'Record voice-over'), onClick: recordVoice }, MC.icon('mic', 13)) : null) : null);
       };
-      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }), KEYS.map(labelOf));
+      MC.put(MC.clear(el.tlLabels), h('div', { class: 'rs' }, tracksBtn()), KEYS.map((k) => decorateLabel(labelOf(k), k)));
       MC.clear(el.tlContent);
       const ruler = h('div', { class: 'tl-ruler', 'aria-label': t('Regla de tiempo', 'Time ruler') });
       const step = pps >= 55 ? 1 : pps >= 28 ? 2 : 5;
@@ -34494,6 +34507,7 @@ module.exports = ZStream;
           'data-hint': ov ? t('Pulsa + para añadir una imagen o un vídeo por encima de la ilustración', 'Press + to add an image or video above the artwork') : t('Importa o graba audio con los botones de la izquierda', 'Import or record audio with the buttons on the left') });
         el.tlContent.append(R[k]);
       });
+      KEYS.forEach((k) => { if (k === 'kf') return; const f = trackFold(k), off = trackOff(k); [R[k], el.tlLabels.querySelector('[data-k="' + k + '"]')].forEach((n) => { if (n) { n.dataset.fold = f ? '1' : '0'; n.dataset.off = off ? '1' : '0'; } }); });
       p.shots.forEach((sh, i) => {
         const expd = !!S.expand[sh.id] && !(sh.page || sh.webtoon);
         let thumbU = ''; if (p.shots.length <= 40) { try { thumbU = shotThumbURL(sh); } catch (e) { thumbU = ''; } }
@@ -35554,6 +35568,48 @@ module.exports = ZStream;
           h('button', { class: 'btn btn-s btn-sm btn-danger', type: 'button', style: { justifySelf: 'start' }, onClick: () => { it.kf = it.kf.filter((z) => z.id !== cur.id); S.kfid = null; commit(); } }, MC.icon('trash', 14), t('Eliminar este fotograma clave', 'Delete this keyframe')));
       }
       return nodes;
+    }
+
+    /* ---------- visibilidad de las pistas: el ojo las oculta del vídeo (o silencia el audio) y «plegar» quita la fila de la línea de tiempo ---------- */
+    function trkNames() { return { shots: ['Planos', 'Shots'], text: ['Texto', 'Text'], subs: ['Subtítulos', 'Subtitles'], fxr: ['Efectos', 'Effects'], voz: ['Locución', 'Voice'], sfx: ['SFX', 'SFX'], musica: ['Música', 'Music'] }; }
+    function tvOf(k) { const p = S.project; p.tv = p.tv || {}; return (p.tv[k] = p.tv[k] || {}); }
+    function trackFold(k) { const p = S.project; return /^o\d+$/.test(k) ? !!(p.otracks[+k.slice(1)] || {}).fold : /^x\d+$/.test(k) ? !!(p.xtracks[+k.slice(1)] || {}).fold : !!((p.tv || {})[k] || {}).fold; }
+    function trackOff(k) { const p = S.project; if (/^o\d+$/.test(k)) return (p.otracks[+k.slice(1)] || {}).visible === false; if (/^x\d+$/.test(k)) return (p.xtracks[+k.slice(1)] || {}).visible === false; if (AU.includes(k)) return !!((p.mix || {}).mute || {})[k]; return !!((p.tv || {})[k] || {}).off; }
+    function hasEye(k) { return k !== 'kf' && k !== 'shots'; }
+    function setTrackFold(k, v) { const p = S.project; if (/^o\d+$/.test(k)) p.otracks[+k.slice(1)].fold = !!v; else if (/^x\d+$/.test(k)) p.xtracks[+k.slice(1)].fold = !!v; else tvOf(k).fold = !!v; }
+    function setTrackOff(k, v) { const p = S.project; if (/^o\d+$/.test(k)) p.otracks[+k.slice(1)].visible = !v; else if (/^x\d+$/.test(k)) p.xtracks[+k.slice(1)].visible = !v; else if (AU.includes(k)) { p.mix = p.mix || {}; p.mix.mute = p.mix.mute || {}; p.mix.mute[k] = !!v; } else tvOf(k).off = !!v; }
+    function trackName(k) { return /^o\d+$/.test(k) ? S.project.otracks[+k.slice(1)].name : /^x\d+$/.test(k) ? S.project.xtracks[+k.slice(1)].name : t(trkNames()[k][0], trkNames()[k][1]); }
+    function eyeIc(k, off) { return AU.includes(k) ? 'speaker' : off ? 'eyeoff' : 'eye'; }
+    function eyeTitle(k, off) { return (AU.includes(k) ? (off ? t('Activar el sonido de la pista', 'Turn the track sound on') : t('Silenciar la pista', 'Mute the track')) : (off ? t('Mostrar la pista en el vídeo', 'Show the track in the video') : t('Ocultar la pista del vídeo', 'Hide the track from the video'))); }
+    function allTrackKeys() { const p = S.project; return p.otracks.map((q, i) => 'o' + i).concat(p.xtracks.length && (p.xshots.length || S.xs) ? p.xtracks.map((q, i) => 'x' + i) : [], ['shots', 'text', 'subs', 'fxr', 'voz', 'sfx', 'musica']); }
+    function decorateLabel(lab, k) {
+      if (k === 'kf') return lab;
+      let tb = lab.querySelector('.trb'); if (!tb) { tb = h('span', { class: 'trb' }); lab.append(tb); }
+      const off = trackOff(k);
+      if (hasEye(k) && !/^[ox]\d+$/.test(k)) tb.append(h('button', { class: 'btn btn-g', type: 'button', 'aria-pressed': String(!off), title: eyeTitle(k, off), 'aria-label': eyeTitle(k, off) + ' · ' + trackName(k), onClick: () => { setTrackOff(k, !trackOff(k)); commit(); } }, MC.icon(eyeIc(k, off), 13)));
+      tb.append(h('button', { class: 'btn btn-g trfold', type: 'button', title: t('Plegar esta pista (se recupera en el menú Pistas)', 'Fold this track (restore it from the Tracks menu)'), 'aria-label': t('Plegar la pista ', 'Fold the track ') + trackName(k), onClick: () => { setTrackFold(k, true); commit(); MC.toast(t('Pista plegada: ', 'Track folded: ') + trackName(k), { label: t('Mostrar', 'Show'), onClick: () => { setTrackFold(k, false); commit(); }, ms: 5000 }); } }, MC.icon('up', 13)));
+      return lab;
+    }
+    function tracksBtn() {
+      const n = allTrackKeys().filter(trackFold).length;
+      return h('button', { class: 'rsbtn', type: 'button', 'aria-haspopup': 'menu', title: t('Pistas: mostrar, ocultar y plegar', 'Tracks: show, hide and fold'), 'aria-label': t('Menú de pistas', 'Tracks menu') + (n ? ' · ' + n + t(' plegadas', ' folded') : ''), onClick: () => openTracksMenu() }, MC.icon('layers', 13), t('Pistas', 'Tracks'), n ? h('b', { class: 'rsn' }, String(n)) : null);
+    }
+    function openTracksMenu() {
+      closeDockMenu(); closeCtx();
+      const host = studio, btn = el.tlLabels.querySelector('.rsbtn'); if (!btn) return;
+      const rows = allTrackKeys().map((k) => {
+        const off = trackOff(k), fold = trackFold(k);
+        return h('div', { class: 'tkrow' }, h('span', { class: 'tkn' }, trackName(k)),
+          hasEye(k) ? h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-pressed': String(!off), title: eyeTitle(k, off), 'aria-label': eyeTitle(k, off) + ' · ' + trackName(k), onClick: () => { setTrackOff(k, !off); commit(); openTracksMenu(); } }, MC.icon(eyeIc(k, off), 15)) : h('span', { class: 'tkgap' }),
+          h('button', { class: 'btn btn-g btn-ic', type: 'button', 'aria-pressed': String(!fold), title: fold ? t('Mostrar la fila en la línea de tiempo', 'Show the row in the timeline') : t('Plegar la fila', 'Fold the row'), 'aria-label': (fold ? t('Mostrar la fila de ', 'Show the row of ') : t('Plegar la fila de ', 'Fold the row of ')) + trackName(k), onClick: () => { setTrackFold(k, !fold); commit(); openTracksMenu(); } }, MC.icon(fold ? 'down' : 'up', 15)));
+      });
+      const menu = h('div', { class: 'dockmenu ctxmenu tkmenu', role: 'dialog', 'aria-label': t('Pistas', 'Tracks'), onKeydown: (e) => { if (e.key === 'Escape') { closeCtx(); const b = el.tlLabels.querySelector('.rsbtn'); if (b) b.focus(); } } },
+        h('div', { class: 'eyebrow' }, t('Pistas de la línea de tiempo', 'Timeline tracks')), h('p', { class: 'cap' }, t('El ojo (o el altavoz) quita la pista del vídeo; la flecha quita su fila de la línea de tiempo.', 'The eye (or speaker) removes the track from the video; the arrow removes its row from the timeline.')), ...rows,
+        h('button', { type: 'button', onClick: () => { allTrackKeys().forEach((k) => { setTrackFold(k, false); setTrackOff(k, false); }); commit(); openTracksMenu(); } }, MC.icon('undo', 14), t('Mostrar todas las pistas', 'Show all tracks')));
+      host.append(menu);
+      const f = zf(host), hr = host.getBoundingClientRect(), br = btn.getBoundingClientRect(), hh = menu.offsetHeight;
+      menu.style.left = clamp((br.left - hr.left) / f, 4, Math.max(4, host.offsetWidth - menu.offsetWidth - 4)) + 'px'; menu.style.top = clamp((br.top - hr.top) / f - hh - 6 > 4 ? (br.top - hr.top) / f - hh - 6 : (br.bottom - hr.top) / f + 4, 4, Math.max(4, host.offsetHeight - hh - 4)) + 'px';
+      const first = menu.querySelector('button'); if (first) first.focus();
     }
 
     const ACT = {

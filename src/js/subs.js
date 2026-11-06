@@ -150,7 +150,7 @@
     return { x0: cx - blockW / 2, x1: cx + blockW / 2, y0: top, y1: top + blockH };
   };
   MC.renderSubs = (ctx, p, time, o) => {
-    const list = p.subs || []; if (!list.length || o.subs === false) return;
+    const list = p.subs || []; if (!list.length || o.subs === false || (p.tv && p.tv.subs && p.tv.subs.off)) return;
     const { W, H } = o, lang = o.lang || p.lang || 'es';
     MC.subActive(p, time).forEach((it) => {
       const cues = MC.subCues(it, lang, it.style); if (!cues.length) return;

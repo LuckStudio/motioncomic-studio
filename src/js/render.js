@@ -139,7 +139,8 @@
   MC.renderShot = (ctx, shot, tl, o) => {
     const { W, H } = o;
     let cam = o.cam || MC.camAt(shot, tl);
-    const anim = !o.noClip && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
+    const fxOff = !!(o.project && o.project.tv && o.project.tv.fxr && o.project.tv.fxr.off);
+    const anim = !o.noClip && !fxOff && MC.fxAnim ? MC.fxAnim(shot, tl) : null;
     if (anim && anim.cam) { const a = anim.cam; cam = Object.assign({}, cam, { sx: cam.sx + a.dx, sy: cam.sy + a.dy, rot: cam.rot + a.rot, zoom: cam.zoom * a.sc }); }
     /* contenedor de viñeta: calle, sombra, recorte a la forma y trazo */
     const fr = !o.noClip && !o.transparent && o.frames !== false && MC.frameOf ? MC.frameOf(o.project, shot) : null;
@@ -214,7 +215,7 @@
     }
     ctx.save(); content();
     for (const layer of shot.layers) { if (layer.visible === false || (pan && layer.over)) continue; drawLayer(layer); }
-    if (!o.noClip && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
+    if (!o.noClip && !fxOff && MC.fxOverlays && ((shot.fx && shot.fx.length) || anim)) MC.fxOverlays(ctx, shot, tl, o, anim);
     ctx.restore();
     if (pan) {
       ctx.restore();
