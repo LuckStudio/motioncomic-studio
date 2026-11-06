@@ -81,6 +81,7 @@ Bocadillos (tres formas), cajas, onomatopeyas, subtítulos con SRT, revelado, en
 | Tablet en vertical: visor, línea de tiempo y hoja inferior de paneles, con barra compacta y menú «más herramientas» | ✔ | Hasta 900 px de ancho |
 | Escala de la interfaz (70–150 %) sin descuadres en línea de tiempo, arrastres, gestos y tutoriales | ✔ | `MC.uz()` convierte píxeles del ratón en medidas de la interfaz |
 | Propiedades con pestañas por tipo de selección (estilo CapCut), con navegación por flechas, teclado y deslizamiento | ✔ | Recuerda la pestaña por tipo |
+| Fotogramas clave por propiedad con rombo, saltos entre fotogramas, curvas predefinidas (incluye elástico, bote y mantener) y movimientos listos | ✔ | Compatibles con los proyectos anteriores |
 | Paneles acoplables (izquierda/derecha/arriba), disposiciones predefinidas y ventanas separadas para varias pantallas | ✔ | Menú ⋮ y asa ⠿ en cada panel; la ventana nueva recibe el panel con sus atajos y se devuelve al cerrarla |
 | Paneles acoplables y flotantes, barra de herramientas | ✘ | Disposición fija |
 | Atajos configurables con mapas de Premiere y Photoshop | ✔ | |

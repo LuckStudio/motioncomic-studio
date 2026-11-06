@@ -163,3 +163,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Propiedades con pestañas
 
 - Barra de pestañas en Propiedades (plano, capa, texto, audio y superposición) con flechas anterior y siguiente, teclado y deslizamiento táctil; recuerda la última pestaña por tipo. El clip de audio separa el volumen y los fundidos.
+
+## Fotogramas clave por propiedad, curvas y movimientos
+
+- Los fotogramas clave pueden llevar solo las propiedades que animan (una pista por propiedad); los antiguos, que llevan todas, siguen funcionando igual. Rombo con tres estados, flechas para saltar entre fotogramas y creación automática al cambiar el valor, en Escala, Posición, Opacidad, Giro y Tamaño de capas y superposiciones, y filas para todas las propiedades en la pestaña Animación.
+- Nuevas curvas Elástico, Bote y Mantener; 15 movimientos listos; el editor de curvas muestra solo los fotogramas de la propiedad elegida.

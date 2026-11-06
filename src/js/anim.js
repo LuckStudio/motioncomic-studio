@@ -23,12 +23,16 @@
     { v: 'linear', es: 'Lineal', en: 'Linear', b: [0, 0, 1, 1] }, { v: 'smooth', es: 'Suave', en: 'Smooth', b: [0.42, 0, 0.58, 1] },
     { v: 'in', es: 'Acelera', en: 'Ease in', b: [0.42, 0, 1, 1] }, { v: 'out', es: 'Frena', en: 'Ease out', b: [0, 0, 0.58, 1] },
     { v: 'back', es: 'Rebote', en: 'Overshoot', b: [0.34, 1.56, 0.64, 1] }, { v: 'snap', es: 'Seco', en: 'Snap', b: [0.9, 0, 1, 0.4] },
+    { v: 'elastic', es: 'Elástico', en: 'Elastic', b: [0.3, 1.5, 0.5, 1], fn: (x) => (x <= 0 ? 0 : x >= 1 ? 1 : Math.pow(2, -10 * x) * Math.sin(((x * 10 - 0.75) * 2 * Math.PI) / 3) + 1) },
+    { v: 'bounce', es: 'Bote', en: 'Bounce', b: [0.2, 1.25, 0.4, 1], fn: (x) => { const n1 = 7.5625, d1 = 2.75; if (x < 1 / d1) return n1 * x * x; if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75; if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375; return n1 * (x -= 2.625 / d1) * x + 0.984375; } },
+    { v: 'hold', es: 'Mantener', en: 'Hold', b: [1, 0, 1, 0], fn: (x) => (x >= 1 ? 1 : 0) },
   ];
   /* Devuelve la función de una curva con nombre o personalizada ({ b: [x1,y1,x2,y2] }). */
   MC.curveFn = (c) => {
     if (c && typeof c === 'object' && c.b) return bez(c.b[0], c.b[1], c.b[2], c.b[3]);
     const p = MC.CURVES.find((q) => q.v === c);
     if (!p) return (x) => MC.ease('smooth', x);
+    if (p.fn) return p.fn;
     return bez(p.b[0], p.b[1], p.b[2], p.b[3]);
   };
   MC.curveBez = (c) => (c && typeof c === 'object' && c.b ? c.b : (MC.CURVES.find((q) => q.v === c) || MC.CURVES[1]).b);
@@ -76,14 +80,19 @@
   /* Interpolación de los fotogramas clave de un elemento: ángulos y desplazamientos relativos a su posición base. */
   MC.KF_PROPS = ['x', 'y', 'sc', 'rot', 'op', 'rx', 'ry', 'sx', 'sy'];
   const kfDefault = { x: 0, y: 0, sc: 1, rot: 0, op: 1, rx: 0, ry: 0, sx: 1, sy: 1 };
+  /* Cada fotograma clave puede llevar solo las propiedades que anima (una pista por propiedad); los antiguos las llevan todas. */
   MC.kfValues = (kfs, local) => {
     if (!kfs || !kfs.length) return null;
-    const a = kfs.slice().sort((p, q) => p.t - q.t);
-    if (local <= a[0].t) return Object.assign({}, kfDefault, a[0]);
-    const last = a[a.length - 1]; if (local >= last.t) return Object.assign({}, kfDefault, last);
-    let i = 0; while (i < a.length - 2 && local >= a[i + 1].t) i++;
-    const k0 = Object.assign({}, kfDefault, a[i]), k1 = Object.assign({}, kfDefault, a[i + 1]), u = (local - k0.t) / Math.max(1e-6, k1.t - k0.t), e = MC.curveFn(a[i].ease || 'smooth')(u);
-    const out = {}; MC.KF_PROPS.forEach((p) => { out[p] = lerp(k0[p], k1[p], e); });
+    const out = {};
+    MC.KF_PROPS.forEach((pr) => {
+      const a = kfs.filter((q) => q[pr] != null).sort((p1, p2) => p1.t - p2.t);
+      if (!a.length) { out[pr] = kfDefault[pr]; return; }
+      if (local <= a[0].t) { out[pr] = a[0][pr]; return; }
+      const last = a[a.length - 1]; if (local >= last.t) { out[pr] = last[pr]; return; }
+      let i = 0; while (i < a.length - 2 && local >= a[i + 1].t) i++;
+      const k0 = a[i], k1 = a[i + 1], u = (local - k0.t) / Math.max(1e-6, k1.t - k0.t);
+      out[pr] = lerp(k0[pr], k1[pr], MC.curveFn(k0.ease || 'smooth')(u));
+    });
     return out;
   };
 
