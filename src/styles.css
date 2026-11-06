@@ -891,3 +891,13 @@ a.btn { text-decoration: none; }
 .kfd.kfp { width: 11px; height: 11px; margin-left: 1.5px; }
 .tl-labels .trl.kfl { position: relative; } .tl-labels .trl.kfl .kfhead { display: flex; align-items: center; gap: 6px; } .tl-labels .trl.kfl .kfadv { height: 20px; padding: 0 6px; font-size: 11px; width: auto; border: 1px solid var(--line); }
 .tl-labels .trl.kfl .kfpl { position: absolute; left: 12px; height: 22px; line-height: 22px; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; } .tl-labels .trl.kfl .kfpl.on { color: var(--accent); text-decoration: underline; }
+
+/* curso Aprender */
+.learn-coach { position: fixed; right: 16px; bottom: 16px; z-index: 900; width: min(360px, calc(100vw - 32px)); background: var(--raised, var(--bg)); color: var(--fg); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 36px rgba(0,0,0,.4); display: grid; gap: 8px; }
+.lc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .lc-head b { flex: 1; min-width: 0; } .lc-text { margin: 0; font-size: 14px; line-height: 1.45; } .lc-why { margin: 0; }
+.lc-status { font-size: 12px; color: var(--muted); } .lc-status[data-ok="true"] { color: var(--accent); font-weight: 600; } .lc-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.lc-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; } .lc-bar i { display: block; height: 100%; background: var(--accent); }
+.learn-pulse { outline: 3px solid var(--accent) !important; outline-offset: 3px; animation: lpulse 1s ease-in-out 3; }
+@keyframes lpulse { 50% { outline-color: transparent; } }
+.gloss { display: grid; gap: 4px; margin: 0; } .gloss dt { font-weight: 600; margin-top: 6px; } .gloss dd { margin: 0; color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .learn-pulse { animation: none; } }

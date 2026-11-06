@@ -2611,6 +2611,7 @@
         mv.set(b, [edge === 'l' ? grp.x0 - b.x0 : edge === 'c' ? (grp.x0 + grp.x1) / 2 - cx : edge === 'r' ? grp.x1 - b.x1 : 0, edge === 't' ? grp.y0 - b.y0 : edge === 'm' ? (grp.y0 + grp.y1) / 2 - cy : edge === 'b' ? grp.y1 - b.y1 : 0]);
       });
       let n = 0; mv.forEach((d, b) => { if (Math.abs(d[0]) > 0.5 || Math.abs(d[1]) > 0.5) { nudgeDev(b.it, b.kind, d[0], d[1]); n++; } });
+      if (n && MC.learnEvent) MC.learnEvent('align');
       commit(); MC.announce(n ? t('Alineado', 'Aligned') : t('Ya estaba alineado', 'Already aligned'));
     }
     function alignRow(multi) {
@@ -2804,7 +2805,7 @@
       });
       const up = () => {
         if (!drag) return;
-        if (S.alignGuides) { S.alignGuides = null; S.dirty = true; }
+        if (S.alignGuides) { S.alignGuides = null; S.dirty = true; if (MC.learnEvent) MC.learnEvent('snap'); }
         if (drag.m === 'spnew') {
           const wt = shot().webtoon; if (!drag.moved) { const sp = { id: MC.uid(), y: Math.round(drag.y * 1000) / 1000, hold: 1.5, zoom: 1, x: 0 }; wt.stops.push(sp); S.sp = sp.id; }
         }
@@ -4414,9 +4415,11 @@
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
+      learn: () => ({ li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
+    if (MC.learn && (MC.pendingLearn || MC.learn.active())) setTimeout(MC.learn.resume, 700);
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
   };
 })();

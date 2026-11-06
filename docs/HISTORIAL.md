@@ -299,3 +299,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Pedido de la persona: poder tener el cursor de siempre pero personalizarlo con una ilustración propia o elegir cursores ya preparados de otros estilos (retro, futurista, pixelado…).
 - Propuesta: Preferencias → Cursor con cursor del sistema por defecto, una colección de cursores incluidos dibujados por nosotros (retro, futurista, pixelado, de cómic, minimalista…), importar una imagen propia (PNG/SVG, con punto activo ajustable y límite de tamaño), vista previa y restablecer. Se aplica con la propiedad CSS `cursor` (con el del sistema como alternativa) y se guarda en este equipo. Va como fase G, después de F (Aprender).
+
+## Fase F del plan nuevo: Aprender (versión 0.19, primera entrega)
+
+- `src/js/learn.js`: curso como datos (módulos → lecciones → pasos con texto y comprobación sobre el proyecto), panel flotante con comprobación automática, progreso en el equipo, glosario, retos, tarjeta de inicio y pestaña en Ayuda. `studioApi.learn()` expone la selección y el espacio de trabajo; studio.js avisa de alinear e imán (`MC.learnEvent`).
+- Probado con Playwright (flujo real de la lección 1 con el proyecto de ejemplo: auto-hecho, seleccionar capa, arrastrar en el visor, cerrar/continuar, saltar, progreso, reto, glosario, inglés «Coming soon»).
+- Por hacer en siguientes entregas: más módulos y lecciones (transiciones, audio y voz, efectos, estilo, IA/MCP, exportación avanzada), capturas guiadas, y comprobar uno a uno los pasos de la lección 2 y del módulo 2 con ratón real (en esta entrega se probó a fondo la lección 1).

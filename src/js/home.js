@@ -244,6 +244,7 @@
           tile('sparkle', t('Borrador en un clic', 'One-click draft'), t('Sube las páginas y sale un primer montaje.', 'Upload the pages and get a first assembly.'), MC.draftDialog),
           tile('upload', t('Importar una copia', 'Import a backup'), t('Recupera un proyecto exportado desde otro equipo.', 'Recover a project exported from another device.'), () => fileIn.click()))),
       fileIn,
+      MC.learnCard ? MC.learnCard() : null,
       MC.styleGuideCard ? MC.styleGuideCard() : null,
       h('footer', { class: 'foot' },
         h('span', null, MC.db.persistent ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.') : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar.', 'This browser does not allow saving here: changes will be lost on close.')),
