@@ -234,3 +234,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Se quita el texto de derechos reservados y de «herramienta gratuita»; se sustituye por la dedicatoria a GotiDraw (la imagen definitiva de su arte sustituirá al patrón provisional cuando esté lista).
 - La tarjeta (`MC.splash.card()`) se reutiliza en Preferencias → Acerca de y Ayuda → Acerca de, con versión, «desarrollado por LuckStudio, en desarrollo continuo», enlace a GitHub y botón «Ver la pantalla de carga».
+
+## Bloque 7 del plan: recorte
+
+- El recorte (izquierda, arriba, derecha, abajo) ya existía con deslizadores; ahora tiene tiradores en el visor sobre el recuadro real de la capa o superposición (se calcula con la matriz con la que se dibuja, así respeta cámara, parallax, giro y reflejo), valores exactos en %, y cuatro propiedades nuevas de fotogramas clave (`cl`, `ct`, `cr`, `cb`, como cambio sobre el recorte base) para animarlo. `MC.effCrop` calcula el recorte efectivo sin dejar nunca la imagen vacía. Los fotogramas clave nuevos por la barra siguen llevando solo las propiedades de movimiento.

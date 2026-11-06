@@ -1474,17 +1474,20 @@
       };
       const kfNodes = (it, start, dur) => kfPanel(it, start, dur);
       const cropNodes = (it, isOv) => {
-        const cr = it.crop || {}, setC = (k, v) => { it.crop = Object.assign({ l: 0, t: 0, r: 0, b: 0 }, it.crop, { [k]: v }); S.dirty = true; touch(); };
-        const fx = isOv ? 'flip' : 'flipX';
-        return [h('p', { class: 'cap' }, t('Recorta los bordes de la imagen o del vídeo. No se borra nada: puedes devolverlos cuando quieras.', 'Crop the edges of the image or video. Nothing is deleted: you can bring them back any time.')),
-          MC.ui.slider({ label: t('Recortar izquierda', 'Crop left'), min: 0, max: 0.9, step: 0.005, value: cr.l || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('l', v), onChange: commit }),
-          MC.ui.slider({ label: t('Recortar arriba', 'Crop top'), min: 0, max: 0.9, step: 0.005, value: cr.t || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('t', v), onChange: commit }),
-          MC.ui.slider({ label: t('Recortar derecha', 'Crop right'), min: 0, max: 0.9, step: 0.005, value: cr.r || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('r', v), onChange: commit }),
-          MC.ui.slider({ label: t('Recortar abajo', 'Crop bottom'), min: 0, max: 0.9, step: 0.005, value: cr.b || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => setC('b', v), onChange: commit }),
+        const base = (k) => (it.crop && it.crop[k]) || 0, setC = (k, v) => { it.crop = Object.assign({ l: 0, t: 0, r: 0, b: 0 }, it.crop, { [k]: v }); S.dirty = true; touch(); };
+        const fx = isOv ? 'flip' : 'flipX', pct = (v) => Math.round(v * 100) + ' %';
+        const start = isOv ? () => it.start : () => curStart() + (it.ts || 0), dur = isOv ? () => it.dur : () => (it.te == null ? shot().duration : it.te) - (it.ts || 0);
+        const row = [['l', 'cl', 'Recortar izquierda', 'Crop left'], ['t', 'ct', 'Recortar arriba', 'Crop top'], ['r', 'cr', 'Recortar derecha', 'Crop right'], ['b', 'cb', 'Recortar abajo', 'Crop bottom']];
+        const sl = row.map((q) => animSlider(it, { prop: q[1], es: q[2], en: q[3], min: 0, max: 0.9, step: 0.005, fmt: pct, mode: 'add', base: () => base(q[0]), set: (v) => setC(q[0], v), start, dur }));
+        /* valores exactos en %, al lado de los deslizadores: se actualizan al mover el cabezal si el recorte está animado */
+        const nums = row.map((q, i) => { const id = 'cn-' + MC.uid(), inp = h('input', { class: 'input', id, type: 'number', min: 0, max: 90, step: 1, value: Math.round(sl[i].getEff() * 100), style: { width: '70px' }, onChange: (e) => { const v = clamp((+e.target.value || 0) / 100, 0, 0.9); sl[i].setEff(v); } }); S.animCtl.push({ refresh: () => { if (document.activeElement !== inp) inp.value = Math.round(sl[i].getEff() * 100); } }); return h('div', { class: 'field' }, h('label', { for: id }, t(q[2].replace('Recortar ', ''), q[3].replace('Crop ', '')) + ' %'), inp); });
+        return [h('p', { class: 'cap' }, t('Recorta los bordes de la imagen o del vídeo. No se borra nada: puedes devolverlos cuando quieras. Arrastra los tiradores del recuadro en el visor, usa los deslizadores o escribe el valor; el rombo de cada lado lo anima en el tiempo.', 'Crop the edges of the image or video. Nothing is deleted: you can bring them back any time. Drag the handles of the box in the viewer, use the sliders or type the value; the diamond on each side animates it over time.')),
+          sl[0], sl[1], sl[2], sl[3],
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, nums),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it[fx]), onClick: () => { it[fx] = !it[fx]; commit(); } }, MC.icon('flipH', 14), t('Reflejar horizontal', 'Flip horizontal')),
             h('button', { class: 'btn btn-s btn-sm', type: 'button', 'aria-pressed': String(!!it.flipY), onClick: () => { it.flipY = !it.flipY; commit(); } }, MC.icon('flipV', 14), t('Reflejar vertical', 'Flip vertical')),
-            it.crop ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; commit(); } }, t('Quitar recorte', 'Remove crop')) : null)];
+            it.crop || (it.kf || []).some((q) => MC.KF_CROP.some((k) => q[k] != null)) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { delete it.crop; (it.kf || []).forEach((q) => MC.KF_CROP.forEach((k) => { delete q[k]; })); it.kf = (it.kf || []).filter((q) => KFP.some((d) => q[d[0]] != null)); commit(); } }, t('Quitar recorte', 'Remove crop')) : null)];
       };
       if (tx && !tx.link) { const tsp = MC.textSpan(tx, p); textSecs.push(sec('texto_kf', t('Fotogramas clave', 'Keyframes'), kfNodes(tx, tsp.start, tsp.dur))); }
       const timeNodes = (l) => {
@@ -2166,7 +2169,7 @@
     const i2sel = (i) => i === S.li;
     function draw() {
       const c = el.canvas; if (!c.width) return;
-      const hits = [], ctx = c.getContext('2d'), o = opts({ collect: hits }), sh = shot();
+      const hits = [], ctx = c.getContext('2d'); S.cropBoxes = {}; const o = opts({ collect: hits, cropBoxes: S.cropBoxes }), sh = shot();
       S.hits = hits;
       el.empty.hidden = !!(sh && sh.layers.length);
       if (S.view === 'page' && !(sh && sh.page)) { S.view = 'out'; renderVbar(); }
@@ -2185,6 +2188,7 @@
       if (S.rulers) drawRulers(ctx, o, k);
       if (S.safe) drawSafe(ctx, c);
       if (S.guides) drawGuides(ctx, c);
+      if (S.view === 'out' && !S.playing) drawCropUI(ctx);
       const hit = !S.playing && S.tx && hits.find((x) => x.id === S.tx);
       if (hit) {
         const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF', b = hit.bounds;
@@ -2322,6 +2326,46 @@
     }
     const camTarget = (sh) => { const pa = sh.camera.path; if (pa && pa.custom) { S.wp = clamp(S.wp, 0, pa.pts.length - 1); return pa.pts[S.wp]; } return sh.camera[S.kf]; };
     const txById = (id) => S.project.texts.find((x) => x.id === id);
+    /* ---------- recorte con tiradores en el visor ---------- */
+    const CROP_PROP = { l: 'cl', t: 'ct', r: 'cr', b: 'cb' };
+    function cropTargetBox() {
+      const T = tgt(); if (!T || (T.k !== 'layer' && T.k !== 'overlay') || S.ptab[T.k] !== 'crop' || !S.cropBoxes) return null;
+      const b = S.cropBoxes[(T.k === 'layer' ? 'L' : 'O') + T.it.id]; return b ? { T, b } : null;
+    }
+    function cropHandles(b) {
+      const m = b.m, cr = b.crop || { l: 0, t: 0, r: 0, b: 0 }, X0 = b.x + b.w * cr.l, X1 = b.x + b.w * (1 - cr.r), Y0 = b.y + b.h * cr.t, Y1 = b.y + b.h * (1 - cr.b), XM = (X0 + X1) / 2, YM = (Y0 + Y1) / 2;
+      const P = (x, y) => ({ X: m.a * x + m.c * y + m.e, Y: m.b * x + m.d * y + m.f });
+      return [['lt', X0, Y0], ['t', XM, Y0], ['rt', X1, Y0], ['r', X1, YM], ['rb', X1, Y1], ['b', XM, Y1], ['lb', X0, Y1], ['l', X0, YM]].map((q) => Object.assign({ h: q[0] }, P(q[1], q[2])));
+    }
+    function drawCropUI(ctx) {
+      const cb = cropTargetBox(); if (!cb) return; const b = cb.b, m = b.m, d = S.dpr, acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C7CFF';
+      const P = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f], quad = (x0, y0, x1, y1) => [P(x0, y0), P(x1, y0), P(x1, y1), P(x0, y1)];
+      const path = (q) => { ctx.beginPath(); q.forEach((pt, i) => (i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]))); ctx.closePath(); };
+      const cr = b.crop || { l: 0, t: 0, r: 0, b: 0 };
+      ctx.save(); ctx.setLineDash([6 * d, 5 * d]); ctx.lineWidth = d; ctx.strokeStyle = 'rgba(255,255,255,.65)'; path(quad(b.x, b.y, b.x + b.w, b.y + b.h)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.lineWidth = 2 * d; ctx.strokeStyle = acc; path(quad(b.x + b.w * cr.l, b.y + b.h * cr.t, b.x + b.w * (1 - cr.r), b.y + b.h * (1 - cr.b))); ctx.stroke();
+      cropHandles(b).forEach((q) => { const big = q.h.length === 2 ? 6 : 5; ctx.fillStyle = '#fff'; ctx.strokeStyle = acc; ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.rect(q.X - big * d, q.Y - big * d, big * 2 * d, big * 2 * d); ctx.fill(); ctx.stroke(); });
+      ctx.restore();
+    }
+    function cropHit(p) {
+      const cb = cropTargetBox(); if (!cb) return null; const r = 12 * S.dpr;
+      const hs = cropHandles(cb.b).filter((q) => Math.hypot(q.X - p.x, q.Y - p.y) <= r).sort((a, z) => Math.hypot(a.X - p.x, a.Y - p.y) - Math.hypot(z.X - p.x, z.Y - p.y));
+      return hs.length ? Object.assign({ cb }, hs[0]) : null;
+    }
+    /* escribe el valor de un lado: en el recorte base, o como fotograma clave si ese lado está animado */
+    function setCropSide(T, k, v) {
+      const it = T.it, prop = CROP_PROP[k], opp = { l: 'r', r: 'l', t: 'b', b: 't' }[k], oppV = ((it.crop && it.crop[opp]) || 0);
+      v = clamp(v, 0, Math.min(0.9, 0.95 - oppV));
+      if ((it.kf || []).some((q) => q[prop] != null)) {
+        const loc = clamp(S.time - T.start, 0, T.dur), delta = v - ((it.crop && it.crop[k]) || 0); let q = it.kf.find((z) => z[prop] != null && Math.abs(z.t - loc) < 0.03);
+        if (q) q[prop] = delta; else { q = { id: MC.uid(), t: round2(loc), [prop]: delta, ease: 'smooth' }; it.kf.push(q); }
+      } else it.crop = Object.assign({ l: 0, t: 0, r: 0, b: 0 }, it.crop, { [k]: v });
+    }
+    function cropDrag(p) {
+      const D = drag, b = D.b, inv = b.m.inverse(), pt = inv.transformPoint(new DOMPoint(p.x, p.y)), fx = (pt.x - b.x) / b.w, fy = (pt.y - b.y) / b.h;
+      D.h.split('').forEach((ch) => { setCropSide(D.T, ch, ch === 'l' ? fx : ch === 'r' ? 1 - fx : ch === 't' ? fy : 1 - fy); });
+      updateTime();
+    }
     /* interacción con el visor */
     let drag = null;
     function wire(c) {
@@ -2330,6 +2374,7 @@
         if (e.button === 1 || (e.altKey && S.vz.z !== 1)) { e.preventDefault(); c.setPointerCapture(e.pointerId); drag = { m: 'vpan', x0: e.clientX, y0: e.clientY, vx: S.vz.x, vy: S.vz.y }; S.dragging = true; return; }
         const sh = shot(), o = opts(), p = px(e);
         if (!sh) return;
+        if (S.view === 'out') { const ch = cropHit(p); if (ch) { e.preventDefault(); c.setPointerCapture(e.pointerId); drag = { m: 'crop', T: ch.cb.T, b: ch.cb.b, h: ch.h }; S.dragging = true; return; } }
         if (S.view === 'depth') {
           const inPoly = (poly, x, y) => { let ins = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if (((poly[i][1] > y) !== (poly[j][1] > y)) && (x < ((poly[j][0] - poly[i][0]) * (y - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0])) ins = !ins; } return ins; };
           const hit = (S.depthHit || []).slice().reverse().find((q) => inPoly(q.poly, p.x, p.y));
@@ -2425,10 +2470,12 @@
       });
       c.addEventListener('pointermove', (e) => {
         { const r0 = c.getBoundingClientRect(), s0 = c.width / r0.width; S.mouse = { x: (e.clientX - r0.left) * s0, y: (e.clientY - r0.top) * s0 }; if (S.rulers && !drag) S.dirty = true; }
+        if (!drag && S.view === 'out') { const hh = cropHit({ x: (e.clientX - c.getBoundingClientRect().left) * (c.width / c.getBoundingClientRect().width), y: (e.clientY - c.getBoundingClientRect().top) * (c.width / c.getBoundingClientRect().width) }); c.style.cursor = hh ? (hh.h === 'l' || hh.h === 'r' ? 'ew-resize' : hh.h === 't' || hh.h === 'b' ? 'ns-resize' : 'nwse-resize') : ''; }
         if (!drag && S.view === 'page' && S.poly) { const M = S.pageMap, q = px(e); if (M) { S.polyCur = [clamp((q.x - M.ox) / (M.img.w * M.kp), 0, 1), clamp((q.y - M.oy) / (M.img.h * M.kp), 0, 1)]; S.dirty = true; } return; }
         if (!drag) return;
         if (drag.m === 'vpan') { S.vz.x = drag.vx + (e.clientX - drag.x0) / MC.uz(); S.vz.y = drag.vy + (e.clientY - drag.y0) / MC.uz(); applyViewXf(); return; }
         const p = px(e), sh = shot();
+        if (drag.m === 'crop') { cropDrag(p); S.dirty = true; scheduleSave(); return; }
         if (drag.m === 'orbit') { S.v3.yaw = drag.yaw + (p.x - drag.p0.x) * 0.35; S.v3.pitch = clamp(drag.pitch - (p.y - drag.p0.y) * 0.3, -85, 85); S.dirty = true; return; }
         if (drag.m === 'depthz') { const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, vl = Math.hypot(drag.vx, drag.vy); let dz; if (vl > 4 * S.dpr) dz = ((dx * drag.vx + dy * drag.vy) / (vl * vl)) * 0.1 / V3.span; else dz = dx / (c.width * 0.4); drag.l.z = clamp(Math.round((drag.z0 + dz) * 100) / 100, 0, 1); S.dirty = true; scheduleSave(); return; }
         if (drag.m === 'pnmove') {
@@ -3376,7 +3423,7 @@
       S.open[T.k === 'layer' ? 'capa_crop' : 'overlay_crop'] = true; S.ptab[T.k] = 'crop'; renderPanels();
       const n = el.inspBody.querySelector('[data-id="' + (T.k === 'layer' ? 'capa_crop' : 'overlay_crop') + '"]'); if (n) { n.scrollIntoView({ block: 'nearest' }); const f = n.querySelector('input'); if (f) f.focus(); }
     }
-    const newKf = (it, local, props) => { const v = MC.kfValues(it.kf, local) || {}, q = { id: MC.uid(), t: round2(local), ease: 'smooth' }; (props || MC.KF_PROPS).forEach((k) => { q[k] = v[k] == null ? (k === 'sc' || k === 'op' || k === 'sx' || k === 'sy' ? 1 : 0) : v[k]; }); return q; };
+    const newKf = (it, local, props) => { const v = MC.kfValues(it.kf, local) || {}, q = { id: MC.uid(), t: round2(local), ease: 'smooth' }; (props || MC.KF_CORE).forEach((k) => { q[k] = v[k] == null ? (k === 'sc' || k === 'op' || k === 'sx' || k === 'sy' ? 1 : 0) : v[k]; }); return q; };
     function addKfHere() {
       const kt = kfTarget(); if (!kt) { MC.toast(t('Selecciona una capa, un texto o una superposición para añadir un fotograma clave.', 'Select a layer, a text or an overlay to add a keyframe.')); return; }
       const local = clamp(S.time - kt.start, 0, kt.dur), q = newKf(kt.it, local);
@@ -3825,6 +3872,8 @@
       ['sc', 'Escala', 'Scale', 0.1, 3, 0.01, (v) => '×' + v.toFixed(2), 1], ['sx', 'Ancho (estirar)', 'Width (stretch)', 0.1, 3, 0.01, (v) => '×' + v.toFixed(2), 1], ['sy', 'Alto (estirar)', 'Height (stretch)', 0.1, 3, 0.01, (v) => '×' + v.toFixed(2), 1],
       ['rot', 'Giro', 'Rotation', -360, 360, 1, (v) => Math.round(v) + '°', 0], ['op', 'Opacidad', 'Opacity', 0, 1, 0.01, (v) => Math.round(v * 100) + ' %', 1],
       ['rx', 'Giro X (3D)', 'Turn X (3D)', -180, 180, 1, (v) => Math.round(v) + '°', 0], ['ry', 'Giro Y (3D)', 'Turn Y (3D)', -180, 180, 1, (v) => Math.round(v) + '°', 0],
+      ['cl', 'Recorte izquierda', 'Crop left', -0.9, 0.9, 0.005, (v) => Math.round(v * 100) + ' %', 0], ['ct', 'Recorte arriba', 'Crop top', -0.9, 0.9, 0.005, (v) => Math.round(v * 100) + ' %', 0],
+      ['cr', 'Recorte derecha', 'Crop right', -0.9, 0.9, 0.005, (v) => Math.round(v * 100) + ' %', 0], ['cb', 'Recorte abajo', 'Crop bottom', -0.9, 0.9, 0.005, (v) => Math.round(v * 100) + ' %', 0],
     ];
     S.animCtl = []; S.kfprop = null;
     const kfDef = (pr) => KFP.find((q) => q[0] === pr)[7];
@@ -3866,7 +3915,9 @@
         if (!keep) { inp.value = eff(); val.textContent = fmt(+inp.value); }
       };
       refresh(); S.animCtl.push({ refresh });
-      return h('div', { class: 'slider anim' + (S.kfprop === o.prop ? ' on' : '') }, h('div', { class: 'alabel' }, labBtn, val), h('div', { class: 'arow' }, inp, h('span', { class: 'kfc' }, prev, btn, next)));
+      const node = h('div', { class: 'slider anim' + (S.kfprop === o.prop ? ' on' : '') }, h('div', { class: 'alabel' }, labBtn, val), h('div', { class: 'arow' }, inp, h('span', { class: 'kfc' }, prev, btn, next)));
+      node.getEff = eff; node.setEff = (v) => { inp.value = v; inp.dispatchEvent(new Event('input')); inp.dispatchEvent(new Event('change')); };
+      return node;
     }
     /* movimientos listos: crean los fotogramas clave por ti y luego se retocan */
     const MOTIONS = [
@@ -4045,8 +4096,8 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
-      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
-      refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
+      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
+      refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };
     if (MC.pendingTour) { const id = MC.pendingTour; MC.pendingTour = null; setTimeout(() => MC.startTour(id), 500); }
