@@ -868,3 +868,11 @@ a.btn { text-decoration: none; }
 .sg-card h2 { margin: 0 0 6px; font-size: 20px; } .sg-card p { margin: 4px 0; } .sg-acts { display: grid; gap: 8px; } .sg-snip { opacity: .8; border-left: 3px solid var(--accent); padding-left: 10px; }
 .sg-ta { width: 100%; min-height: 320px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; box-sizing: border-box; }
 @media (max-width: 760px) { .sg-card { grid-template-columns: 1fr; } }
+
+/* grabar fotogramas */
+.recbtn { display: inline-flex; align-items: center; gap: 6px; }
+.recdot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.recbtn[aria-pressed="true"] { background: #e5333d; border-color: #e5333d; color: #fff; }
+.recbtn[aria-pressed="true"] .recdot { background: #fff; animation: recpulse 1.2s ease-in-out infinite; }
+@keyframes recpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .recbtn .recdot { animation: none !important; } }

@@ -349,6 +349,8 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Viñetas más personalizables**: en la pestaña Viñetas (proyecto) y en las propiedades del plano (viñeta propia), además de los estilos, la calle, la textura, la forma, el trazo y la sombra, ahora hay **degradados** para la calle (lineal con ángulo o radial) y para el trazo (con segundo color y ángulo), **esquinas redondeadas** en las formas poligonales, **sombra con dirección y desenfoque**, y **Mis estilos de viñeta**: guarda el estilo actual con un nombre en este equipo, aplícalo a otro proyecto o plano y bórralo cuando quieras. Los estilos predefinidos reinician estos ajustes nuevos.
 - **Efectos de estilo y personalización a fondo**: siete efectos nuevos de imagen en el grupo «Estilo de imagen» de la pestaña Efectos: **pixelado** (tamaño del píxel), **posterizado** (niveles de color), **duotono** (dos colores), **glitch** (franjas desplazadas, separación de color y cambios por segundo), **cinta VHS** (líneas, ruido, temblor y desborde del color), **contorno de tinta** (sensibilidad, grosor, solo líneas sobre papel blanco) y **trama de puntos**. Todos los efectos (también los de acción y ambiente) tienen «Ajustes avanzados»: velocidad, opacidad, tiempo de entrada y de salida, variación (cambia el azar de las partículas), escala y modo de mezcla. Se ven igual en el visor y en la exportación y funcionan con la vista previa al pasar el ratón.
 - **Mi estilo explicado y «Mi guía de estilo»**: la pestaña **Estilo** explica qué guarda «Mi estilo» (cómo montas, no tus dibujos), muestra **qué hay guardado y cuándo**, y **en qué se diferencia el proyecto actual**. En la pantalla de inicio hay una tarjeta **Mi guía de estilo**: una **plantilla editable en Markdown** (cuándo usas cada transición y por qué, ritmo y cámara, parallax, viñetas, texto, efectos, lo que nunca haces) que se guarda sola, se puede **importar y exportar como .md** y **copiar para una IA** junto a los ajustes de «Mi estilo». Una IA conectada por MCP la lee con la herramienta `leer_estilo`; los proyectos nuevos que cree ya aplican tu «Mi estilo».
+- **Fotogramas clave desde el visor y «Grabar fotogramas»**: si una capa, superposición o texto ya tiene fotogramas clave, **mover, escalar o girar en el visor crea (o actualiza) un fotograma clave en el cabezal con todos los cambios a la vez** (X e Y juntos), sin tocar el valor base. El botón **Grabar fotogramas** (punto rojo, en la barra del visor) hace lo mismo aunque aún no haya ninguno: crea un fotograma de origen en el segundo 0 y otro en el cabezal. También aplica a la rueda del ratón y a los deslizadores. La preferencia se recuerda.
+- **Línea de tiempo más alta**: botones de **filas más altas / más bajas** en la barra (y **Alt + rueda**) cambian la altura de las pistas del 60 % al 260 %, se recuerda, y el panel de la línea de tiempo puede ocupar hasta el 82 % de la ventana.
 - **Tamaño de la interfaz** del 70 % al 150 % para adaptarla a cada pantalla (menú de la barra superior).
 - **Zoom y desplazamiento del visor** (Ctrl + rueda; rueda pulsada o Alt + arrastrar), **reglas** en píxeles y **vista lateral de profundidad** para colocar las capas en el eje Z arrastrándolas.
 - **Tabla de traducción** con todos los textos y una columna por idioma.
@@ -548,6 +550,12 @@ Documentación interna:
 - [pdf.js](https://github.com/mozilla/pdf.js) 3.11.174 (Apache-2.0): convierte páginas de PDF en imágenes.
 
 Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
+
+---
+
+## Versión
+
+La herramienta está en la **versión 0.x** (ahora 0.14): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
