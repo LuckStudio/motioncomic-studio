@@ -1995,10 +1995,16 @@
             chk('guides', t('Guías (tercios y margen)', 'Guides (thirds and margin)')), chk('safe', t('Zonas seguras de redes', 'Social safe zones'), !portrait), chk('holes', t('Marcar huecos en rojo', 'Mark gaps in red')), chk('rulers', t('Reglas (en píxeles)', 'Rulers (in pixels)')),
             h('label', null, h('input', { type: 'checkbox', checked: !!S.sim, disabled: !portrait, onChange: (e) => { S.sim = e.target.checked ? 'tiktok' : null; renderVbar(); buildSim(); } }), t('Simulador de plataformas', 'Platform simulator')),
             S.sim ? h('div', { style: { padding: '4px 10px 8px' } }, MC.ui.seg([{ v: 'tiktok', l: 'TikTok' }, { v: 'reels', l: 'Reels' }, { v: 'shorts', l: 'Shorts' }], S.sim, (v) => { S.sim = v; buildSim(); }, t('Red social', 'Network'))) : null,
+            h('button', { type: 'button', role: 'menuitem', onClick: () => { S.ovMenu = false; renderVbar(); openPlatformPreview(); } }, MC.icon('frame', 14), t('Vista previa en plataforma…', 'Platform preview…')),
             !portrait ? h('span', { class: 'cap', style: { padding: '4px 10px' } }, t('Zonas seguras y simulador son para formatos verticales.', 'Safe zones and the simulator are for vertical formats.')) : null) : null) : null,
         S.view === 'out' ? ovOn.map((q) => h('button', { class: 'tag', type: 'button', title: t('Quitar ', 'Turn off ') + q[1], onClick: () => off(q[0]) }, q[1] + ' ×')) : null,
         h('span', { style: { flex: 1 } }),
         MC.ui.seg([{ v: 'media', l: t('Media', 'Medium') }, { v: 'full', l: t('Completa', 'Full') }], S.quality, (v) => { S.quality = v; MC.store.set('pq', v); S.slow = 0; fit(); }, t('Calidad de la previsualización', 'Preview quality')));
+    }
+    /* vista previa en TikTok, YouTube, LinkedIn… según la proporción (copia el visor en directo) */
+    function openPlatformPreview() {
+      togglePlay(false); if (S.view !== 'out') { S.view = 'out'; renderVbar(); fit(); }
+      MC.platforms.open({ src: () => el.canvas, ratio: S.project.ratio, time: () => S.time, dur: () => MC.totalTime(S.project), playing: () => S.playing, toggle: () => togglePlay(), seek: (sec) => setTime(Math.max(0, Math.min(MC.totalTime(S.project), sec))) });
     }
     /* Simulador: interfaz genérica de una app de vídeo vertical encima del visor, para ver qué tapa. No usa marcas ni logos. */
     function buildSim() {
@@ -2007,14 +2013,8 @@
       sim.hidden = !S.sim || S.view !== 'out';
       if (sim.hidden) return;
       sim.dataset.p = S.sim;
-      const act = (ic, label) => h('div', { class: 'sim-act' }, MC.icon(ic, 26), h('span', null, label));
-      const top = S.sim === 'tiktok' ? h('div', { class: 'sim-top' }, h('span', null, t('Siguiendo', 'Following')), h('b', null, t('Para ti', 'For you')))
-        : h('div', { class: 'sim-top l' }, h('b', null, S.sim === 'reels' ? 'Reels' : 'Shorts'));
-      el.simBar = h('i');
-      MC.put(sim, top,
-        h('div', { class: 'sim-side' }, h('div', { class: 'sim-av' }), act('heart', t('12,4 mil', '12.4K')), act('chat', '238'), act('send', t('Enviar', 'Send')), act('bookmark', S.sim === 'reels' ? '' : t('Guardar', 'Save')), act('dots', '')),
-        h('div', { class: 'sim-bot' }, h('b', null, '@tu_usuario'), h('span', null, t('Ya está aquí el capítulo 3. ¿Qué te ha parecido el final? #cómic #motioncomic', 'Chapter 3 is out. What did you think of the ending? #comic #motioncomic')), h('span', { class: 'sim-snd' }, MC.icon('note', 14), t('Sonido original · tu_usuario', 'Original sound · tu_usuario'))),
-        h('div', { class: 'sim-prog' }, el.simBar), h('p', { class: 'sim-note' }, t('Simulación aproximada: cada app cambia sus zonas', 'Approximate simulation: each app changes its zones')));
+      const ui = MC.platforms.verticalUI(S.sim); el.simBar = ui.prog;
+      MC.put(sim, ui, h('p', { class: 'sim-note' }, t('Simulación aproximada: cada app cambia sus zonas', 'Approximate simulation: each app changes its zones')));
       positionSim(); updateTime();
     }
     /* El simulador de redes va exactamente encima del lienzo. Se usan medidas de diseño (no del pantallazo), así no se descuadra con el tamaño de la interfaz ni con el zoom del visor. */
@@ -4002,7 +4002,7 @@
       openMix: () => { setWs('creativo'); S.tab.creativo = 'mezclador'; renderRail(); renderPanels(); },
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
-      openExportWs: () => { setWs('exportar'); },
+      openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },

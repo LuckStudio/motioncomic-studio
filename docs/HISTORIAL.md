@@ -220,3 +220,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Bloque 4 del plan: formatos y resolución
 
 - Un único selector de formato (`MC.formatPicker`) para el menú de la barra, la pestaña Proyecto y Proyecto nuevo: proporciones 16:9, 9:16, 4:5, 3:4, 1:1 y 2:1, botón de girar a vertical u horizontal, proporciones propias guardadas, resolución 720p/1080p/2K/4K, lado corto personalizado y píxeles exactos. Las medidas a medida viajan en el propio campo de resolución del proyecto (`@1200`, `=1000x777`), así que el visor, los exportadores y los formatos por plataforma las usan sin cambios.
+
+## Bloque 5 del plan: vistas previas por plataforma
+
+- Nueva ventana «Vista previa en plataforma» (`src/js/platforms.js`) con el vídeo copiado en directo dentro de TikTok, Reels, YouTube Shorts (9:16), YouTube, Twitch y Vimeo (16:9), YouTube y Twitch (2:1) y LinkedIn, Instagram y TikTok (4:5, 3:4, 1:1). La proporción decide qué plataformas se ofrecen. El simulador sobre el visor reutiliza las pantallas verticales rehechas (columna lateral, avatar, barra inferior, progreso), con Shorts ya diferenciado de Reels.
