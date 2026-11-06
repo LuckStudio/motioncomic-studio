@@ -91,7 +91,7 @@ Cuando hay una versión nueva, la app la descarga sola y te avisa en la pantalla
 4. **Arrastra tus archivos** al visor o usa **Importar**.
 5. **Dale al play**, ajusta, y cuando te guste ve a **Exportar**.
 
-Tienes tutoriales guiados sobre el propio estudio en el botón **?** (importar, parallax, voz y exportar).
+Tienes tutoriales guiados sobre el propio estudio en el botón **?** (importar, parallax, voz, exportar, rack focus, curvas, fotogramas clave, viñetas, Mi estilo, superposiciones y texto) y un icono **?** junto a cada pestaña y sección que explica para qué sirve.
 
 <p align="center">
   <img src="docs/img/estudio.png" alt="Estudio en el espacio Montaje, con planos a la izquierda, visor en el centro, capas y propiedades a la derecha y la línea de tiempo abajo" width="900">
@@ -339,6 +339,7 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Conexión con IA (opcional, MCP)**: en Preferencias → «Conexión con IA». Un asistente (Claude Desktop, Claude Code u otro cliente MCP) puede abrir el estudio, crear un proyecto, abrirlo y añadir imágenes, vídeos o audio (como recursos o como un plano por archivo). Se usa un conector pequeño sin dependencias (`tools/mcp/server.js`, requiere Node.js 18+) que escucha solo en 127.0.0.1 con un código de emparejamiento; el estudio no se conecta nunca por sí solo, cada cambio pide permiso (con «Permitir todo en esta sesión») y se desconecta en un clic. **Versión IA**: los cambios de la IA sobre un proyecto abierto van a una copia aparte y tu proyecto no se toca; una barra te deja «Ver la mía», revisar los «Cambios», «Aceptar» (tu versión anterior queda en el historial como «Antes de la IA») o «Descartar». Si cierras con la versión IA pendiente, sigue pendiente al volver a abrir. Configuración: `{"mcpServers":{"motioncomic":{"command":"node","args":["/ruta/a/tools/mcp/server.js"]}}}`. Herramientas: `abrir_estudio`, `estado`, `listar_proyectos`, `nuevo_proyecto`, `abrir_proyecto`, `anadir_recursos`, `crear_planos`.
 - **Pantalla de carga** al abrir la aplicación (antes del inicio, no al abrir proyectos), con logotipo, versión, mensajes de estado y una imagen lateral. Se puede ocultar y cambiar la imagen y el crédito en Preferencias → Apariencia, y hay un botón para verla. Se salta con un toque o una tecla. De serie usa un patrón de viñetas generado al vuelo (imagen provisional hasta tener la definitiva). Se muestra con `?splash=1` también en navegadores automatizados, donde normalmente se omite.
 - **Clic derecho en toda la interfaz**: sobre cualquier herramienta de la línea de tiempo, pestaña lateral o espacio de trabajo oculto-able sale **«Ocultar…»** con una ventana de confirmación (y un aviso con «Deshacer»); en el mismo menú puedes **mostrar** lo oculto sin entrar en Preferencias. Clic derecho en la cabecera de un panel abre sus opciones, en el visor ofrece ajustar, pantalla completa, guías y reglas, en la cabecera de una pista ofrece ojo, plegar y gestionar pistas, y en cualquier hueco da acceso a «Personalizar la interfaz» y a la ayuda. En táctil, pulsación larga.
+- **Ayuda integrada**: un icono **?** junto al título de cada pestaña y de cada sección de propiedades abre una ventanita con **para qué sirve** y **cómo se usa** (Rack focus, Curvas, Mi estilo, fotogramas clave, superposiciones, giro 3D, pivote…), con un botón para **ver el tutorial** correspondiente. Se cierra con Esc o con un clic fuera. Además de los tutoriales de importar, parallax, voz y exportar hay nuevos de **Rack focus, Curvas, Fotogramas clave, Viñetas, Mi estilo, Superposiciones y Texto**, que cambian solos a la pestaña que explican.
 - **Tamaño de la interfaz** del 70 % al 150 % para adaptarla a cada pantalla (menú de la barra superior).
 - **Zoom y desplazamiento del visor** (Ctrl + rueda; rueda pulsada o Alt + arrastrar), **reglas** en píxeles y **vista lateral de profundidad** para colocar las capas en el eje Z arrastrándolas.
 - **Tabla de traducción** con todos los textos y una columna por idioma.
@@ -513,7 +514,7 @@ Abre `http://localhost:8000`.
 | `src/js/psd.js`, `src/js/pdf.js` | Importación de PSD y PDF. |
 | `src/js/db.js` | Guardado local (IndexedDB) y modelo de proyecto. |
 | `src/js/sample.js` | Proyectos de ejemplo dibujados por código. |
-| `src/js/keys.js`, `help.js`, `prefs.js` | Atajos, ayuda y tutoriales, preferencias. |
+| `src/js/keys.js`, `help.js`, `helptopics.js`, `prefs.js` | Atajos, ayuda y tutoriales, textos de ayuda del icono «?» por pestaña y sección, preferencias. |
 | `src/js/formats.js`, `style.js`, `presets.js` | Formatos y plataformas, «Mi estilo» y presets con nombre. |
 | `src/js/touch.js`, `uiconfig.js`, `update.js` | Modo táctil y gestos, interfaz personalizable y vistas guardadas, avisos de versión nueva. |
 | `src/js/motion.js`, `splash.js` | Animación de entrada y salida del estudio, pantalla de carga. |
