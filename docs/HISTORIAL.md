@@ -172,3 +172,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Visibilidad de las pistas
 
 - Ojo por pista (quita texto, subtítulos o efectos del vídeo y la exportación; en audio silencia) y plegado de filas de la línea de tiempo, con menú Pistas, aviso con Mostrar y guardado en el proyecto.
+
+## Paneles junto a la línea de tiempo
+
+- Dos zonas nuevas, abajo a la izquierda y abajo a la derecha de la línea de tiempo, para acoplar Capas y Propiedades (menú ⋮, arrastre del asa y tres disposiciones nuevas); ancho ajustable por zona y guardado en las vistas.

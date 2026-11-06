@@ -767,3 +767,14 @@ html[data-touch="1"] .kfbtn { width: 44px; height: 44px; } html[data-touch="1"] 
 .tkmenu { min-width: 300px; } .tkrow { display: flex; align-items: center; gap: 4px; padding: 2px 6px; } .tkn { flex: 1; font-size: 14px; } .tkgap { width: 32px; }
 .tkrow .btn-ic { width: 32px; height: 32px; } .tkrow .btn[aria-pressed="false"] { color: var(--muted); }
 html[data-touch="1"] .rsbtn { min-height: 30px; } html[data-touch="1"] .tkrow .btn-ic { width: 44px; height: 44px; }
+
+/* ---------- paneles junto a la línea de tiempo (abajo a la izquierda y a la derecha) ---------- */
+.s-bot { display: grid; grid-template-columns: var(--bl-w, 0px) minmax(0, 1fr) var(--br-w, 0px); min-height: 0; min-width: 0; overflow: hidden; }
+.sidecol.zb { flex-direction: row; position: relative; } .zbl { border-right: 1px solid var(--line); } .zbr { border-left: 1px solid var(--line); }
+.zb > .panel-col { flex: 1 1 0 !important; min-width: 180px; min-height: 0; max-height: none !important; border-bottom: 0; } .zb > .panel-col + .panel-col { border-left: 1px solid var(--line); }
+.zb .ph { padding-block: 6px; min-height: 36px; }
+@media (max-width: 900px) { .s-bot { display: contents; } .zb { display: none !important; } }
+.s-bot > .zbl { grid-column: 1; grid-row: 1; } .s-bot > .p-timeline { grid-column: 2; grid-row: 1; } .s-bot > .zbr { grid-column: 3; grid-row: 1; }
+@media (max-width: 900px) { .s-bot > .p-timeline { grid-column: auto; grid-row: 3; } }
+.sidecol > .pz-l { left: 0; } .sidecol > .pz-r { right: 0; }
+html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol > .pz-r { right: 0; }

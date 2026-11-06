@@ -797,6 +797,17 @@ html[data-touch="1"] .kfbtn { width: 44px; height: 44px; } html[data-touch="1"] 
 .tkrow .btn-ic { width: 32px; height: 32px; } .tkrow .btn[aria-pressed="false"] { color: var(--muted); }
 html[data-touch="1"] .rsbtn { min-height: 30px; } html[data-touch="1"] .tkrow .btn-ic { width: 44px; height: 44px; }
 
+/* ---------- paneles junto a la línea de tiempo (abajo a la izquierda y a la derecha) ---------- */
+.s-bot { display: grid; grid-template-columns: var(--bl-w, 0px) minmax(0, 1fr) var(--br-w, 0px); min-height: 0; min-width: 0; overflow: hidden; }
+.sidecol.zb { flex-direction: row; position: relative; } .zbl { border-right: 1px solid var(--line); } .zbr { border-left: 1px solid var(--line); }
+.zb > .panel-col { flex: 1 1 0 !important; min-width: 180px; min-height: 0; max-height: none !important; border-bottom: 0; } .zb > .panel-col + .panel-col { border-left: 1px solid var(--line); }
+.zb .ph { padding-block: 6px; min-height: 36px; }
+@media (max-width: 900px) { .s-bot { display: contents; } .zb { display: none !important; } }
+.s-bot > .zbl { grid-column: 1; grid-row: 1; } .s-bot > .p-timeline { grid-column: 2; grid-row: 1; } .s-bot > .zbr { grid-column: 3; grid-row: 1; }
+@media (max-width: 900px) { .s-bot > .p-timeline { grid-column: auto; grid-row: 3; } }
+.sidecol > .pz-l { left: 0; } .sidecol > .pz-r { right: 0; }
+html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol > .pz-r { right: 0; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -32198,7 +32209,7 @@ module.exports = ZStream;
 
     /* ---------- disposición ajustable: paneles acoplables y ventanas separadas ---------- */
     const DEF_DOCK = { tools: 'l', layers: 'r', props: 'r', tl: 'b' };
-    const LAYOUT_DEF = { left: null, right: null, cl: null, tl: null, hl: false, hr: false, ht: false, hy: false, hp: false, dock: Object.assign({}, DEF_DOCK), geo: {}, last: [] };
+    const LAYOUT_DEF = { left: null, right: null, cl: null, bl: null, br: null, tl: null, hl: false, hr: false, ht: false, hy: false, hp: false, dock: Object.assign({}, DEF_DOCK), geo: {}, last: [] };
     const loadLayout = () => {
       let o = {}; try { o = JSON.parse(MC.store.get('layout', '{}')) || {}; } catch (e) { o = {}; }
       if (o.hr) { o.hy = o.hp = true; o.hr = false; }
@@ -32221,10 +32232,10 @@ module.exports = ZStream;
       const main = el.sMain;
       if (!POP.tools) { [el.rail, el.leftEl].forEach((n) => { if (n.parentNode !== main) main.append(n); }); }
       if (!POP.viewer && viewer.parentNode !== main) main.append(viewer);
-      if (!POP.timeline && timeline.parentNode !== studio) studio.insertBefore(timeline, fileLayers);
-      const want = { l: [], r: [] };
+      if (!POP.timeline && timeline.parentNode !== el.sBot) el.sBot.insertBefore(timeline, el.zBR);
+      const want = { l: [], r: [], bl: [], br: [] };
       [['layers', layersPanel], ['props', propsPanel]].forEach((x) => { if (!POP[x[0]]) want[narrow ? DEF_DOCK[x[0]] : LY.dock[x[0]]].push(x[1]); });
-      [['l', el.colL, el.hCl], ['r', el.colR, el.hCr]].forEach((c) => {
+      [['l', el.colL, el.hCl], ['r', el.colR, el.hCr], ['bl', el.zBL, el.hBl], ['br', el.zBR, el.hBr]].forEach((c) => {
         const cur = [...c[1].children].filter((n) => n !== c[2]);
         if (cur.length !== want[c[0]].length || cur.some((n, i) => n !== want[c[0]][i])) { want[c[0]].forEach((n) => c[1].append(n)); c[1].append(c[2]); }
       });
@@ -32240,7 +32251,7 @@ module.exports = ZStream;
       Object.keys(POP).forEach((k) => syncDoc(POP[k].win.document, true));
       if (narrow) {
         ['--left-w', '--right-w', '--tl-h', '--g1', '--g2', '--g3', '--g5', '--g6', '--g7'].forEach((k) => st.removeProperty(k));
-        st.gridTemplateRows = ''; timeline.style.gridRow = ''; el.sMain.style.gridRow = '';
+        st.gridTemplateRows = ''; el.sBot.style.gridRow = ''; el.sMain.style.gridRow = ''; el.sBot.style.removeProperty('--bl-w'); el.sBot.style.removeProperty('--br-w');
         [el.rail, el.leftEl, el.colL, el.colR, viewer, el.vghost, el.exportEl].forEach((n) => { n.style.gridColumn = ''; n.style.gridRow = ''; n.style.display = ''; });
         studio.dataset.hl = studio.dataset.hr = studio.dataset.ht = studio.dataset.hy = studio.dataset.hp = '0'; studio.dataset.ts = 'l'; studio.dataset.tlp = 'b';
         return;
@@ -32253,6 +32264,9 @@ module.exports = ZStream;
       set('--g1', onT && ts === 'l' ? 'var(--rail-w)' : '0px'); set('--g2', onT && ts === 'l' ? lw : '0px');
       set('--g3', vl ? cw(LY.cl) : '0px'); set('--g5', vr ? cw(LY.right) : '0px');
       set('--g6', onT && ts === 'r' ? lw : '0px'); set('--g7', onT && ts === 'r' ? 'var(--rail-w)' : '0px');
+      const vbl = vis('bl'), vbr = vis('br');
+      el.sBot.style.setProperty('--bl-w', vbl ? (LY.bl ? LY.bl + 'px' : '340px') : '0px'); el.sBot.style.setProperty('--br-w', vbr ? (LY.br ? LY.br + 'px' : '340px') : '0px');
+      el.zBL.style.display = vbl ? '' : 'none'; el.zBR.style.display = vbr ? '' : 'none';
       el.colL.style.display = vl ? '' : 'none'; el.colR.style.display = vr ? '' : 'none';
       [el.rail, el.leftEl, el.colL, el.colR, viewer, el.vghost, el.exportEl].forEach((n) => { n.style.gridRow = '1'; });
       el.rail.style.gridColumn = ts === 'l' ? '1' : '7'; el.leftEl.style.gridColumn = ts === 'l' ? '2' : '6';
@@ -32262,17 +32276,19 @@ module.exports = ZStream;
       el.hTl.className = 'pz ' + (tlTop ? 'pz-b' : 'pz-t');
       set('--tl-h', POP.timeline || WS[S.ws].tl === 'none' ? (POP.timeline ? '0px' : null) : LY.ht ? '46px' : LY.tl ? LY.tl + 'px' : null);
       st.gridTemplateRows = tlTop ? 'auto var(--tl-h, 260px) minmax(0, 1fr)' : '';
-      timeline.style.gridRow = tlTop ? '2' : ''; el.sMain.style.gridRow = tlTop ? '3' : '';
+      el.sBot.style.gridRow = tlTop ? '2' : ''; el.sMain.style.gridRow = tlTop ? '3' : '';
       S.dirty = true; if (el.canvas) requestAnimationFrame(() => fit());
     }
     /* tirador para arrastrar el borde de un panel; doble clic lo oculta o lo restaura */
     function handle(kind, cls, label) {
-      const sgn = () => (kind === 'left' ? (LY.dock.tools === 'l' ? 1 : -1) : kind === 'cl' ? 1 : kind === 'right' ? -1 : (LY.dock.tl === 'b' ? -1 : 1));
-      const cur = () => (kind === 'left' ? el.leftEl.offsetWidth : kind === 'cl' ? el.colL.offsetWidth : kind === 'right' ? el.colR.offsetWidth : timeline.offsetHeight);
+      const sgn = () => (kind === 'left' ? (LY.dock.tools === 'l' ? 1 : -1) : kind === 'cl' || kind === 'bl' ? 1 : kind === 'right' || kind === 'br' ? -1 : (LY.dock.tl === 'b' ? -1 : 1));
+      const cur = () => (kind === 'left' ? el.leftEl.offsetWidth : kind === 'cl' ? el.colL.offsetWidth : kind === 'right' ? el.colR.offsetWidth : kind === 'bl' ? el.zBL.offsetWidth : kind === 'br' ? el.zBR.offsetWidth : timeline.offsetHeight);
       const put = (size) => {
         if (kind === 'left') { LY.left = clamp(Math.round(size), 200, 620); LY.hl = false; }
         else if (kind === 'cl') { LY.cl = clamp(Math.round(size), 220, 620); }
         else if (kind === 'right') { LY.right = clamp(Math.round(size), 220, 620); }
+        else if (kind === 'bl') { LY.bl = clamp(Math.round(size), 240, 900); }
+        else if (kind === 'br') { LY.br = clamp(Math.round(size), 240, 900); }
         else { LY.tl = clamp(Math.round(size), 120, Math.round(studio.offsetHeight * 0.7)); LY.ht = false; }
         applyLayout();
       };
@@ -32300,11 +32316,11 @@ module.exports = ZStream;
       if (kind === 'left') { LY.hl = !LY.hl; on = LY.hl; }
       else if (kind === 'tl') { LY.ht = !LY.ht; on = LY.ht; }
       else {
-        const side = kind === 'cl' ? 'l' : 'r', ids = ['layers', 'props'].filter((id) => LY.dock[id] === side && !POP[id]);
+        const side = { cl: 'l', right: 'r', bl: 'bl', br: 'br' }[kind] || 'r', ids = ['layers', 'props'].filter((id) => LY.dock[id] === side && !POP[id]);
         on = ids.some((id) => !LY[HIDE_KEY[id]]); ids.forEach((id) => { LY[HIDE_KEY[id]] = on; });
       }
       applyLayout(); saveLayout(); renderTop();
-      MC.announce(({ left: t('Herramientas', 'Tools'), cl: t('Columna izquierda', 'Left column'), right: t('Columna derecha', 'Right column'), tl: t('Línea de tiempo', 'Timeline') })[kind] + ': ' + (on ? t('oculto', 'hidden') : t('visible', 'visible')));
+      MC.announce(({ left: t('Herramientas', 'Tools'), cl: t('Columna izquierda', 'Left column'), right: t('Columna derecha', 'Right column'), bl: t('Zona junto a la línea de tiempo (izquierda)', 'Zone beside the timeline (left)'), br: t('Zona junto a la línea de tiempo (derecha)', 'Zone beside the timeline (right)'), tl: t('Línea de tiempo', 'Timeline') })[kind] + ': ' + (on ? t('oculto', 'hidden') : t('visible', 'visible')));
     }
     function resetLayout() { Object.keys(POP).forEach((k) => dockBack(k)); const g = LY.geo; Object.assign(LY, LAYOUT_DEF, { dock: Object.assign({}, DEF_DOCK), geo: g, last: [] }); applyLayout(); saveLayout(); renderTop(); }
     function setDock(id, side) { if (id === 'timeline') LY.dock.tl = side; else LY.dock[id] = side; LY[HIDE_KEY[id]] = false; applyLayout(); saveLayout(); renderTop(); MC.announce(t(PANEL_NAME[id][0], PANEL_NAME[id][1]) + ': ' + side); }
@@ -32315,10 +32331,13 @@ module.exports = ZStream;
       ['der', ['Todo a la derecha', 'All on the right'], { tools: 'r', layers: 'r', props: 'r', tl: 'b' }, {}],
       ['cruz', ['Capas a un lado, propiedades al otro', 'Layers one side, properties the other'], { tools: 'l', layers: 'l', props: 'r', tl: 'b' }, {}],
       ['arriba', ['Línea de tiempo arriba', 'Timeline on top'], { tools: 'l', layers: 'r', props: 'r', tl: 't' }, {}],
+      ['capder', ['Capas junto a la línea de tiempo (a su derecha)', 'Layers beside the timeline (on its right)'], { tools: 'l', layers: 'br', props: 'r', tl: 'b' }, { tl: 330 }],
+      ['capizq', ['Capas a la izquierda de la línea de tiempo', 'Layers on the timeline’s left'], { tools: 'l', layers: 'bl', props: 'r', tl: 'b' }, { tl: 330 }],
+      ['propab', ['Capas y propiedades junto a la línea de tiempo', 'Layers and properties beside the timeline'], { tools: 'l', layers: 'bl', props: 'br', tl: 'b' }, { tl: 360 }],
       ['foco', ['Solo visor y línea de tiempo', 'Viewer and timeline only'], { tools: 'l', layers: 'r', props: 'r', tl: 'b' }, { hl: true, hy: true, hp: true }],
     ];
     function applyPreset(p) {
-      LY.dock = Object.assign({}, p[2]); LY.left = LY.right = LY.cl = LY.tl = null;
+      LY.dock = Object.assign({}, p[2]); LY.left = LY.right = LY.cl = LY.bl = LY.br = LY.tl = null;
       LY.hl = LY.hy = LY.hp = LY.ht = false; Object.assign(LY, p[3]);
       applyLayout(); saveLayout(); renderTop(); MC.announce(t(p[1][0], p[1][1]));
     }
@@ -32392,6 +32411,7 @@ module.exports = ZStream;
       else {
         if (id === 'timeline') items.push(item('up', t('Mover arriba', 'Move to the top'), () => setDock(id, 't'), LY.dock.tl === 't'), item('down', t('Mover abajo', 'Move to the bottom'), () => setDock(id, 'b'), LY.dock.tl === 'b'));
         else if (id !== 'viewer') items.push(item('back', t('Mover a la izquierda', 'Move to the left'), () => setDock(id, 'l'), dockOf(id) === 'l'), item('chevron', t('Mover a la derecha', 'Move to the right'), () => setDock(id, 'r'), dockOf(id) === 'r'));
+        if (id === 'layers' || id === 'props') items.push(item('down', t('Abajo, a la izquierda de la línea de tiempo', 'Bottom, left of the timeline'), () => setDock(id, 'bl'), dockOf(id) === 'bl'), item('down', t('Abajo, a la derecha de la línea de tiempo', 'Bottom, right of the timeline'), () => setDock(id, 'br'), dockOf(id) === 'br'));
         items.push(item('frame', t('Sacar a otra ventana', 'Detach to a new window'), () => popOut(id)));
         if ('getScreenDetails' in window) items.push(item('frame', t('Sacar a otra pantalla…', 'Detach to another screen…'), () => pickScreen(id)));
         if (id !== 'viewer') items.push(item('close', t('Ocultar', 'Hide'), () => hidePanel(id)));
@@ -32422,6 +32442,9 @@ module.exports = ZStream;
         else if (id === 'timeline') {
           const top = ev.clientY < r.top + r.height / 2; drop = { side: top ? 't' : 'b' };
           box = top ? [0, (mr.top - r.top) / f, r.width / f, r.height * 0.3 / f, t('Línea de tiempo arriba', 'Timeline on top')] : [0, (r.height * 0.7) / f, r.width / f, r.height * 0.3 / f, t('Línea de tiempo abajo', 'Timeline at the bottom')];
+        } else if ((id === 'layers' || id === 'props') && (() => { const tr = timeline.getBoundingClientRect(); return tr.height > 0 && ev.clientY >= tr.top && ev.clientY <= tr.bottom && (ev.clientX < tr.left + tr.width * 0.25 || ev.clientX > tr.right - tr.width * 0.25); })()) {
+          const tr = timeline.getBoundingClientRect(), left = ev.clientX < tr.left + tr.width / 2; drop = { side: left ? 'bl' : 'br' };
+          box = [(left ? tr.left - r.left : tr.right - r.left - tr.width * 0.25) / f, (tr.top - r.top) / f, tr.width * 0.25 / f, tr.height / f, left ? t('Abajo, a la izquierda de la línea de tiempo', 'Bottom, left of the timeline') : t('Abajo, a la derecha de la línea de tiempo', 'Bottom, right of the timeline')];
         } else {
           const left = ev.clientX < r.left + r.width / 2; drop = { side: left ? 'l' : 'r' };
           box = [left ? 0 : r.width * 0.7 / f, (mr.top - r.top) / f, r.width * 0.3 / f, mr.height / f, left ? t('A la izquierda', 'On the left') : t('A la derecha', 'On the right')];
@@ -34911,6 +34934,8 @@ module.exports = ZStream;
     const propsPanel = h('div', { class: 'panel-col p-props' }, h('div', { class: 'ph' }, el.propsTitle, dockCtl('props')), el.inspBody);
     el.colL = h('div', { class: 'sidecol colL' }, el.hCl = handle('cl', 'l', t('Ancho de la columna izquierda', 'Left column width')));
     el.colR = el.rightEl = h('div', { class: 'sidecol colR' }, layersPanel, propsPanel, el.hCr = handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
+    el.zBL = h('div', { class: 'sidecol zb zbl' }, el.hBl = handle('bl', 'r', t('Ancho de la zona izquierda junto a la línea de tiempo', 'Width of the zone left of the timeline')));
+    el.zBR = h('div', { class: 'sidecol zb zbr' }, el.hBr = handle('br', 'l', t('Ancho de la zona derecha junto a la línea de tiempo', 'Width of the zone right of the timeline')));
     el.hCl.className = 'pz pz-r';
     const exportPanel = el.exportEl = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
     const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage, h('p', { id: 'mc-vhint', class: 'sr-only' }, t('Visor. Tab pasa de capa en capa, las flechas mueven lo seleccionado (con Mayús, más), más y menos cambian el tamaño. F6 salta de panel en panel.', 'Viewer. Tab moves from layer to layer, arrow keys move the selection (with Shift, more), plus and minus resize it. F6 jumps between panels.')),
@@ -34934,7 +34959,7 @@ module.exports = ZStream;
       onPointerdown: (e) => { const y0 = e.clientY; let moved = false; const g = e.currentTarget; try { g.setPointerCapture(e.pointerId); } catch (er) { /* sin captura */ } const mv = (ev) => { if (ev.clientY - y0 > 50) { moved = true; g.removeEventListener('pointermove', mv); if (S.mtab) setSheet(S.mtab); } }; g.addEventListener('pointermove', mv); g.addEventListener('pointerup', () => g.removeEventListener('pointermove', mv), { once: true }); } }, h('span', { 'aria-hidden': 'true' }));
     const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab },
       h('div', { class: 'skiplinks' }, [['viewer', 'Saltar al visor', 'Skip to the viewer'], ['timeline', 'Saltar a la línea de tiempo', 'Skip to the timeline'], ['props', 'Saltar a las propiedades', 'Skip to properties']].map((q) => h('button', { type: 'button', onClick: () => focusRegion(q[0]) }, t(q[1], q[2])))),
-      el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), el.sheetGrab, mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
+      el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), el.sheetGrab, mtabs, el.sBot = h('div', { class: 's-bot' }, el.zBL, timeline, el.zBR), fileLayers, fileOver, fileOv, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 1400);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
