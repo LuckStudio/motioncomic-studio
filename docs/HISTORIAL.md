@@ -275,3 +275,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Fase B del plan nuevo: bases de atajos (versión 0.15)
 
 - Cinco bases nuevas en `keys.js` (After Effects, Affinity, CapCut, DaVinci Resolve, Blender), sin teclas repetidas dentro de cada base (comprobado por programa). Seis acciones nuevas configurables: selección, cuchilla, recortar principio y final, imán y fotograma clave; se quitan los atajos fijos V X Q W N. La hoja de atajos del estudio usa las teclas de la base elegida. Tabla comparativa en Ayuda → Atajos y aviso «escrito de memoria, a revisar» en las bases ajenas.
+
+## Fase C del plan nuevo: alineación automática (versión 0.16)
+
+- Imán en el visor al arrastrar capas, superposiciones y textos (centro, bordes, tercios, márgenes, zonas seguras y otros elementos) con línea guía; Alt lo desactiva; interruptor en el menú Superposiciones.
+- Botones de alinear (6 bordes/centros) y repartir (H/V) en capa, superposición, texto y selección múltiple, con fotogramas clave si el elemento está animado.
+- Comprobado con arrastres reales: un arrastre pequeño cerca del centro queda en x=0, con Alt no se pega, «Centro» y «Medio» alinean sin tocar el otro eje. Corregido durante la prueba: los fondos con sobreescaneo se pegaban a los bordes del encuadre en vez de al centro.
