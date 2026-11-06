@@ -1343,24 +1343,44 @@
       /* viñeta: contenedor del proyecto y del plano */
       const colorIn = (label, value, fn) => { const id = 'c-' + MC.uid(); return h('div', { class: 'field' }, h('label', { for: id }, label), h('input', { type: 'color', id, class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: value || '#000000', onInput: (e) => { fn(e.target.value); touch(); }, onChange: commit })); };
       const swatches = (value, fn, list) => h('div', { class: 'swatches' }, list.map((q) => h('button', { type: 'button', class: 'sw', title: q[1], 'aria-label': q[1], 'aria-pressed': String((value || '').toLowerCase() === q[0]), style: { background: q[0] }, onClick: () => { fn(q[0]); commit(); } })));
+      /* mis estilos de viñeta: guardar el actual con un nombre, aplicarlo o borrarlo */
+      const ownStyles = (f) => {
+        const list = MC.frameStyles(), nid = 'fs-' + MC.uid(), inp = h('input', { class: 'input', id: nid, placeholder: t('Nombre del estilo', 'Style name'), maxlength: 40, 'aria-label': t('Nombre del estilo de viñeta', 'Panel style name') });
+        const save = () => { const n = inp.value.trim(); if (!n) { inp.focus(); return; } MC.saveFrameStyle(n, f); MC.toast(t('Estilo guardado: ', 'Style saved: ') + n); renderPanels(); };
+        return h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Mis estilos de viñeta', 'My panel styles')),
+          list.length ? h('div', { class: 'views' }, list.map((q) => h('div', { class: 'viewrow' }, h('b', null, q.name),
+            h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.applyFrameStyle(f, q.f); commit(); } }, t('Aplicar', 'Apply')),
+            h('button', { class: 'btn btn-g btn-sm', type: 'button', 'aria-label': t('Borrar el estilo ', 'Delete style ') + q.name, onClick: () => { MC.removeFrameStyle(q.name); renderPanels(); } }, MC.icon('trash', 14))))) : h('span', { class: 'cap' }, t('Aún no has guardado ninguno.', 'You have not saved any yet.')),
+          h('div', { class: 'viewadd' }, inp, h('button', { class: 'btn btn-s', type: 'button', onClick: save }, MC.icon('bookmark', 14), t('Guardar el estilo actual', 'Save the current style'))));
+      };
       const frameEditor = (f, scope) => {
         const shapeAmt = !['rect', 'circle'].includes(f.shape || 'rect');
         const BGS = [['#ffffff', t('Blanco', 'White')], ['#000000', t('Negro', 'Black')], ['#fbf7ee', t('Papel', 'Paper')], ['#e9e6df', t('Gris cálido', 'Warm grey')], ['#ffd84a', t('Amarillo', 'Yellow')], ['#16181b', t('Grafito', 'Graphite')]];
         return [
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilos de viñeta', 'Panel styles')),
-            MC.ui.chips(MC.FRAME_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), null, (v) => { const pr = MC.FRAME_PRESETS.find((x) => x.v === v); Object.assign(f, { pattern: 'plain', shadow: 0, amount: 0.5 }, pr.f); commit(); })),
+            MC.ui.chips(MC.FRAME_PRESETS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), null, (v) => { const pr = MC.FRAME_PRESETS.find((x) => x.v === v); Object.assign(f, { pattern: 'plain', shadow: 0, amount: 0.5, radius: 0, bgGrad: 'none', strokeGrad: 'none', shadowBlur: 0, shadowAngle: 45 }, pr.f); commit(); })),
+          ownStyles(f),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Calle (espacio entre viñetas)', 'Gutter (space between panels)')), swatches(f.bg, (v) => { f.bg = v; }, BGS)),
           MC.ui.slider({ label: t('Ancho de la calle', 'Gutter width'), min: 0, max: 0.15, step: 0.002, value: f.gutter || 0, fmt: (v) => (v * 100).toFixed(1) + ' %', onInput: (v) => { f.gutter = v; touch(); }, onChange: commit }),
           colorIn(t('Color de la calle', 'Gutter colour'), f.bg, (v) => { f.bg = v; }),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Relleno de la calle', 'Gutter fill')), MC.ui.chips([{ v: 'none', l: t('Color liso', 'Solid colour') }, { v: 'linear', l: t('Degradado lineal', 'Linear gradient') }, { v: 'radial', l: t('Degradado radial', 'Radial gradient') }], f.bgGrad || 'none', (v) => { f.bgGrad = v; commit(); })),
+          f.bgGrad && f.bgGrad !== 'none' ? colorIn(t('Segundo color de la calle', 'Second gutter colour'), f.bg2, (v) => { f.bg2 = v; }) : null,
+          f.bgGrad === 'linear' ? MC.ui.slider({ label: t('Ángulo del degradado', 'Gradient angle'), min: 0, max: 360, step: 5, value: f.bgAngle == null ? 90 : f.bgAngle, fmt: (v) => v + '°', onInput: (v) => { f.bgAngle = v; touch(); }, onChange: commit }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Textura de la calle', 'Gutter texture')), MC.ui.chips(MC.FRAME_BGS.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.pattern || 'plain', (v) => { f.pattern = v; commit(); })),
           f.pattern && f.pattern !== 'plain' ? colorIn(t('Color de la textura', 'Texture colour'), f.patColor, (v) => { f.patColor = v; }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Forma de la viñeta', 'Panel shape')), MC.ui.chips(MC.FRAME_SHAPES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.shape || 'rect', (v) => { f.shape = v; commit(); })),
+          !['circle', 'burst', 'wave'].includes(f.shape || 'rect') ? MC.ui.slider({ label: t('Esquinas redondeadas', 'Rounded corners'), min: 0, max: 0.5, step: 0.01, value: f.radius || 0, fmt: (v) => (v ? Math.round(v * 200) + ' %' : t('rectas', 'sharp')), onInput: (v) => { f.radius = v; touch(); }, onChange: commit }) : null,
           shapeAmt ? MC.ui.slider({ label: t('Intensidad de la forma', 'Shape amount'), min: 0, max: 1, step: 0.01, value: f.amount == null ? 0.5 : f.amount, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.amount = v; touch(); }, onChange: commit }) : null,
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Trazo que la bordea', 'Border stroke')), MC.ui.chips(MC.FRAME_STROKES.map((x) => ({ v: x.v, l: t(x.es, x.en) })), f.style || 'solid', (v) => { f.style = v; if (v !== 'none' && !(f.width > 0)) f.width = 0.006; commit(); })),
           f.style !== 'none' ? MC.ui.slider({ label: t('Grosor del trazo', 'Stroke width'), min: 0, max: 0.03, step: 0.0005, value: f.width || 0, fmt: (v) => (v * 1000).toFixed(1) + ' ‰', onInput: (v) => { f.width = v; touch(); }, onChange: commit }) : null,
           f.style !== 'none' ? colorIn(t('Color del trazo', 'Stroke colour'), f.color, (v) => { f.color = v; }) : null,
+          f.style !== 'none' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Relleno del trazo', 'Stroke fill')), MC.ui.chips([{ v: 'none', l: t('Color liso', 'Solid colour') }, { v: 'linear', l: t('Degradado', 'Gradient') }], f.strokeGrad || 'none', (v) => { f.strokeGrad = v; commit(); })) : null,
+          f.style !== 'none' && f.strokeGrad === 'linear' ? colorIn(t('Segundo color del trazo', 'Second stroke colour'), f.color2, (v) => { f.color2 = v; }) : null,
+          f.style !== 'none' && f.strokeGrad === 'linear' ? MC.ui.slider({ label: t('Ángulo del degradado del trazo', 'Stroke gradient angle'), min: 0, max: 360, step: 5, value: f.strokeAngle == null ? 0 : f.strokeAngle, fmt: (v) => v + '°', onInput: (v) => { f.strokeAngle = v; touch(); }, onChange: commit }) : null,
           MC.ui.slider({ label: t('Sombra de la viñeta', 'Panel shadow'), min: 0, max: 1, step: 0.01, value: f.shadow || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.shadow = v; touch(); }, onChange: commit }),
           f.shadow > 0 ? colorIn(t('Color de la sombra', 'Shadow colour'), f.shadowColor, (v) => { f.shadowColor = v; }) : null,
+          f.shadow > 0 ? MC.ui.slider({ label: t('Desenfoque de la sombra', 'Shadow blur'), min: 0, max: 1, step: 0.01, value: f.shadowBlur || 0, fmt: (v) => Math.round(v * 100) + ' %', onInput: (v) => { f.shadowBlur = v; touch(); }, onChange: commit }) : null,
+          f.shadow > 0 ? MC.ui.slider({ label: t('Dirección de la sombra', 'Shadow direction'), min: 0, max: 360, step: 5, value: f.shadowAngle == null ? 45 : f.shadowAngle, fmt: (v) => v + '°', onInput: (v) => { f.shadowAngle = v; touch(); }, onChange: commit }) : null,
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => fileOver.click() }, MC.icon('plus', 14), t('Añadir ilustración por encima', 'Add artwork on top')),
             scope === 'shot' ? null : h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: !p.shots.some((x) => x.frame), onClick: () => { p.shots.forEach((x) => { x.frame = null; }); commit(); MC.toast(t('Todas las viñetas usan el estilo del proyecto', 'All panels use the project style')); } }, t('Quitar personalizaciones', 'Clear overrides'))),

@@ -121,7 +121,7 @@
     ...[...new Set((p.clips || []).map((c) => c.assetId))].map((id) => MC.audio.load(id).catch(() => null)),
   ]);
   /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
-  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000' };
+  MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000', radius: 0, bgGrad: 'none', bg2: '#8c7cff', bgAngle: 90, strokeGrad: 'none', color2: '#ffffff', strokeAngle: 0, shadowBlur: 0, shadowAngle: 45 };
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
