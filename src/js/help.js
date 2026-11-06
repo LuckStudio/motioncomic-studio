@@ -9,7 +9,11 @@
     const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
     document.documentElement.style.setProperty('--ui-zoom', String(z));
     document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
+    /* modo táctil: automático (pantalla táctil), siempre o nunca */
+    const tm = MC.store.get('touch', 'auto'), coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    document.documentElement.dataset.touch = tm === 'on' || (tm === 'auto' && coarse) ? '1' : '0';
   };
+  if (window.matchMedia) { try { matchMedia('(pointer: coarse)').addEventListener('change', () => MC.applyPrefs()); } catch (e) { /* navegador antiguo */ } }
 
   /* ---------- límites según el equipo ---------- */
   MC.limits = () => {

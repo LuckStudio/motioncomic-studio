@@ -357,8 +357,8 @@
       creativo: { icon: 'sparkle', es: 'Efectos y audio', en: 'Effects and audio', tl: 'big', tabs: ['texto', 'subtitulos', 'efectos', 'transiciones', 'sfx', 'musica', 'mezclador', 'idiomas', 'favs'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
-    const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
-      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['sliders', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
+    const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['clipboard', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['curve', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
     const editView = () => { const sh = shot(); return sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam'; };
@@ -532,7 +532,7 @@
       d.body.append(host);
       const rec = POP[id] = { win, host, closing: false, ro: null };
       PNODES()[id].forEach((n) => host.append(n));
-      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true);
+      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true); if (MC.touch) MC.touch.wireDoc(d);
       win.addEventListener('focus', () => { MC.hostDoc = d; });
       win.addEventListener('pagehide', () => { if (!rec.closing) dockBack(id, true); });
       let rt = 0; win.addEventListener('resize', () => { fit(); clearTimeout(rt); rt = setTimeout(() => saveGeo(id, win), 300); });
@@ -1736,7 +1736,8 @@
         still(); MC.ensureFonts().then(still);
         let raf = 0; const loop = (ts) => { try { MC.subPreview(cv, S.project, MC.subStyle(pr.s), null, ((ts / 1000) % (nW * 0.4 + 0.6))); } catch (e) { /* nada */ } raf = requestAnimationFrame(loop); };
         const btn = h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
-        btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
+        btn.addEventListener('pointerenter', (e) => { if ((e.pointerType === 'mouse' || e.pointerType === 'pen') && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
+        if (MC.touch) MC.touch.hold(btn, () => { if (!reducedMotion() && !raf) raf = requestAnimationFrame(loop); }, () => { cancelAnimationFrame(raf); raf = 0; still(); });
         btn.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); raf = 0; still(); });
         return favWrap('subpr', pr.v, btn, () => S.sbCat === 'favs');
       }));
@@ -2027,7 +2028,7 @@
       apply(sh, st); S.view = 'out'; const t0 = performance.now(), from = kind === 'fx' ? clamp(S.time - st, 0, Math.max(0, sh.duration - 0.2)) : 0;
       hov.iv = setInterval(() => { const el2 = ((performance.now() - t0) / 1000); setTime(st + (kind === 'fx' ? from + (el2 % Math.max(0.5, sh.duration - from)) : el2 % sh.duration)); }, 33);
     }
-    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverStart(kind, apply); }); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
+    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') hoverStart(kind, apply); }); if (MC.touch) MC.touch.hold(node, () => hoverStart(kind, apply), hoverStop); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
     /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
     function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); positionSim(); }
     function setViewZoom(z, cx, cy) {
@@ -2532,7 +2533,7 @@
       if (S.snapExtra) S.snapExtra.forEach((x) => pts.push(x));
       return pts;
     }
-    const snapThr = () => (matchMedia('(pointer: coarse)').matches ? 16 : 10) / S.pps;
+    const snapThr = () => (document.documentElement.dataset.touch === '1' ? 16 : 10) / S.pps;
     function snapGuide(tm) {
       if (tm == null) { if (el.tlGuide) el.tlGuide.style.display = 'none'; return; }
       if (!el.tlGuide || !el.tlGuide.isConnected) { el.tlGuide = h('div', { class: 'snapguide', 'aria-hidden': 'true' }); el.tlContent.append(el.tlGuide); }
@@ -3273,7 +3274,7 @@
         B('split', 'cut', 'Dividir en el cabezal (S)', 'Split at the playhead (S)', () => splitAt(S.time)), B('trimL', 'trimL', 'Recortar el principio hasta el cabezal (Q)', 'Trim the start to the playhead (Q)', () => trimEdge('start')), B('trimR', 'trimR', 'Recortar el final desde el cabezal (W)', 'Trim the end from the playhead (W)', () => trimEdge('end')),
         B('del', 'trash', 'Eliminar lo seleccionado (Supr)', 'Delete selection (Del)', () => { if (ACT.delete() === false) MC.toast(t('No hay nada que eliminar.', 'Nothing to delete.')); }), sep(),
         B('flipx', 'flipH', 'Reflejar en horizontal', 'Flip horizontally', () => flipSel('x')), B('flipy', 'flipV', 'Reflejar en vertical', 'Flip vertically', () => flipSel('y')), B('crop', 'crop', 'Recortar la imagen o el vídeo', 'Crop the image or video', openCrop),
-        B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'sliders', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
+        B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'curve', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
         B('marker', 'bookmark', 'Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)', () => addMarker('note')), B('dup', 'copy', 'Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)', () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); }), sep(),
         B('snap', 'magnet', 'Imán: se pega a cortes, marcadores y cabezal (N)', 'Magnet: snaps to cuts, markers and playhead (N)', toggleSnap, { 'aria-pressed': String(!!S.snapOn) }),
         B('ripple', 'ripple', 'Ripple: al cambiar la duración de un plano, lo de detrás lo sigue', 'Ripple: when a shot’s length changes, everything after follows', () => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); refreshTlBar(); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); }, { 'aria-pressed': String(!!S.ripple) }), sep(),

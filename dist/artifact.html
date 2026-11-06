@@ -642,6 +642,42 @@ body.pop { margin: 0; height: 100vh; overflow: hidden; background: var(--bg); }
 .segpick img, .segpick i { width: 42px; height: 30px; object-fit: cover; flex: none; background: var(--bg); } .segpick span { display: grid; min-width: 0; } .segpick small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lseg + .lseg { border-left: 2px solid var(--accent); }
 
+/* ---------- modo táctil: objetivos de 44 px y nada que dependa del ratón ---------- */
+.tiptouch { position: fixed; z-index: 200; max-width: min(320px, 86vw); background: #0b0c0e; color: #fff; border: 1px solid #3a3f46; padding: 8px 12px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.5); pointer-events: none; }
+html[data-touch="1"] { --lh: 48px; }
+html[data-touch="1"] .btn-ic, html[data-touch="1"] .tlb, html[data-touch="1"] .dockctl .btn-ic { width: 44px; height: 44px; }
+html[data-touch="1"] .dockctl .btn-ic { opacity: 1; } html[data-touch="1"] .grip-btn { font-size: 20px; }
+html[data-touch="1"] .tl-head { padding: 6px 8px; gap: 4px; } html[data-touch="1"] .tlsep { height: 28px; margin: 0 8px; }
+html[data-touch="1"] .favwrap > .fav, html[data-touch="1"] .sndrow .fav { opacity: 1; width: 40px; height: 40px; }
+html[data-touch="1"] .layer { padding-block: 9px; min-height: 48px; } html[data-touch="1"] .layer .btn { width: 40px; height: 40px; }
+html[data-touch="1"] .seg button, html[data-touch="1"] .chips button, html[data-touch="1"] .tmenu button, html[data-touch="1"] .dockmenu button, html[data-touch="1"] .vmenu button, html[data-touch="1"] .grchip { min-height: 44px; padding-inline: 14px; }
+html[data-touch="1"] .btn-sm, html[data-touch="1"] .btn-s { min-height: 44px; }
+html[data-touch="1"] .check { min-height: 44px; } html[data-touch="1"] .check input { width: 22px; height: 22px; }
+html[data-touch="1"] input[type="range"] { min-height: 44px; } html[data-touch="1"] .tlzoom { width: 130px; }
+html[data-touch="1"] .rail button { min-height: 68px; }
+/* tiradores de los paneles: línea visible y zona de toque de 30 px */
+html[data-touch="1"] .pz::after { opacity: .5; }
+html[data-touch="1"] .pz-r { width: 30px; right: -15px; } html[data-touch="1"] .pz-r::after, html[data-touch="1"] .pz-l::after { left: 13px; width: 4px; }
+html[data-touch="1"] .pz-l { width: 30px; left: -15px; }
+html[data-touch="1"] .pz-t { height: 30px; top: -15px; } html[data-touch="1"] .pz-b { height: 30px; bottom: -15px; }
+html[data-touch="1"] .pz-t::after, html[data-touch="1"] .pz-b::after { top: 13px; height: 4px; }
+/* clips: bordes de estirar más anchos, flecha de capas y rombos con zona amplia */
+html[data-touch="1"] .clip .rz { width: 32px; } html[data-touch="1"] .lrz { width: 28px; } html[data-touch="1"] .lrz::after { left: 13px; width: 3px; opacity: .8; }
+html[data-touch="1"] .clip .cvx { width: 40px; height: calc(100% - 2px); font-size: 14px; }
+html[data-touch="1"] .kfd { width: 18px; height: 18px; top: 4px; } html[data-touch="1"] .kfd::before { content: ""; position: absolute; inset: -16px; transform: rotate(-45deg); }
+html[data-touch="1"] .tl-track.kft { height: 34px !important; min-height: 34px; }
+html[data-touch="1"] .grhandle { r: 11px; } html[data-touch="1"] .grkey { width: 14px; height: 14px; }
+html[data-touch="1"] .mtabs button { padding: 12px 4px; }
+html[data-touch="1"] .btn { min-height: 44px; } html[data-touch="1"] .btn-ic { flex: none; min-width: 44px; }
+html[data-touch="1"] .s-top .ttl, html[data-touch="1"] .fmt { min-height: 44px; }
+html[data-touch="1"] .play { width: 48px; height: 48px; }
+html[data-touch="1"] button.btn-g[style*="width: 26px"] { width: 44px !important; height: 44px !important; }
+html[data-touch="1"] .tl-labels .trb .btn { width: 44px; height: 44px; padding: 8px; }
+html[data-touch="1"] .crumbs button { min-height: 44px; padding: 6px 8px; }
+html[data-touch="1"] .layer .btn { width: 44px; height: 44px; }
+html[data-touch="1"] .lrz { width: 30px; }
+html[data-touch="1"] .clip .cvx { width: 44px; } html[data-touch="1"] .clip .rz { width: 36px; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -26851,6 +26887,8 @@ module.exports = ZStream;
   MC.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 
   const ICONS = {
+    curve: '<path d="M3 20C10 20 8 4 21 4"/><circle cx="3" cy="20" r="1.600" fill="currentColor"/><circle cx="21" cy="4" r="1.600" fill="currentColor"/>',
+    clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/>',
     magnet: '<path d="M5 3h4v9a3 3 0 006 0V3h4v9a7 7 0 01-14 0z"/><path d="M5 7h4M15 7h4"/>',
     flipH: '<path d="M12 3v18" stroke-dasharray="2.5 2.5"/><path d="M9 7L3 18h6z"/><path d="M15 7l6 11h-6z"/>',
     flipV: '<path d="M3 12h18" stroke-dasharray="2.5 2.5"/><path d="M7 9V3l11 6z"/><path d="M7 15v6l11-6z"/>',
@@ -30817,7 +30855,11 @@ module.exports = ZStream;
     const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
     document.documentElement.style.setProperty('--ui-zoom', String(z));
     document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
+    /* modo táctil: automático (pantalla táctil), siempre o nunca */
+    const tm = MC.store.get('touch', 'auto'), coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    document.documentElement.dataset.touch = tm === 'on' || (tm === 'auto' && coarse) ? '1' : '0';
   };
+  if (window.matchMedia) { try { matchMedia('(pointer: coarse)').addEventListener('change', () => MC.applyPrefs()); } catch (e) { /* navegador antiguo */ } }
 
   /* ---------- límites según el equipo ---------- */
   MC.limits = () => {
@@ -31018,6 +31060,7 @@ module.exports = ZStream;
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.seg([{ v: 'system', l: t('Según el sistema', 'System') }, { v: 'dark', l: t('Oscuro', 'Dark') }, { v: 'light', l: t('Claro', 'Light') }], th, (v) => { if (v === 'system') { document.documentElement.removeAttribute('data-theme'); MC.store.set('theme', ''); } else { document.documentElement.setAttribute('data-theme', v); MC.store.set('theme', v); } if (MC.studioApi) MC.studioApi.redraw(); }, t('Tema', 'Theme')), h('span', { class: 'cap' }, t('El oscuro es el predeterminado: deja que el dibujo sea lo único con color.', 'Dark is the default: it lets the artwork be the only thing with colour.'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tamaño de la interfaz', 'Interface size')), MC.ui.seg([['0.7', '70 %'], ['0.8', '80 %'], ['0.9', '90 %'], ['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %'], ['1.5', '150 %']].map((q) => ({ v: q[0], l: q[1] })), z, (v) => { MC.store.set('uizoom', v); MC.applyPrefs(); if (MC.studioApi) MC.studioApi.refit(); }, t('Tamaño de la interfaz', 'Interface size'))),
+          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Modo táctil (botones grandes, nombres al mantener pulsado)', 'Touch mode (big buttons, names on long press)')), MC.ui.seg([{ v: 'auto', l: t('Automático', 'Automatic') }, { v: 'on', l: t('Siempre', 'Always') }, { v: 'off', l: t('Nunca', 'Never') }], MC.store.get('touch', 'auto'), (v) => { MC.store.set('touch', v); MC.applyPrefs(); }, t('Modo táctil', 'Touch mode'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations')), h('span', { class: 'cap' }, t('Incluye las entradas al abrir un proyecto y al cambiar de espacio de trabajo.', 'Includes the entrances when opening a project and switching workspaces.'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Idioma', 'Language')), MC.ui.seg([{ v: 'es', l: 'Español' }, { v: 'en', l: 'English' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); modal.close(); MC.app.render(); }, t('Idioma', 'Language'))));
       },
@@ -31732,8 +31775,8 @@ module.exports = ZStream;
       creativo: { icon: 'sparkle', es: 'Efectos y audio', en: 'Effects and audio', tl: 'big', tabs: ['texto', 'subtitulos', 'efectos', 'transiciones', 'sfx', 'musica', 'mezclador', 'idiomas', 'favs'] },
       exportar: { icon: 'export', es: 'Exportar', en: 'Export', tl: 'none', tabs: [] },
     };
-    const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['sliders', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
-      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['sliders', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
+    const TABS = { planos: ['film'], subtitulos: ['mic', 'Subtítulos', 'Subtitles'], biblioteca: ['bookmark', 'Biblioteca', 'Library'], vinetas: ['page', 'Viñetas', 'Panels'], transiciones: ['cut', 'Transiciones', 'Transitions'], recursos: ['folder', 'Recursos', 'Assets'], proyecto: ['clipboard', 'Proyecto', 'Project'], aspecto: ['sun', 'Aspecto', 'Look'], estilo: ['star', 'Estilo', 'Style'], camara: ['camera', 'Cámara', 'Camera'], rack: ['frame', 'Rack focus', 'Rack focus'],
+      texto: ['text', 'Texto', 'Text'], efectos: ['sparkle', 'Efectos', 'Effects'], sfx: ['speaker', 'Efectos de sonido', 'Sound effects'], musica: ['note', 'Música', 'Music'], favs: ['star', 'Favoritos', 'Favourites'], curvas: ['curve', 'Curvas', 'Curves'], mezclador: ['mixer', 'Mezclador', 'Mixer'], idiomas: ['globe', 'Idiomas', 'Languages'] };
     const tabLabel = (id) => (id === 'planos' ? (S.project.mode === 'page' ? t('Páginas', 'Pages') : S.project.mode === 'webtoon' ? t('Tiras', 'Strips') : t('Planos', 'Shots')) : t(TABS[id][1], TABS[id][2]));
     const curTab = () => { const tabs = WS[S.ws].tabs; if (!tabs.length) return null; if (!tabs.includes(S.tab[S.ws])) S.tab[S.ws] = tabs[0]; return S.tab[S.ws]; };
     const editView = () => { const sh = shot(); return sh && sh.page ? 'page' : sh && sh.webtoon ? 'strip' : 'cam'; };
@@ -31907,7 +31950,7 @@ module.exports = ZStream;
       d.body.append(host);
       const rec = POP[id] = { win, host, closing: false, ro: null };
       PNODES()[id].forEach((n) => host.append(n));
-      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true);
+      d.addEventListener('keydown', onKey); d.addEventListener('pointerdown', (e) => onDocDown(e), true); if (MC.touch) MC.touch.wireDoc(d);
       win.addEventListener('focus', () => { MC.hostDoc = d; });
       win.addEventListener('pagehide', () => { if (!rec.closing) dockBack(id, true); });
       let rt = 0; win.addEventListener('resize', () => { fit(); clearTimeout(rt); rt = setTimeout(() => saveGeo(id, win), 300); });
@@ -33111,7 +33154,8 @@ module.exports = ZStream;
         still(); MC.ensureFonts().then(still);
         let raf = 0; const loop = (ts) => { try { MC.subPreview(cv, S.project, MC.subStyle(pr.s), null, ((ts / 1000) % (nW * 0.4 + 0.6))); } catch (e) { /* nada */ } raf = requestAnimationFrame(loop); };
         const btn = h('button', { type: 'button', class: 'subpr', 'aria-pressed': String(current === pr.v), title: t(pr.es, pr.en), onClick: () => apply(pr) }, cv, h('span', null, t(pr.es, pr.en)));
-        btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
+        btn.addEventListener('pointerenter', (e) => { if ((e.pointerType === 'mouse' || e.pointerType === 'pen') && !reducedMotion() && !raf) raf = requestAnimationFrame(loop); });
+        if (MC.touch) MC.touch.hold(btn, () => { if (!reducedMotion() && !raf) raf = requestAnimationFrame(loop); }, () => { cancelAnimationFrame(raf); raf = 0; still(); });
         btn.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); raf = 0; still(); });
         return favWrap('subpr', pr.v, btn, () => S.sbCat === 'favs');
       }));
@@ -33402,7 +33446,7 @@ module.exports = ZStream;
       apply(sh, st); S.view = 'out'; const t0 = performance.now(), from = kind === 'fx' ? clamp(S.time - st, 0, Math.max(0, sh.duration - 0.2)) : 0;
       hov.iv = setInterval(() => { const el2 = ((performance.now() - t0) / 1000); setTime(st + (kind === 'fx' ? from + (el2 % Math.max(0.5, sh.duration - from)) : el2 % sh.duration)); }, 33);
     }
-    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverStart(kind, apply); }); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
+    const hoverable = (node, kind, apply) => { node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') hoverStart(kind, apply); }); if (MC.touch) MC.touch.hold(node, () => hoverStart(kind, apply), hoverStop); node.addEventListener('pointerleave', hoverStop); node.addEventListener('pointerdown', hoverStop, true); return node; };
     /* zoom y desplazamiento del visor (solo para trabajar: no cambia lo que se exporta) */
     function applyViewXf() { const v = S.vz; el.canvas.style.transformOrigin = '50% 50%'; el.canvas.style.transform = v.z === 1 && !v.x && !v.y ? '' : 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')'; if (el.zoomLbl) el.zoomLbl.textContent = Math.round(v.z * 100) + ' %'; el.stage.classList.toggle('zoomed', v.z !== 1); positionSim(); }
     function setViewZoom(z, cx, cy) {
@@ -33907,7 +33951,7 @@ module.exports = ZStream;
       if (S.snapExtra) S.snapExtra.forEach((x) => pts.push(x));
       return pts;
     }
-    const snapThr = () => (matchMedia('(pointer: coarse)').matches ? 16 : 10) / S.pps;
+    const snapThr = () => (document.documentElement.dataset.touch === '1' ? 16 : 10) / S.pps;
     function snapGuide(tm) {
       if (tm == null) { if (el.tlGuide) el.tlGuide.style.display = 'none'; return; }
       if (!el.tlGuide || !el.tlGuide.isConnected) { el.tlGuide = h('div', { class: 'snapguide', 'aria-hidden': 'true' }); el.tlContent.append(el.tlGuide); }
@@ -34648,7 +34692,7 @@ module.exports = ZStream;
         B('split', 'cut', 'Dividir en el cabezal (S)', 'Split at the playhead (S)', () => splitAt(S.time)), B('trimL', 'trimL', 'Recortar el principio hasta el cabezal (Q)', 'Trim the start to the playhead (Q)', () => trimEdge('start')), B('trimR', 'trimR', 'Recortar el final desde el cabezal (W)', 'Trim the end from the playhead (W)', () => trimEdge('end')),
         B('del', 'trash', 'Eliminar lo seleccionado (Supr)', 'Delete selection (Del)', () => { if (ACT.delete() === false) MC.toast(t('No hay nada que eliminar.', 'Nothing to delete.')); }), sep(),
         B('flipx', 'flipH', 'Reflejar en horizontal', 'Flip horizontally', () => flipSel('x')), B('flipy', 'flipV', 'Reflejar en vertical', 'Flip vertically', () => flipSel('y')), B('crop', 'crop', 'Recortar la imagen o el vídeo', 'Crop the image or video', openCrop),
-        B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'sliders', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
+        B('kf', 'diamond', 'Añadir un fotograma clave en el cabezal', 'Add a keyframe at the playhead', addKfHere), B('curves', 'curve', 'Editor de curvas de los fotogramas clave', 'Keyframe curve editor', () => openGraph()), sep(),
         B('marker', 'bookmark', 'Marcador con nota en el cabezal (M)', 'Marker with a note at the playhead (M)', () => addMarker('note')), B('dup', 'copy', 'Duplicar lo seleccionado (Ctrl+D)', 'Duplicate selection (Ctrl+D)', () => { if (!dupSelection()) MC.toast(t('Selecciona un clip, un texto o una superposición.', 'Select a clip, text or overlay.')); }), sep(),
         B('snap', 'magnet', 'Imán: se pega a cortes, marcadores y cabezal (N)', 'Magnet: snaps to cuts, markers and playhead (N)', toggleSnap, { 'aria-pressed': String(!!S.snapOn) }),
         B('ripple', 'ripple', 'Ripple: al cambiar la duración de un plano, lo de detrás lo sigue', 'Ripple: when a shot’s length changes, everything after follows', () => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); refreshTlBar(); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); }, { 'aria-pressed': String(!!S.ripple) }), sep(),

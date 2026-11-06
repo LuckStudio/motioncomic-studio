@@ -122,3 +122,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Imán con línea guía: inicio y final de lo que mueves o estiras se pegan a bordes de otros clips, cortes, marcadores y cabezal; Alt lo desactiva al arrastrar.
 - Cada capa tiene aparición y desaparición propias dentro del plano (filas movibles al desplegar el plano), y se puede dividir en tramos que muestran otra ilustración, con fundido opcional y reemplazo por botón o arrastrando.
+
+## Modo táctil
+
+- Modo táctil automático (o forzado en Preferencias): objetivos de 44 px y zonas de toque ampliadas en tiradores, clips, rombos, deslizadores y menús; sin controles que dependan del hover.
+- Pulsación larga para ver el nombre de los iconos y vistas previas al mantener pulsado; iconos de Curvas y Proyecto distintos.
