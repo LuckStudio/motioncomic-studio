@@ -238,3 +238,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Bloque 7 del plan: recorte
 
 - El recorte (izquierda, arriba, derecha, abajo) ya existía con deslizadores; ahora tiene tiradores en el visor sobre el recuadro real de la capa o superposición (se calcula con la matriz con la que se dibuja, así respeta cámara, parallax, giro y reflejo), valores exactos en %, y cuatro propiedades nuevas de fotogramas clave (`cl`, `ct`, `cr`, `cb`, como cambio sobre el recorte base) para animarlo. `MC.effCrop` calcula el recorte efectivo sin dejar nunca la imagen vacía. Los fotogramas clave nuevos por la barra siguen llevando solo las propiedades de movimiento.
+
+## Bloque 8 del plan: edición de capas y superposiciones
+
+- Forma (rectángulo, esquinas redondeadas, elipse) y marco de color con grosor propio, dibujados por el motor compartido (visor y exportación) sobre el rectángulo ya recortado; la forma se aplica como recorte y el marco por dentro.
+- Ajustes de color nuevos por elemento: blanco y negro, sepia, invertir y desenfoque (en unidades del vídeo, no del píxel de pantalla). Copiar y pegar ajustes entre capas y superposiciones (aspecto, forma, recorte, mezcla, opacidad, reflejos, 3D, animaciones y pivote). Giro base de la capa alrededor de su pivote.
+- Inicio: aviso que recomienda el ordenador para editar vídeo, visible en tablets, móviles y pantallas estrechas (`?pcnote=1` lo fuerza), con botón «Entendido» que lo oculta para siempre.

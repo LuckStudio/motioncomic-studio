@@ -226,15 +226,32 @@
   };
 
   /* ---------- aspecto por elemento: sombra, resplandor, contorno y color ---------- */
-  MC.ITEM_LOOK = { shadow: { on: true, color: '#000000', a: 0.55, blur: 18, x: 8, y: 10 }, glow: { on: true, color: '#8C7CFF', a: 0.9, blur: 26 }, outline: { on: true, color: '#ffffff', w: 5 }, adj: { bright: 1, contrast: 1, sat: 1, hue: 0 } };
-  const adjOn = (a) => a && (Math.abs((a.bright == null ? 1 : a.bright) - 1) > 0.01 || Math.abs((a.contrast == null ? 1 : a.contrast) - 1) > 0.01 || Math.abs((a.sat == null ? 1 : a.sat) - 1) > 0.01 || Math.abs(a.hue || 0) > 0.5);
+  MC.ITEM_LOOK = { shadow: { on: true, color: '#000000', a: 0.55, blur: 18, x: 8, y: 10 }, glow: { on: true, color: '#8C7CFF', a: 0.9, blur: 26 }, outline: { on: true, color: '#ffffff', w: 5 }, adj: { bright: 1, contrast: 1, sat: 1, hue: 0, gray: 0, sepia: 0, invert: 0, blur: 0 } };
+  const adjOn = (a) => a && (Math.abs((a.bright == null ? 1 : a.bright) - 1) > 0.01 || Math.abs((a.contrast == null ? 1 : a.contrast) - 1) > 0.01 || Math.abs((a.sat == null ? 1 : a.sat) - 1) > 0.01 || Math.abs(a.hue || 0) > 0.5 || (a.gray || 0) > 0.01 || (a.sepia || 0) > 0.01 || (a.invert || 0) > 0.01 || (a.blur || 0) > 0.1);
   MC.hasItemLook = (it) => { const L = it.look; return !!(L && ((L.shadow && L.shadow.on) || (L.glow && L.glow.on) || (L.outline && L.outline.on) || adjOn(L.adj))); };
   /* Cadena de filtros de lienzo: desenfoque + ajustes de color. */
-  MC.itemFilter = (it, blurPx) => {
+  MC.itemFilter = (it, blurPx, u) => {
     const a = it.look && it.look.adj, f = [];
-    if (blurPx > 0) f.push('blur(' + blurPx.toFixed(2) + 'px)');
+    const bl = (blurPx > 0 ? blurPx : 0) + (a && a.blur > 0 ? a.blur * (u || 1) : 0);
+    if (bl > 0) f.push('blur(' + bl.toFixed(2) + 'px)');
+    if (adjOn(a)) { if (a.gray > 0.01) f.push('grayscale(' + a.gray + ')'); if (a.sepia > 0.01) f.push('sepia(' + a.sepia + ')'); if (a.invert > 0.01) f.push('invert(' + a.invert + ')'); }
     if (adjOn(a)) f.push('brightness(' + (a.bright == null ? 1 : a.bright) + ')', 'contrast(' + (a.contrast == null ? 1 : a.contrast) + ')', 'saturate(' + (a.sat == null ? 1 : a.sat) + ')', 'hue-rotate(' + (a.hue || 0) + 'deg)');
     return f.join(' ');
+  };
+  /* Forma y marco: recorte en rectángulo, esquinas redondeadas o elipse, y un borde de color. rect = {x,y,w,h} ya recortado. */
+  const shapePath = (ctx, sp, r) => {
+    ctx.beginPath();
+    if (sp.type === 'ellipse') { ctx.ellipse(r.x + r.w / 2, r.y + r.h / 2, Math.max(0.5, r.w / 2), Math.max(0.5, r.h / 2), 0, 0, Math.PI * 2); return; }
+    const rad = sp.type === 'round' ? Math.min(r.w, r.h) * clamp(sp.r == null ? 0.15 : sp.r, 0, 0.5) : 0;
+    if (!rad) { ctx.rect(r.x, r.y, r.w, r.h); return; }
+    ctx.moveTo(r.x + rad, r.y); ctx.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, rad); ctx.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, rad); ctx.arcTo(r.x, r.y + r.h, r.x, r.y, rad); ctx.arcTo(r.x, r.y, r.x + r.w, r.y, rad); ctx.closePath();
+  };
+  MC.hasShape = (it) => !!(it.shape && ((it.shape.type && it.shape.type !== 'rect') || it.shape.bw > 0));
+  MC.clipShape = (ctx, it, r) => { if (it.shape && it.shape.type && it.shape.type !== 'rect') { shapePath(ctx, it.shape, r); ctx.clip(); } };
+  /* el borde se dibuja por dentro de la forma: se traza el doble de ancho y el recorte deja solo la mitad interior */
+  MC.drawFrame = (ctx, it, r, u) => {
+    const sp = it.shape; if (!sp || !(sp.bw > 0)) return;
+    ctx.save(); shapePath(ctx, sp, r); ctx.lineJoin = 'round'; ctx.lineWidth = 2 * sp.bw * u; ctx.strokeStyle = sp.bc || '#ffffff'; ctx.stroke(); ctx.restore();
   };
   const silCache = new WeakMap();
   const silhouette = (src, color) => {

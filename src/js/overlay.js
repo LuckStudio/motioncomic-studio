@@ -185,12 +185,15 @@
       ctx.save();
       ctx.globalAlpha = clamp(b.op, 0, 1);
       if (it.blend && BLEND[it.blend]) ctx.globalCompositeOperation = it.blend;
-      const flt = MC.itemFilter ? MC.itemFilter(it, 0) : ''; if (flt) ctx.filter = flt;
+      const flt = MC.itemFilter ? MC.itemFilter(it, 0, (o.W / 1920) * k0) : ''; if (flt) ctx.filter = flt;
       ctx.translate(b.cx, b.cy); if (b.rot) ctx.rotate((b.rot * Math.PI) / 180); if (it.flip || it.flipY) ctx.scale(it.flip ? -1 : 1, it.flipY ? -1 : 1);
       { const cr = MC.effCrop(it, b.an); if (o.cropBoxes) o.cropBoxes['O' + it.id] = { m: ctx.getTransform(), x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h, crop: cr }; if (cr) { ctx.beginPath(); ctx.rect(-b.w / 2 + b.w * cr.l, -b.h / 2 + b.h * cr.t, b.w * (1 - cr.l - cr.r), b.h * (1 - cr.t - cr.b)); ctx.clip(); } }
+      const crO = MC.effCrop(it, b.an), shR = crO ? { x: -b.w / 2 + b.w * crO.l, y: -b.h / 2 + b.h * crO.t, w: b.w * (1 - crO.l - crO.r), h: b.h * (1 - crO.t - crO.b) } : { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h };
+      if (MC.clipShape) MC.clipShape(ctx, it, shR);
       const rx3 = ((it.r3 && it.r3.x) || 0) + (b.an ? b.an.rx : 0), ry3 = ((it.r3 && it.r3.y) || 0) + (b.an ? b.an.ry : 0), pv = (b.an && b.an.pv) || { x: 0.5, y: 0.5 };
       if (MC.draw3D && MC.has3D(rx3, ry3)) MC.draw3D(ctx, src, src.videoWidth || src.width, src.videoHeight || src.height, { x: -b.w / 2, y: -b.h / 2, w: b.w, h: b.h }, { rx: rx3, ry: ry3, D: MC.camDist(ctx, o, k0, it.persp), pvx: pv.x, pvy: pv.y });
       else if (MC.drawItem && it.look) MC.drawItem(ctx, src, it, -b.w / 2, -b.h / 2, b.w, b.h, o, k0); else ctx.drawImage(src, -b.w / 2, -b.h / 2, b.w, b.h);
+      if (MC.drawFrame) MC.drawFrame(ctx, it, shR, o.W / 1920);
       ctx.restore();
     });
   };
