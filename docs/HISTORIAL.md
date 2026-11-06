@@ -138,3 +138,7 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Visor enfocable con Tab, flechas y +/-; navegación por la línea de tiempo con flechas; recorte de bordes con Alt+Mayús+flechas.
 - Regiones con nombre, h1, enlaces para saltar, F6 y Alt+1…5 entre paneles; hoja de atajos con ? según el espacio de trabajo.
+
+## Temas, alto contraste y escala automática
+
+- Temas gris medio, azul noche, sepia y personalizado (acento y fondo propios con aviso de contraste); alto contraste para base clara u oscura; selección con borde y ✓; escala automática en la primera apertura en una tablet.

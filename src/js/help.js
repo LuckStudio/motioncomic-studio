@@ -4,11 +4,47 @@
   const { h, t, clamp } = MC;
   MC.VERSION = '0.7';
 
+  /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
+  MC.THEMES = [
+    ['system', 'Según el sistema', 'System', null], ['dark', 'Oscuro', 'Dark', 'dark'], ['light', 'Claro', 'Light', 'light'], ['gray', 'Gris medio', 'Mid grey', 'dark'],
+    ['midnight', 'Azul noche', 'Midnight blue', 'dark'], ['sepia', 'Sepia', 'Sepia', 'light'], ['custom', 'Personalizado', 'Custom', null],
+  ];
+  const hex2 = (h0) => { const m = /^#?([0-9a-f]{6})$/i.exec(h0 || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const hex6 = (c) => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  const mixC = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  MC.contrastRatio = (a, b) => { const A = typeof a === 'string' ? hex2(a) : a, B = typeof b === 'string' ? hex2(b) : b; if (!A || !B) return 21; const l1 = lum(A), l2 = lum(B); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  /* colores de un tema personalizado a partir de la base, el acento y (opcional) el fondo */
+  MC.customTheme = () => {
+    const light = MC.store.get('cbase', 'dark') === 'light', acc = hex2(MC.store.get('caccent', '#8C7CFF')) || [140, 124, 255];
+    const bgc = hex2(MC.store.get('cbg', '')), W = [255, 255, 255], K = [0, 0, 0];
+    const bg = bgc || (light ? [243, 244, 246] : [15, 16, 18]), isLight = bgc ? lum(bg) > 0.4 : light;
+    const panel = bgc ? (isLight ? mixC(bg, W, 0.6) : mixC(bg, W, 0.05)) : (light ? [255, 255, 255] : [23, 25, 28]);
+    const raised = isLight ? mixC(bg, K, 0.04) : mixC(bg, W, 0.1), line = isLight ? mixC(bg, K, 0.16) : mixC(bg, W, 0.18), fg = isLight ? [21, 23, 26] : [236, 238, 240], muted = isLight ? mixC(fg, W, 0.4) : mixC(fg, K, 0.38);
+    const onAcc = MC.contrastRatio(acc, K) >= MC.contrastRatio(acc, W) ? [15, 16, 18] : [255, 255, 255];
+    return { scheme: isLight ? 'light' : 'dark', accent: acc, v: { '--bg': hex6(bg), '--panel': hex6(panel), '--raised': hex6(raised), '--line': hex6(line), '--fg': hex6(fg), '--muted': hex6(muted), '--stage': hex6(mixC(bg, K, isLight ? 0.08 : 0.4)),
+      '--accent': hex6(acc), '--accent-hover': hex6(mixC(acc, isLight ? K : W, 0.18)), '--on-accent': hex6(onAcc), '--accent-tint': 'rgba(' + acc.map(Math.round).join(',') + ',0.16)', '--clip': hex6(fg), '--clip-ink': hex6(bg) } };
+  };
+  const CUSTOM_VARS = ['--bg', '--panel', '--raised', '--line', '--fg', '--muted', '--stage', '--accent', '--accent-hover', '--on-accent', '--accent-tint', '--clip', '--clip-ink'];
+  MC.applyTheme = () => {
+    const r = document.documentElement, th = MC.store.get('theme', '') || 'system', def = MC.THEMES.find((q) => q[0] === th) || MC.THEMES[0];
+    if (th === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', th);
+    CUSTOM_VARS.forEach((k) => r.style.removeProperty(k));
+    let scheme = def[3];
+    if (th === 'custom') { const c = MC.customTheme(); scheme = c.scheme; Object.keys(c.v).forEach((k) => r.style.setProperty(k, c.v[k])); r.style.colorScheme = c.scheme; } else r.style.removeProperty('color-scheme');
+    if (!scheme) scheme = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    r.dataset.scheme = scheme;
+    r.dataset.contrast = MC.store.get('contrast', '0') === '1' ? '1' : '0';
+    r.dataset.marks = MC.store.get('marks', '1') === '0' ? '0' : '1';
+  };
+  if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { MC.applyTheme(); if (MC.studioApi && MC.studioApi.redraw) MC.studioApi.redraw(); }); } catch (e) { /* navegador antiguo */ } }
+
   /* ---------- ajustes de la interfaz ---------- */
   MC.applyPrefs = () => {
     const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
     document.documentElement.style.setProperty('--ui-zoom', String(z));
     document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
+    MC.applyTheme();
     /* modo táctil: automático (pantalla táctil), siempre o nunca */
     const tm = MC.store.get('touch', 'auto'), coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
     document.documentElement.dataset.touch = tm === 'on' || (tm === 'auto' && coarse) ? '1' : '0';

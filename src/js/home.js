@@ -11,14 +11,9 @@
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), 'aria-label': t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear'))));
 
-  MC.isLight = () => {
-    const a = document.documentElement.getAttribute('data-theme');
-    return a ? a === 'light' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
-  };
+  MC.isLight = () => document.documentElement.dataset.scheme === 'light';
   MC.toggleTheme = () => {
-    const v = MC.isLight() ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', v);
-    MC.store.set('theme', v);
+    MC.store.set('theme', MC.isLight() ? 'dark' : 'light'); MC.applyTheme();
     MC.app.render();
   };
 

@@ -33,11 +33,33 @@
       MC.clear(pane); await PANES[st.sec](pane);
     };
 
+    /* temas, color propio, alto contraste y marcas de selección */
+    const themeFields = (el, th) => {
+      const again = () => { MC.applyTheme(); if (MC.studioApi && MC.studioApi.redraw) MC.studioApi.redraw(); MC.clear(el); PANES.look(el); };
+      const pick = (v) => { MC.store.set('theme', v === 'system' ? '' : v); again(); };
+      const out = [h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.chips(MC.THEMES.map((q) => ({ v: q[0], l: t(q[1], q[2]) })), th, pick),
+        h('span', { class: 'cap' }, t('El oscuro es el predeterminado: deja que el dibujo sea lo único con color.', 'Dark is the default: it lets the artwork be the only thing with colour.')))];
+      if (th === 'custom') {
+        const base = MC.store.get('cbase', 'dark'), acc = MC.store.get('caccent', '#8C7CFF'), bg = MC.store.get('cbg', ''), c = MC.customTheme(), bgHex = c.v['--bg'];
+        const ratio = MC.contrastRatio(acc, bgHex), txt = MC.contrastRatio(c.v['--fg'], bgHex);
+        const colorIn = (label, val, key, id) => h('div', { class: 'field' }, h('label', { for: id, class: 'cap' }, label), h('input', { id, type: 'color', value: val, class: 'colorin', onInput: (e) => { MC.store.set(key, e.target.value); MC.applyTheme(); }, onChange: () => again() }));
+        out.push(h('div', { class: 'field cust' }, h('span', { class: 'cap' }, t('Tu tema', 'Your theme')),
+          MC.ui.seg([{ v: 'dark', l: t('Base oscura', 'Dark base') }, { v: 'light', l: t('Base clara', 'Light base') }], base, (v) => { MC.store.set('cbase', v); if (bg) MC.store.set('cbg', ''); again(); }, t('Base del tema', 'Theme base')),
+          colorIn(t('Color de acento (botones, selección, foco)', 'Accent colour (buttons, selection, focus)'), acc, 'caccent', 'cacc'),
+          colorIn(t('Color de fondo (opcional)', 'Background colour (optional)'), bg || bgHex, 'cbg', 'cbg'),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.store.set('cbg', ''); again(); } }, t('Quitar el fondo propio', 'Remove custom background')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { ['caccent', 'cbg', 'cbase'].forEach((k) => MC.store.set(k, '')); again(); } }, t('Restablecer', 'Reset'))),
+          h('p', { class: 'cap ' + (ratio < 3 ? 'bad' : 'good'), role: 'status' }, ratio < 3 ? t('Ojo: el acento casi no se distingue del fondo (', 'Careful: the accent barely stands out from the background (') + ratio.toFixed(1) + ':1). ' + t('Elige uno más claro o más oscuro.', 'Pick a lighter or darker one.') : t('Contraste del acento con el fondo: ', 'Accent contrast with the background: ') + ratio.toFixed(1) + ':1 ✓'),
+          txt < 4.5 ? h('p', { class: 'cap bad', role: 'status' }, t('El texto sobre este fondo tiene poco contraste (', 'Text on this background has low contrast (') + txt.toFixed(1) + ':1).') : null));
+      }
+      out.push(h('div', { class: 'field' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: MC.store.get('contrast', '0') === '1', onChange: (e) => { MC.store.set('contrast', e.target.checked ? '1' : '0'); MC.applyTheme(); } }), h('span', null, t('Alto contraste (negro y blanco puros, bordes marcados y foco grueso)', 'High contrast (pure black and white, strong borders and a thick focus ring)'))),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: MC.store.get('marks', '1') !== '0', onChange: (e) => { MC.store.set('marks', e.target.checked ? '1' : '0'); MC.applyTheme(); } }), h('span', null, t('Marcar lo seleccionado con borde y símbolo ✓, no solo con color', 'Mark the selection with a border and a ✓ symbol, not only with colour')))));
+      return h('div', { class: 'fieldgroup' }, ...out);
+    };
     const PANES = {
       async look(el) {
         const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system';
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.seg([{ v: 'system', l: t('Según el sistema', 'System') }, { v: 'dark', l: t('Oscuro', 'Dark') }, { v: 'light', l: t('Claro', 'Light') }], th, (v) => { if (v === 'system') { document.documentElement.removeAttribute('data-theme'); MC.store.set('theme', ''); } else { document.documentElement.setAttribute('data-theme', v); MC.store.set('theme', v); } if (MC.studioApi) MC.studioApi.redraw(); }, t('Tema', 'Theme')), h('span', { class: 'cap' }, t('El oscuro es el predeterminado: deja que el dibujo sea lo único con color.', 'Dark is the default: it lets the artwork be the only thing with colour.'))),
+          themeFields(el, th),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tamaño de la interfaz', 'Interface size')), MC.ui.seg([['0.7', '70 %'], ['0.8', '80 %'], ['0.9', '90 %'], ['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %'], ['1.5', '150 %']].map((q) => ({ v: q[0], l: q[1] })), z, (v) => { MC.store.set('uizoom', v); MC.applyPrefs(); if (MC.studioApi) MC.studioApi.refit(); }, t('Tamaño de la interfaz', 'Interface size'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Modo táctil (botones grandes, nombres al mantener pulsado)', 'Touch mode (big buttons, names on long press)')), MC.ui.seg([{ v: 'auto', l: t('Automático', 'Automatic') }, { v: 'on', l: t('Siempre', 'Always') }, { v: 'off', l: t('Nunca', 'Never') }], MC.store.get('touch', 'auto'), (v) => { MC.store.set('touch', v); MC.applyPrefs(); }, t('Modo táctil', 'Touch mode'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations')), h('span', { class: 'cap' }, t('Incluye las entradas al abrir un proyecto y al cambiar de espacio de trabajo.', 'Includes the entrances when opening a project and switching workspaces.'))),

@@ -697,6 +697,32 @@ html[data-touch="1"] .toast .tact { min-height: 44px; padding-inline: 18px; }
 .ksrow { display: flex; gap: 12px; align-items: baseline; padding: 4px 0; font-size: 14px; } .kskeys { display: inline-flex; gap: 4px; flex-wrap: wrap; min-width: 150px; max-width: 190px; }
 .ks kbd { font: 600 12px/1 var(--mono, ui-monospace, monospace); background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px; padding: 4px 7px; color: var(--fg); }
 
+/* ---------- más temas ---------- */
+:root[data-theme="gray"] { --bg: #2B2E33; --panel: #34383E; --raised: #3D4249; --line: #50565E; --fg: #F2F3F5; --muted: #B7BCC4; --accent: #9AA8FF; --accent-hover: #B3BEFF; --on-accent: #14161A; --accent-tint: rgba(154,168,255,.18); --stage: #202327; --clip: #F2F3F5; --clip-ink: #1E2024; --aux: #7A8089; --good: #6FDDAB; --warn: #EBC06A; --bad: #FF8E8E; color-scheme: dark; }
+:root[data-theme="midnight"] { --bg: #0A1120; --panel: #101A2E; --raised: #16233D; --line: #243456; --fg: #E8EFFF; --muted: #93A6CB; --accent: #4FA3FF; --accent-hover: #7BBBFF; --on-accent: #06101F; --accent-tint: rgba(79,163,255,.18); --stage: #060B16; --clip: #E8EFFF; --clip-ink: #0A1120; --aux: #5A6C8F; --good: #5FD3A0; --warn: #E5B454; --bad: #FF8484; color-scheme: dark; }
+:root[data-theme="sepia"] { --bg: #F1E8D6; --panel: #FAF4E5; --raised: #EADFC8; --line: #D2C4A5; --fg: #3A2E1D; --muted: #6B5C44; --accent: #A9490F; --accent-hover: #8E3B08; --on-accent: #FFFFFF; --accent-tint: rgba(169,73,15,.14); --stage: #E2D7BF; --clip: #3A2E1D; --clip-ink: #F1E8D6; --aux: #A39578; --good: #1F7A4C; --warn: #8A5A00; --bad: #B03030; color-scheme: light; }
+/* ---------- alto contraste (se suma al tema claro u oscuro) ---------- */
+html[data-contrast="1"][data-scheme="dark"] { --bg: #000000; --panel: #000000; --raised: #0E0E0E; --line: #A8A8A8; --fg: #FFFFFF; --muted: #E0E0E0; --accent: #FFD60A; --accent-hover: #FFE45C; --on-accent: #000000; --accent-tint: rgba(255,214,10,.22); --stage: #000000; --clip: #FFFFFF; --clip-ink: #000000; --aux: #BDBDBD; --good: #4DFFB0; --warn: #FFD60A; --bad: #FF8A8A; }
+html[data-contrast="1"][data-scheme="light"] { --bg: #FFFFFF; --panel: #FFFFFF; --raised: #F0F0F0; --line: #4A4A4A; --fg: #000000; --muted: #262626; --accent: #0030C8; --accent-hover: #001F8F; --on-accent: #FFFFFF; --accent-tint: rgba(0,48,200,.16); --stage: #EDEDED; --clip: #000000; --clip-ink: #FFFFFF; --aux: #404040; --good: #006B3C; --warn: #6B4A00; --bad: #A00000; }
+html[data-contrast="1"] :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+html[data-contrast="1"] .btn, html[data-contrast="1"] .input, html[data-contrast="1"] select, html[data-contrast="1"] .seg, html[data-contrast="1"] .chips button, html[data-contrast="1"] .tmenu, html[data-contrast="1"] .dockmenu, html[data-contrast="1"] .modal { border: 2px solid var(--fg); }
+html[data-contrast="1"] .btn-p { border-color: var(--accent); } html[data-contrast="1"] .btn-g { border-color: transparent; }
+html[data-contrast="1"] .panel-col, html[data-contrast="1"] .rail, html[data-contrast="1"] .p-timeline, html[data-contrast="1"] .viewer { border-color: var(--line); }
+html[data-contrast="1"] .clip { outline: 1px solid var(--fg); outline-offset: -1px; }
+/* ---------- selección que no depende solo del color ---------- */
+html[data-marks="1"] .seg button[aria-pressed="true"]::before, html[data-marks="1"] .chips button[aria-pressed="true"]::before, html[data-marks="1"] .grchip[aria-pressed="true"]::before { content: "✓"; margin-right: .4em; font-weight: 800; }
+html[data-marks="1"] .trtile[aria-pressed="true"], html[data-marks="1"] .subpr[aria-pressed="true"], html[data-marks="1"] .pickcard[aria-pressed="true"], html[data-marks="1"] .sw[aria-pressed="true"], html[data-marks="1"] .msb[aria-pressed="true"], html[data-marks="1"] .mode[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: -3px; position: relative; }
+html[data-marks="1"] .trtile[aria-pressed="true"]::after, html[data-marks="1"] .subpr[aria-pressed="true"]::after, html[data-marks="1"] .pickcard[aria-pressed="true"]::after, html[data-marks="1"] .mode[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; display: grid; place-items: center; background: var(--fg); color: var(--bg); font-weight: 800; font-size: 13px; z-index: 4; }
+html[data-marks="1"] .layer.on, html[data-marks="1"] .lrow2.on, html[data-marks="1"] .segrow.on, html[data-marks="1"] .kfrow[aria-selected="true"], html[data-marks="1"] .mkn.on { outline: 2px solid var(--fg); outline-offset: -2px; }
+html[data-marks="1"] .clip.on, html[data-marks="1"] .lyrbar.on, html[data-marks="1"] .lseg.on { outline: 3px solid var(--fg); outline-offset: -3px; z-index: 4; }
+html[data-marks="1"] .tlb[aria-pressed="true"], html[data-marks="1"] .btn-g[aria-pressed="true"], html[data-marks="1"] .mtabs button[aria-pressed="true"] { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 5px; }
+html[data-marks="1"] .rail button[aria-selected="true"], html[data-marks="1"] .s-tabs button[aria-selected="true"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.colorin { width: 100%; max-width: 220px; height: 40px; padding: 2px; background: var(--raised); border: 1px solid var(--line); cursor: pointer; }
+.fieldgroup { display: grid; gap: 14px; } .cust { padding: 12px; border: 1px solid var(--line); background: var(--bg); }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.fieldgroup .check { justify-content: flex-start; text-align: left; } .fieldgroup .check span { flex: 1; }
+.colorin::-webkit-color-swatch-wrapper { padding: 2px; } .colorin::-webkit-color-swatch { border: 0; }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -30872,11 +30898,47 @@ module.exports = ZStream;
   const { h, t, clamp } = MC;
   MC.VERSION = '0.7';
 
+  /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
+  MC.THEMES = [
+    ['system', 'Según el sistema', 'System', null], ['dark', 'Oscuro', 'Dark', 'dark'], ['light', 'Claro', 'Light', 'light'], ['gray', 'Gris medio', 'Mid grey', 'dark'],
+    ['midnight', 'Azul noche', 'Midnight blue', 'dark'], ['sepia', 'Sepia', 'Sepia', 'light'], ['custom', 'Personalizado', 'Custom', null],
+  ];
+  const hex2 = (h0) => { const m = /^#?([0-9a-f]{6})$/i.exec(h0 || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const hex6 = (c) => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  const mixC = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  MC.contrastRatio = (a, b) => { const A = typeof a === 'string' ? hex2(a) : a, B = typeof b === 'string' ? hex2(b) : b; if (!A || !B) return 21; const l1 = lum(A), l2 = lum(B); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  /* colores de un tema personalizado a partir de la base, el acento y (opcional) el fondo */
+  MC.customTheme = () => {
+    const light = MC.store.get('cbase', 'dark') === 'light', acc = hex2(MC.store.get('caccent', '#8C7CFF')) || [140, 124, 255];
+    const bgc = hex2(MC.store.get('cbg', '')), W = [255, 255, 255], K = [0, 0, 0];
+    const bg = bgc || (light ? [243, 244, 246] : [15, 16, 18]), isLight = bgc ? lum(bg) > 0.4 : light;
+    const panel = bgc ? (isLight ? mixC(bg, W, 0.6) : mixC(bg, W, 0.05)) : (light ? [255, 255, 255] : [23, 25, 28]);
+    const raised = isLight ? mixC(bg, K, 0.04) : mixC(bg, W, 0.1), line = isLight ? mixC(bg, K, 0.16) : mixC(bg, W, 0.18), fg = isLight ? [21, 23, 26] : [236, 238, 240], muted = isLight ? mixC(fg, W, 0.4) : mixC(fg, K, 0.38);
+    const onAcc = MC.contrastRatio(acc, K) >= MC.contrastRatio(acc, W) ? [15, 16, 18] : [255, 255, 255];
+    return { scheme: isLight ? 'light' : 'dark', accent: acc, v: { '--bg': hex6(bg), '--panel': hex6(panel), '--raised': hex6(raised), '--line': hex6(line), '--fg': hex6(fg), '--muted': hex6(muted), '--stage': hex6(mixC(bg, K, isLight ? 0.08 : 0.4)),
+      '--accent': hex6(acc), '--accent-hover': hex6(mixC(acc, isLight ? K : W, 0.18)), '--on-accent': hex6(onAcc), '--accent-tint': 'rgba(' + acc.map(Math.round).join(',') + ',0.16)', '--clip': hex6(fg), '--clip-ink': hex6(bg) } };
+  };
+  const CUSTOM_VARS = ['--bg', '--panel', '--raised', '--line', '--fg', '--muted', '--stage', '--accent', '--accent-hover', '--on-accent', '--accent-tint', '--clip', '--clip-ink'];
+  MC.applyTheme = () => {
+    const r = document.documentElement, th = MC.store.get('theme', '') || 'system', def = MC.THEMES.find((q) => q[0] === th) || MC.THEMES[0];
+    if (th === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', th);
+    CUSTOM_VARS.forEach((k) => r.style.removeProperty(k));
+    let scheme = def[3];
+    if (th === 'custom') { const c = MC.customTheme(); scheme = c.scheme; Object.keys(c.v).forEach((k) => r.style.setProperty(k, c.v[k])); r.style.colorScheme = c.scheme; } else r.style.removeProperty('color-scheme');
+    if (!scheme) scheme = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    r.dataset.scheme = scheme;
+    r.dataset.contrast = MC.store.get('contrast', '0') === '1' ? '1' : '0';
+    r.dataset.marks = MC.store.get('marks', '1') === '0' ? '0' : '1';
+  };
+  if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { MC.applyTheme(); if (MC.studioApi && MC.studioApi.redraw) MC.studioApi.redraw(); }); } catch (e) { /* navegador antiguo */ } }
+
   /* ---------- ajustes de la interfaz ---------- */
   MC.applyPrefs = () => {
     const z = parseFloat(MC.store.get('uizoom', '1')) || 1;
     document.documentElement.style.setProperty('--ui-zoom', String(z));
     document.documentElement.dataset.motion = MC.store.get('motion', 'auto');
+    MC.applyTheme();
     /* modo táctil: automático (pantalla táctil), siempre o nunca */
     const tm = MC.store.get('touch', 'auto'), coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
     document.documentElement.dataset.touch = tm === 'on' || (tm === 'auto' && coarse) ? '1' : '0';
@@ -31076,11 +31138,33 @@ module.exports = ZStream;
       MC.clear(pane); await PANES[st.sec](pane);
     };
 
+    /* temas, color propio, alto contraste y marcas de selección */
+    const themeFields = (el, th) => {
+      const again = () => { MC.applyTheme(); if (MC.studioApi && MC.studioApi.redraw) MC.studioApi.redraw(); MC.clear(el); PANES.look(el); };
+      const pick = (v) => { MC.store.set('theme', v === 'system' ? '' : v); again(); };
+      const out = [h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.chips(MC.THEMES.map((q) => ({ v: q[0], l: t(q[1], q[2]) })), th, pick),
+        h('span', { class: 'cap' }, t('El oscuro es el predeterminado: deja que el dibujo sea lo único con color.', 'Dark is the default: it lets the artwork be the only thing with colour.')))];
+      if (th === 'custom') {
+        const base = MC.store.get('cbase', 'dark'), acc = MC.store.get('caccent', '#8C7CFF'), bg = MC.store.get('cbg', ''), c = MC.customTheme(), bgHex = c.v['--bg'];
+        const ratio = MC.contrastRatio(acc, bgHex), txt = MC.contrastRatio(c.v['--fg'], bgHex);
+        const colorIn = (label, val, key, id) => h('div', { class: 'field' }, h('label', { for: id, class: 'cap' }, label), h('input', { id, type: 'color', value: val, class: 'colorin', onInput: (e) => { MC.store.set(key, e.target.value); MC.applyTheme(); }, onChange: () => again() }));
+        out.push(h('div', { class: 'field cust' }, h('span', { class: 'cap' }, t('Tu tema', 'Your theme')),
+          MC.ui.seg([{ v: 'dark', l: t('Base oscura', 'Dark base') }, { v: 'light', l: t('Base clara', 'Light base') }], base, (v) => { MC.store.set('cbase', v); if (bg) MC.store.set('cbg', ''); again(); }, t('Base del tema', 'Theme base')),
+          colorIn(t('Color de acento (botones, selección, foco)', 'Accent colour (buttons, selection, focus)'), acc, 'caccent', 'cacc'),
+          colorIn(t('Color de fondo (opcional)', 'Background colour (optional)'), bg || bgHex, 'cbg', 'cbg'),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { MC.store.set('cbg', ''); again(); } }, t('Quitar el fondo propio', 'Remove custom background')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => { ['caccent', 'cbg', 'cbase'].forEach((k) => MC.store.set(k, '')); again(); } }, t('Restablecer', 'Reset'))),
+          h('p', { class: 'cap ' + (ratio < 3 ? 'bad' : 'good'), role: 'status' }, ratio < 3 ? t('Ojo: el acento casi no se distingue del fondo (', 'Careful: the accent barely stands out from the background (') + ratio.toFixed(1) + ':1). ' + t('Elige uno más claro o más oscuro.', 'Pick a lighter or darker one.') : t('Contraste del acento con el fondo: ', 'Accent contrast with the background: ') + ratio.toFixed(1) + ':1 ✓'),
+          txt < 4.5 ? h('p', { class: 'cap bad', role: 'status' }, t('El texto sobre este fondo tiene poco contraste (', 'Text on this background has low contrast (') + txt.toFixed(1) + ':1).') : null));
+      }
+      out.push(h('div', { class: 'field' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: MC.store.get('contrast', '0') === '1', onChange: (e) => { MC.store.set('contrast', e.target.checked ? '1' : '0'); MC.applyTheme(); } }), h('span', null, t('Alto contraste (negro y blanco puros, bordes marcados y foco grueso)', 'High contrast (pure black and white, strong borders and a thick focus ring)'))),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: MC.store.get('marks', '1') !== '0', onChange: (e) => { MC.store.set('marks', e.target.checked ? '1' : '0'); MC.applyTheme(); } }), h('span', null, t('Marcar lo seleccionado con borde y símbolo ✓, no solo con color', 'Mark the selection with a border and a ✓ symbol, not only with colour')))));
+      return h('div', { class: 'fieldgroup' }, ...out);
+    };
     const PANES = {
       async look(el) {
         const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system';
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),
-          h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tema', 'Theme')), MC.ui.seg([{ v: 'system', l: t('Según el sistema', 'System') }, { v: 'dark', l: t('Oscuro', 'Dark') }, { v: 'light', l: t('Claro', 'Light') }], th, (v) => { if (v === 'system') { document.documentElement.removeAttribute('data-theme'); MC.store.set('theme', ''); } else { document.documentElement.setAttribute('data-theme', v); MC.store.set('theme', v); } if (MC.studioApi) MC.studioApi.redraw(); }, t('Tema', 'Theme')), h('span', { class: 'cap' }, t('El oscuro es el predeterminado: deja que el dibujo sea lo único con color.', 'Dark is the default: it lets the artwork be the only thing with colour.'))),
+          themeFields(el, th),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Tamaño de la interfaz', 'Interface size')), MC.ui.seg([['0.7', '70 %'], ['0.8', '80 %'], ['0.9', '90 %'], ['1', '100 %'], ['1.15', '115 %'], ['1.3', '130 %'], ['1.5', '150 %']].map((q) => ({ v: q[0], l: q[1] })), z, (v) => { MC.store.set('uizoom', v); MC.applyPrefs(); if (MC.studioApi) MC.studioApi.refit(); }, t('Tamaño de la interfaz', 'Interface size'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Modo táctil (botones grandes, nombres al mantener pulsado)', 'Touch mode (big buttons, names on long press)')), MC.ui.seg([{ v: 'auto', l: t('Automático', 'Automatic') }, { v: 'on', l: t('Siempre', 'Always') }, { v: 'off', l: t('Nunca', 'Never') }], MC.store.get('touch', 'auto'), (v) => { MC.store.set('touch', v); MC.applyPrefs(); }, t('Modo táctil', 'Touch mode'))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animaciones de la interfaz', 'Interface animations')), MC.ui.seg([{ v: 'auto', l: t('Según el sistema', 'System default') }, { v: 'reduce', l: t('Reducidas', 'Reduced') }], mo, (v) => { MC.store.set('motion', v); MC.applyPrefs(); }, t('Animaciones', 'Animations')), h('span', { class: 'cap' }, t('Incluye las entradas al abrir un proyecto y al cambiar de espacio de trabajo.', 'Includes the entrances when opening a project and switching workspaces.'))),
@@ -31176,14 +31260,9 @@ module.exports = ZStream;
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), 'aria-label': t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Preferencias', 'Preferences'), 'aria-label': t('Preferencias', 'Preferences'), onClick: () => MC.openPrefs() }, MC.icon('gear'))));
 
-  MC.isLight = () => {
-    const a = document.documentElement.getAttribute('data-theme');
-    return a ? a === 'light' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
-  };
+  MC.isLight = () => document.documentElement.dataset.scheme === 'light';
   MC.toggleTheme = () => {
-    const v = MC.isLight() ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', v);
-    MC.store.set('theme', v);
+    MC.store.set('theme', MC.isLight() ? 'dark' : 'light'); MC.applyTheme();
     MC.app.render();
   };
 
@@ -35186,9 +35265,14 @@ module.exports = ZStream;
 
   async function boot() {
     MC.lang = MC.store.get('lang', (navigator.language || 'es').slice(0, 2) === 'en' ? 'en' : 'es');
+    /* primera vez en una tablet: la interfaz sube al 115–130 % para que los controles se toquen bien */
+    let autoZoom = null;
+    if (!MC.store.get('uizoom', '') && !MC.store.get('uizoom_auto', '') && window.matchMedia && matchMedia('(pointer: coarse)').matches) {
+      const short = Math.min(screen.width, screen.height), long = Math.max(screen.width, screen.height);
+      if (short >= 600 && long >= 900) { autoZoom = short <= 760 ? '1.3' : '1.15'; MC.store.set('uizoom', autoZoom); }
+      MC.store.set('uizoom_auto', '1');
+    }
     MC.applyPrefs();
-    const th = MC.store.get('theme', '');
-    if (th) document.documentElement.setAttribute('data-theme', th);
     await MC.db.ready();
     // primera vez: proyecto de ejemplo ya cargado
     if (!MC.store.get('seeded5', '')) {
@@ -35204,6 +35288,7 @@ module.exports = ZStream;
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); MC.installEvt = e; if (!MC.studioApi) MC.app.render(); });
     window.addEventListener('appinstalled', () => { MC.installEvt = null; });
     await MC.app.render();
+    if (autoZoom) setTimeout(() => MC.toast(t('Hemos puesto la interfaz al ', 'We set the interface to ') + Math.round(autoZoom * 100) + t(' % para tu tablet. Puedes cambiarlo en Preferencias.', '% for your tablet. You can change it in Preferences.'), { label: t('Cambiar', 'Change'), onClick: () => MC.openPrefs(), ms: 10000 }), 600);
     if (/[?&]new=1/.test(location.search)) { history.replaceState(null, '', location.pathname + location.hash); MC.newProjectDialog(); }
     if (!window.MC_PREVIEW && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       navigator.serviceWorker.register('./sw.js').then((reg) => {
