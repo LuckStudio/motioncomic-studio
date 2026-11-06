@@ -2,7 +2,7 @@
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.18'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.19'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -194,9 +194,11 @@
   MC.openHelp = (tab) => {
     const st = { tab: tab || 'tutorials' }, body = h('div', { style: { display: 'grid', gap: '16px' } });
     let modal = null, capturing = null;
-    const draw = () => { MC.clear(body); MC.put(body, MC.ui.seg([{ v: 'tutorials', l: t('Tutoriales', 'Tutorials') }, { v: 'keys', l: t('Atajos', 'Shortcuts') }, { v: 'settings', l: t('Ajustes', 'Settings') }, { v: 'about', l: t('Acerca de', 'About') }], st.tab, (v) => { st.tab = v; draw(); }, t('Secciones de la ayuda', 'Help sections')), tabs[st.tab]()); };
+    const draw = () => { MC.clear(body); MC.put(body, MC.ui.seg([{ v: 'tutorials', l: t('Tutoriales', 'Tutorials') }, { v: 'learn', l: t('Aprender', 'Learn') }, { v: 'keys', l: t('Atajos', 'Shortcuts') }, { v: 'settings', l: t('Ajustes', 'Settings') }, { v: 'about', l: t('Acerca de', 'About') }], st.tab, (v) => { st.tab = v; draw(); }, t('Secciones de la ayuda', 'Help sections')), tabs[st.tab]()); };
 
     const tabs = {
+      learn: () => h('div', { style: { display: 'grid', gap: '8px' } }, h('p', { class: 'cap' }, t('«Aprender: edita tu propio vídeo» es un curso práctico dentro del estudio que comprueba tus avances. Por ahora solo en español.', '“Learn: edit your own video” is a hands-on course inside the studio. For now only in Spanish; English is coming soon.')),
+        h('button', { class: 'btn btn-p btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { modal.close(); MC.openLearn(); } }, t('Abrir el curso', 'Open the course'))),
       tutorials: () => h('div', { style: { display: 'grid', gap: '8px' } },
         h('p', { class: 'cap' }, t('Recorridos cortos sobre el propio estudio. Se abren con el proyecto de ejemplo si aún no tienes uno abierto.', 'Short walk-throughs on the studio itself. They open with the example project if none is open yet.')),
         TOURS.map((x) => h('div', { class: 'layer', style: { cursor: 'default' } }, h('span', { class: 'ln' }, h('b', null, t(x.es[0], x.en[0])), h('span', { class: 'cap', style: { display: 'block', whiteSpace: 'normal' } }, t(x.es[1], x.en[1]))),

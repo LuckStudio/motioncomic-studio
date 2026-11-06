@@ -571,9 +571,16 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - Cada rombo de una fila pertenece a esa propiedad: **arrástralo** para cambiar su instante sin mover las demás (si el fotograma llevaba más propiedades, se separa en uno nuevo; si ya hay uno en ese instante, se une a él). **Doble pulsación** en una fila crea un fotograma solo de esa propiedad. **Clic derecho** en un rombo: ir a él, suave o lineal, «Eliminar solo …» (esa propiedad) o eliminar el fotograma entero. Pulsar el nombre de una fila la elige para el editor de curvas.
 - Una pulsación sencilla en una fila vacía no mueve el cabezal (usa la regla o pulsa un rombo).
 
+## Aprender: edita tu propio vídeo (0.19, primera entrega)
+
+- Curso práctico **dentro del estudio**, solo en español (en inglés dice «Coming soon»). Se abre desde la tarjeta de la pantalla de inicio o desde Ayuda → Aprender.
+- Cada lección es una lista de pasos que te piden hacer algo **en tu proyecto**; el programa lo comprueba solo (cada medio segundo) y marca «¡Hecho!». «Mostrar dónde» resalta la parte de la interfaz, «Saltar» pasa de paso y «Atrás» vuelve. Un panel flotante abajo a la derecha te acompaña sin tapar el visor; cerrarlo guarda por dónde vas y «Continuar» te devuelve ahí. Si no hay proyecto abierto, empieza con el de ejemplo; también sirve el tuyo.
+- Contenido de esta entrega: módulo 1 «Tu primer vídeo» (importar, profundidad y cámara, varios planos, texto, exportar) y módulo 2 «Dar vida y pulir» (fotogramas clave, alinear, subtítulos y zonas seguras), un **reto** por módulo, **glosario** con buscador (20 términos) y barra de progreso. El progreso se guarda en este equipo y se puede borrar.
+- Se irá ampliando con más lecciones. Código: `src/js/learn.js` (el curso es una lista de datos: cada paso lleva su texto y su comprobación).
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.18): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.19): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
