@@ -133,3 +133,8 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Menú contextual con clic derecho o pulsación larga en planos, capas, clips, textos, superposiciones, fotogramas clave y pistas.
 - Pellizco y arrastre con dos dedos en la línea de tiempo y el visor; desplazamiento con un dedo en el fondo.
 - Modo de precisión para arrastres finos y aviso con botón Deshacer al eliminar.
+
+## Teclado y lectores de pantalla
+
+- Visor enfocable con Tab, flechas y +/-; navegación por la línea de tiempo con flechas; recorte de bordes con Alt+Mayús+flechas.
+- Regiones con nombre, h1, enlaces para saltar, F6 y Alt+1…5 entre paneles; hoja de atajos con ? según el espacio de trabajo.

@@ -313,6 +313,8 @@ Un espacio propio, la pestaña **Subtítulos** de «Texto, FX y audio»:
 - **Gestos con dos dedos**: pellizcar acerca o aleja la línea de tiempo y el visor, y arrastrar con dos dedos los desplaza. Con un dedo sobre el fondo vacío de la línea de tiempo también se desplaza.
 - **Precisión**: el botón de la cruz de la barra de la línea de tiempo (o mantener Mayús durante el arrastre) hace que rombos, bordes y clips se muevan a un cuarto de velocidad, útil con el dedo o el lápiz.
 - **Deshacer sin teclado**: al eliminar un plano, una capa o un clip sale un aviso con un botón **Deshacer**.
+- **Teclado y lectores de pantalla**: el visor se puede enfocar (**Tab** pasa de capa en capa, las **flechas** mueven la capa, superposición o texto seleccionados, con **Mayús** más, y **+** y **−** cambian su tamaño). En la línea de tiempo, al llegar con Tab, las flechas pasan de un clip al de al lado, arriba o abajo; **Alt + Mayús + flechas** recortan el final (← →) y el principio (↑ ↓), con Ctrl en pasos de 1 s. **F6** (o **Alt + 1 … 5**) salta entre Visor, Línea de tiempo, Herramientas, Capas y Propiedades. Hay títulos y regiones con nombre, un `h1` y enlaces «Saltar a…» al principio.
+- **Hoja de atajos** con **?**: muestra los atajos del espacio de trabajo en el que estás y los generales, con un botón para personalizarlos.
 - **Tamaño de la interfaz** del 70 % al 150 % para adaptarla a cada pantalla (menú de la barra superior).
 - **Zoom y desplazamiento del visor** (Ctrl + rueda; rueda pulsada o Alt + arrastrar), **reglas** en píxeles y **vista lateral de profundidad** para colocar las capas en el eje Z arrastrándolas.
 - **Tabla de traducción** con todos los textos y una columna por idioma.

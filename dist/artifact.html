@@ -684,6 +684,19 @@ html[data-touch="1"] .clip .cvx { width: 44px; } html[data-touch="1"] .clip .rz 
 html[data-touch="1"] .toast .tact { min-height: 44px; padding-inline: 18px; }
 .tl-scroll { touch-action: none; } .stage { touch-action: none; }
 
+/* ---------- teclado y lectores de pantalla ---------- */
+.skiplinks { position: absolute; left: 0; top: 0; z-index: 400; display: flex; gap: 6px; pointer-events: none; }
+.skiplinks button { position: absolute; left: -9999px; top: 8px; pointer-events: auto; background: var(--accent); color: #fff; border: 2px solid #fff; padding: 10px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.skiplinks button:focus { position: static; left: auto; margin: 8px 0 0 8px; }
+.stage canvas:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.clip:focus-visible, .lyrbar:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; z-index: 5; }
+[data-reg]:focus { outline: none; } [data-reg]:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.ks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; max-height: 70vh; overflow-y: auto; padding-right: 6px; }
+.kssec h3 { font-size: 14px; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.kssec.hot { grid-column: 1 / -1; background: var(--raised); padding: 10px 14px; border-left: 3px solid var(--accent); } .kssec.hot h3 { color: var(--accent); }
+.ksrow { display: flex; gap: 12px; align-items: baseline; padding: 4px 0; font-size: 14px; } .kskeys { display: inline-flex; gap: 4px; flex-wrap: wrap; min-width: 150px; max-width: 190px; }
+.ks kbd { font: 600 12px/1 var(--mono, ui-monospace, monospace); background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px; padding: 4px 7px; color: var(--fg); }
+
 </style>
 <div id="app"></div>
 <script>window.MC_PREVIEW = true;</script>
@@ -30745,7 +30758,7 @@ module.exports = ZStream;
     { id: 'end', g: 'play', es: 'Ir al final', en: 'Go to end' },
     { id: 'prevShot', g: 'play', es: 'Plano anterior', en: 'Previous shot' },
     { id: 'nextShot', g: 'play', es: 'Plano siguiente', en: 'Next shot' },
-    { id: 'split', g: 'edit', es: 'Dividir el clip de audio en el cabezal', en: 'Split the audio clip at the playhead' },
+    { id: 'split', g: 'edit', es: 'Dividir lo seleccionado en el cabezal', en: 'Split the selection at the playhead' },
     { id: 'delete', g: 'edit', es: 'Eliminar lo seleccionado', en: 'Delete selection' },
     { id: 'undo', g: 'edit', es: 'Deshacer', en: 'Undo' },
     { id: 'redo', g: 'edit', es: 'Rehacer', en: 'Redo' },
@@ -32070,6 +32083,7 @@ module.exports = ZStream;
 
     /* ---------- barra superior ---------- */
     function renderTop() {
+      if (el.h1) el.h1.textContent = 'MotionComic Studio · ' + (S.project.name || t('Sin título', 'Untitled'));
       const wsBtn = (v) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.ws === v), title: t(WS[v].es, WS[v].en), onClick: () => setWs(v) }, MC.icon(WS[v].icon, 18), h('span', null, t(WS[v].es, WS[v].en)));
       el.status = h('span', { class: 'status', 'aria-live': 'polite' });
       el.jobChip = h('button', { class: 'btn btn-s btn-sm', type: 'button', hidden: true, onClick: openExport });
@@ -34484,7 +34498,7 @@ module.exports = ZStream;
     el.layersBody = h('div', { class: 'pbody' });
     el.inspBody = h('div', { class: 'pbody insp' });
     el.vbar = h('div', { class: 'vbar', role: 'toolbar', 'aria-label': t('Herramientas del visor', 'Viewer tools') });
-    el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer') });
+    el.canvas = h('canvas', { 'aria-label': t('Visor del plano', 'Shot viewer'), tabindex: '0', role: 'application', 'aria-describedby': 'mc-vhint' });
     el.empty = h('div', { class: 'drop' }, h('div', { class: 'in' }, MC.icon('image', 28),
       h('div', null, S.project.mode === 'page' ? t('Arrastra aquí tus páginas (PNG, JPEG, WebP, PSD o PDF). Se detectan las viñetas.', 'Drag your pages here (PNG, JPEG, WebP, PSD or PDF). Panels are detected.') : S.project.mode === 'webtoon' ? t('Arrastra aquí tu tira vertical, o varias imágenes para apilarlas.', 'Drag your vertical strip here, or several images to stack them.') : t('Arrastra aquí tus ilustraciones. Cada archivo será una capa.', 'Drag your artwork here. Each file becomes a layer.')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: () => fileLayers.click() }, MC.icon('upload', 15), t('Importar', 'Import'))));
@@ -34511,7 +34525,7 @@ module.exports = ZStream;
     el.colR = el.rightEl = h('div', { class: 'sidecol colR' }, layersPanel, propsPanel, el.hCr = handle('right', 'l', t('Ancho de la columna derecha', 'Right column width')));
     el.hCl.className = 'pz pz-r';
     const exportPanel = el.exportEl = h('div', { class: 'panel-col p-export' }, h('div', { class: 'ph' }, h('h3', null, t('Exportar', 'Export'))), el.exportHost);
-    const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage,
+    const viewer = el.viewerEl = h('div', { class: 'viewer' }, el.vbar, el.stage, h('p', { id: 'mc-vhint', class: 'sr-only' }, t('Visor. Tab pasa de capa en capa, las flechas mueven lo seleccionado (con Mayús, más), más y menos cambian el tamaño. F6 salta de panel en panel.', 'Viewer. Tab moves from layer to layer, arrow keys move the selection (with Shift, more), plus and minus resize it. F6 jumps between panels.')),
       h('div', { class: 'tbar' },
         h('button', { class: 'btn btn-g btn-ic', type: 'button', title: t('Ir al inicio (Inicio)', 'Go to start (Home)'), 'aria-label': t('Ir al inicio', 'Go to start'), onClick: () => setTime(0) }, MC.icon('first')),
         el.play, el.loop, el.time,
@@ -34521,7 +34535,9 @@ module.exports = ZStream;
       h('div', { class: 'tl-body' }, el.tlLabels, h('div', { class: 'tl-scroll' }, el.tlContent)));
     const mtabs = h('div', { class: 'mtabs' }, [['panel', t('Panel', 'Panel')], ['props', t('Capas y propiedades', 'Layers and properties')], ['timeline', t('Línea', 'Timeline')]].map((x) =>
       h('button', { type: 'button', 'aria-pressed': String(S.mtab === x[0]), onClick: (e) => { S.mtab = x[0]; studio.dataset.mtab = x[0]; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false')); e.currentTarget.setAttribute('aria-pressed', 'true'); } }, x[1])));
-    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab }, el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
+    const studio = h('div', { class: 'studio enter', 'data-ws': S.ws, 'data-tl': WS[S.ws].tl, 'data-mtab': S.mtab },
+      h('div', { class: 'skiplinks' }, [['viewer', 'Saltar al visor', 'Skip to the viewer'], ['timeline', 'Saltar a la línea de tiempo', 'Skip to the timeline'], ['props', 'Saltar a las propiedades', 'Skip to properties']].map((q) => h('button', { type: 'button', onClick: () => focusRegion(q[0]) }, t(q[1], q[2])))),
+      el.h1 = h('h1', { class: 'sr-only' }, ''), el.top, el.sMain = h('div', { class: 's-main' }, el.rail, el.leftEl, el.colL, el.vghost = h('div', { class: 'vghost' }, h('p', null, t('El visor está en otra ventana.', 'The viewer is in another window.')), h('button', { class: 'btn btn-s', type: 'button', onClick: () => dockBack('viewer') }, MC.icon('undo', 14), t('Traerlo de vuelta', 'Bring it back'))), viewer, el.colR, exportPanel), mtabs, timeline, fileLayers, fileOver, fileOv, fileShots, fileAudio);
     setTimeout(() => studio.classList.remove('enter'), 1400);
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
@@ -34940,6 +34956,119 @@ module.exports = ZStream;
         () => { vz = null; });
     }
 
+    /* ---------- teclado, regiones con nombre y lectores de pantalla ---------- */
+    const REGIONS = { viewer: ['Visor', 'Viewer'], timeline: ['Línea de tiempo', 'Timeline'], tools: ['Herramientas', 'Tools'], layers: ['Capas', 'Layers'], props: ['Propiedades', 'Properties'] };
+    const regionNode = (id) => ({ viewer: viewer, timeline: timeline, tools: el.leftEl, layers: layersPanel, props: propsPanel })[id];
+    function labelRegions() {
+      Object.keys(REGIONS).forEach((id) => { const n = regionNode(id); n.setAttribute('role', 'region'); n.setAttribute('aria-label', t(REGIONS[id][0], REGIONS[id][1])); n.dataset.reg = id; n.tabIndex = -1; });
+      el.rail.dataset.reg = 'tools'; el.top.setAttribute('role', 'banner'); el.top.setAttribute('aria-label', t('Barra del estudio', 'Studio bar'));
+    }
+    function focusRegion(id) {
+      const n = regionNode(id); if (!n || !n.isConnected || !n.getClientRects().length) return false;
+      try { n.ownerDocument.defaultView.focus(); } catch (e) { /* sin foco de ventana */ }
+      let f = null;
+      if (id === 'viewer') f = el.canvas;
+      else if (id === 'timeline') f = n.querySelector('.clip.on, .lyrbar.on') || n.querySelector('.clip[tabindex]') || n.querySelector('[data-tb]:not(:disabled)');
+      else if (id === 'tools') f = el.rail.querySelector('[aria-selected="true"]') || n.querySelector('button, input, select');
+      else if (id === 'layers') f = n.querySelector('.lrow2.on') || n.querySelector('.lrow2') || n.querySelector('select, .btn:not(.grip-btn)');
+      else f = el.inspBody.querySelector('input:not([type="hidden"]), select, textarea, button') || n.querySelector('.btn:not(.grip-btn)');
+      (f || n).focus(); MC.announce(t(REGIONS[id][0], REGIONS[id][1])); return true;
+    }
+    function cycleRegion(dir) {
+      const ids = Object.keys(REGIONS).filter((id) => { const n = regionNode(id); return n && n.isConnected && n.getClientRects().length; });
+      const cur = ids.findIndex((id) => { const n = regionNode(id), a = n.ownerDocument.activeElement, r = a && a.closest && a.closest('[data-reg]'); return r && r.dataset.reg === id; });
+      for (let k = 1; k <= ids.length; k++) { const id = ids[(cur + dir * k + ids.length * 2) % ids.length]; if (focusRegion(id)) return; }
+    }
+    /* flechas, Tab y +/- sobre el visor: mueven la capa, la superposición o el texto seleccionados */
+    function viewerKey(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const sh = shot(); if (!sh) return;
+      if (e.key === 'Tab') {
+        const n = sh.layers.length; if (!n) return; const order = sh.layers.map((l, i) => i).reverse(); /* de arriba (más cerca) a abajo */
+        let k = S.selKind === 'layer' ? order.indexOf(S.li) : -1; k += e.shiftKey ? -1 : 1;
+        if (k < 0 || k >= order.length) { if (S.selKind === 'layer') { /* sale del visor */ } return; }
+        e.preventDefault(); S.li = order[k]; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; renderLayers(); renderInspector(); renderTimeline(); S.dirty = true; MC.announce(sh.layers[S.li].name + t(', capa ', ', layer ') + (k + 1) + t(' de ', ' of ') + n); return;
+      }
+      const step = e.shiftKey ? 0.02 : 0.004, dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0, dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0, sc = e.key === '+' || e.key === '=' ? 1.03 : e.key === '-' ? 1 / 1.03 : 0;
+      if (!dx && !dy && !sc) return;
+      let it = null;
+      if (S.selKind === 'layer' && layer() && !layer().locked) it = layer(); else if (S.selKind === 'overlay' && S.ov && ovById(S.ov) && !ovById(S.ov).locked) it = ovById(S.ov); else if (S.selKind === 'text' && S.tx && txById(S.tx) && txById(S.tx).kind !== 'sub') it = txById(S.tx);
+      if (!it) return;
+      e.preventDefault(); e.stopPropagation();
+      if (sc) { if (it.kind !== undefined && it.size != null && it.scale == null) it.size = clamp(it.size * sc, 0.01, 0.4); else it.scale = clamp((it.scale || 1) * sc, 0.1, 4); }
+      else { it.x = clamp(Math.round(((it.x || 0) + dx) * 1000) / 1000, -1.5, 1.5); it.y = clamp(Math.round(((it.y || 0) + dy) * 1000) / 1000, -1.5, 1.5); }
+      S.dirty = true; touch(); clearTimeout(viewerKey.t); viewerKey.t = setTimeout(() => { commit(); }, 400);
+      MC.announce(sc ? t('Escala ', 'Scale ') + (it.scale ? it.scale.toFixed(2) : '') : t('Posición ', 'Position ') + Math.round((it.x || 0) * 100) + ', ' + Math.round((it.y || 0) * 100));
+    }
+    /* línea de tiempo con teclado: vecino geométrico de un clip */
+    function neighborClip(c, key) {
+      const all = [...el.tlContent.querySelectorAll('.clip[tabindex], .lyrbar[tabindex]')].filter((n) => n !== c && n.getClientRects().length), r = c.getBoundingClientRect();
+      const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; let best = null, bd = Infinity;
+      all.forEach((n) => {
+        const q = n.getBoundingClientRect(), qx = (q.left + q.right) / 2, qy = (q.top + q.bottom) / 2, ovV = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top), ovH = Math.min(r.right, q.right) - Math.max(r.left, q.left);
+        let d = Infinity;
+        if (key === 'ArrowRight' && q.left >= r.right - 2 && ovV > 2) d = q.left - r.right;
+        else if (key === 'ArrowLeft' && q.right <= r.left + 2 && ovV > 2) d = r.left - q.right;
+        else if (key === 'ArrowDown' && qy > cy + 2 && q.top >= r.bottom - 4) d = (q.top - r.bottom) * 10 + Math.abs(qx - cx) / 100 - Math.max(0, ovH) / 1000;
+        else if (key === 'ArrowUp' && qy < cy - 2 && q.bottom <= r.top + 4) d = (r.top - q.bottom) * 10 + Math.abs(qx - cx) / 100 - Math.max(0, ovH) / 1000;
+        if (d < bd) { bd = d; best = n; }
+      });
+      return best;
+    }
+    function kbTrim(c, e) {
+      const sel = c.classList.contains('lyrbar') ? '.lyrbar[data-si="' + c.dataset.si + '"][data-li="' + c.dataset.li + '"]' : c.dataset.c ? '.clip[data-c="' + c.dataset.c + '"]' : c.dataset.x ? '.clip[data-x="' + c.dataset.x + '"]' : c.dataset.o ? '.clip[data-o="' + c.dataset.o + '"]' : c.dataset.xs ? '.clip[data-xs="' + c.dataset.xs + '"]' : c.dataset.i != null ? '.clip[data-i="' + c.dataset.i + '"]' : null;
+      const rc = ctxFor({ target: c, clientX: c.getBoundingClientRect().left + 4 }); if (!rc) return;
+      const T = tgt(), d = e.ctrlKey ? 1 : 0.1, end = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+      if (!T || T.linked) return;
+      const it = T.it, p = S.project;
+      if (end) {
+        const dd = e.key === 'ArrowRight' ? d : -d;
+        if (T.k === 'shot') { if (it.page || it.webtoon) return; it.duration = clamp(round2(it.duration + dd), 0.3, 120); }
+        else if (T.k === 'layer') { const sh = shot(), te = (it.te == null ? sh.duration : it.te) + dd; it.te = te >= sh.duration - 0.01 ? null : clamp(round2(te), (it.ts || 0) + 0.2, sh.duration); }
+        else it.dur = clamp(round2(it.dur + dd), 0.1, 600);
+      } else {
+        const dd = e.key === 'ArrowUp' ? d : -d; /* ↑ acorta el principio, ↓ lo alarga */
+        if (T.k === 'shot') { if (it.page || it.webtoon) return; it.duration = clamp(round2(it.duration - dd), 0.3, 120); }
+        else if (T.k === 'layer') { const sh = shot(), te = it.te == null ? sh.duration : it.te; it.ts = clamp(round2((it.ts || 0) + dd), 0, te - 0.2); if (it.ts <= 0) delete it.ts; }
+        else if (T.k === 'clip' || T.k === 'overlay' || T.k === 'text') {
+          const off = T.k === 'text' ? 0 : (it.offset || 0), dd2 = dd < 0 ? -Math.min(-dd, T.k === 'text' ? it.start : Math.min(it.start, off)) : Math.min(dd, it.dur - 0.1);
+          it.start = round2(it.start + dd2); it.dur = round2(it.dur - dd2); if (T.k === 'clip') it.offset = (it.offset || 0) + dd2; else if (T.k === 'overlay') it.offset = (it.offset || 0) + dd2 * (it.speed || 1);
+        }
+      }
+      commit(); MC.announce((end ? t('Final: ', 'End: ') : t('Principio: ', 'Start: ')) + (T.k === 'shot' ? it.duration.toFixed(1) : '') + ' s');
+      setTimeout(() => { const n = sel && el.tlContent.querySelector(sel); if (n) n.focus(); }, 0);
+    }
+    function wireKb() {
+      el.tlContent.addEventListener('keydown', (e) => {
+        const c = e.target; if (!c || !c.matches || !c.matches('.clip[tabindex], .lyrbar[tabindex]')) return;
+        const ar = e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown';
+        if (!ar) return;
+        if (e.altKey && e.shiftKey) { e.preventDefault(); e.stopPropagation(); kbTrim(c, e); return; }
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !c.matches(':focus-visible')) return;
+        e.preventDefault(); e.stopPropagation();
+        const n = neighborClip(c, e.key); if (n) { n.focus(); n.scrollIntoView({ block: 'nearest', inline: 'nearest' }); MC.announce(n.getAttribute('aria-label') || ''); }
+      }, true);
+      el.canvas.addEventListener('keydown', viewerKey);
+    }
+    /* hoja de atajos (?) según el espacio de trabajo */
+    function shortcutSheet() {
+      const K = MC.keys, kb = (id) => K.bindings(id).map(K.pretty).join(' / ') || '—', row = (keys, txt) => h('div', { class: 'ksrow' }, h('span', { class: 'kskeys' }, keys.split(' o ').map((q) => h('kbd', null, q))), h('span', null, txt));
+      const act = (id) => { const a = K.ACTIONS.find((x) => x.id === id); return row(kb(id).replace(/ \/ /g, ' o '), a ? t(a.es, a.en) : id); };
+      const sec = (title, rows, hot) => h('section', { class: 'kssec' + (hot ? ' hot' : '') }, h('h3', null, title), ...rows);
+      const ws = S.ws, tab = curTab();
+      const ctxRows = ws === 'creativo' && tab === 'subtitulos' ? [row('Intro', t('Marcar la palabra que se dice en el cabezal', 'Mark the word being said at the playhead')), row('.', t('Marcar un silencio', 'Mark a silence')), row('Retroceso', t('Quitar la última marca', 'Remove the last mark'))]
+        : ws === 'exportar' ? [act('export')] : ws === 'creativo' ? [act('addBubble'), row('Intro o Espacio', t('Pulsar el botón enfocado', 'Press the focused button'))] : [row('V', t('Herramienta de selección', 'Select tool')), row('X', t('Cuchilla: pulsa un clip para cortarlo', 'Blade: click a clip to cut it')), row('Q o W', t('Recortar el principio o el final hasta el cabezal', 'Trim the start or the end to the playhead')), row('N', t('Imán activado o desactivado', 'Magnet on or off')), act('split'), act('marker')];
+      const body = h('div', { class: 'ks' },
+        sec(ws === 'montaje' ? t('Montaje', 'Edit') : ws === 'creativo' ? t('Efectos y audio', 'Effects and audio') : t('Exportar', 'Export'), ctxRows, true),
+        sec(t('Reproducción', 'Playback'), ['play', 'stepBack', 'stepFwd', 'secBack', 'secFwd', 'start', 'end', 'prevShot', 'nextShot', 'back1', 'pause', 'forward'].map(act)),
+        sec(t('Edición', 'Editing'), ['delete', 'undo', 'redo', 'duplicate', 'selectAll', 'save', 'tapBeat'].map(act)),
+        sec(t('Línea de tiempo con teclado', 'Timeline by keyboard'), [row('Tab', t('Entrar en la línea de tiempo y pasar de clip en clip', 'Enter the timeline and move clip by clip')), row('← → ↑ ↓', t('Pasar al clip de al lado, de arriba o de abajo (tras llegar con Tab)', 'Go to the clip beside, above or below (after arriving with Tab)')), row('Intro', t('Seleccionar el clip', 'Select the clip')), row('Alt + ← →', t('Mover el clip 0,1 s (con Mayús, 1 s)', 'Move the clip 0.1 s (with Shift, 1 s)')), row('Alt + Mayús + ← →', t('Recortar el final (con Ctrl, 1 s)', 'Trim the end (with Ctrl, 1 s)')), row('Alt + Mayús + ↑ ↓', t('Recortar el principio: ↑ lo acorta, ↓ lo alarga', 'Trim the start: ↑ shortens it, ↓ lengthens it')), act('zoomIn'), act('zoomOut')]),
+        sec(t('Visor con teclado', 'Viewer by keyboard'), [row('Alt + 1', t('Ir al visor', 'Go to the viewer')), row('Tab o Mayús + Tab', t('Pasar de capa en capa', 'Move from layer to layer')), row('← → ↑ ↓', t('Mover lo seleccionado (con Mayús, más)', 'Move the selection (with Shift, more)')), row('+ o -', t('Agrandar o reducir lo seleccionado', 'Enlarge or shrink the selection'))]),
+        sec(t('Paneles', 'Panels'), [row('F6 o Mayús + F6', t('Saltar al panel siguiente o anterior', 'Jump to the next or previous panel')), row('Alt + 1 … 5', t('Visor, línea de tiempo, herramientas, capas y propiedades', 'Viewer, timeline, tools, layers and properties')), act('fullscreen'), act('viewSwitch'), act('export')]),
+        sec(t('Ayuda', 'Help'), [act('help'), act('keys')]));
+      MC.modal(t('Atajos de teclado', 'Keyboard shortcuts'), body, (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: () => { close(); MC.openHelp('keys'); } }, t('Personalizar atajos…', 'Customise shortcuts…')), h('button', { class: 'btn btn-p', type: 'button', onClick: close }, t('Cerrar', 'Close'))], { wide: true });
+    }
+
     const ACT = {
       play: () => togglePlay(), pause: () => togglePlay(false), forward: () => togglePlay(true),
       back1: () => setTime(S.time - 1), stepBack: () => setTime(S.time - 1 / 30), stepFwd: () => setTime(S.time + 1 / 30), secBack: () => setTime(S.time - 1), secFwd: () => setTime(S.time + 1),
@@ -34953,7 +35082,7 @@ module.exports = ZStream;
       fullscreen: () => { const v = el.viewerEl; if (!v) return; if (v.ownerDocument.fullscreenElement) v.ownerDocument.exitFullscreen(); else if (v.requestFullscreen) v.requestFullscreen().catch(() => MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.'))); else MC.toast(t('Tu navegador no permite la pantalla completa aquí.', 'Your browser does not allow full screen here.')); },
       viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
       zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
-      export: () => openExport(), help: () => MC.openHelp(), keys: () => MC.openHelp('keys'),
+      export: () => openExport(), help: () => shortcutSheet(), keys: () => MC.openHelp('keys'),
       delete: () => {
         if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
         else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
@@ -34971,9 +35100,11 @@ module.exports = ZStream;
         else return false;
       },
     };
-    wireGestures(); wireCtx(studio);
+    wireGestures(); wireCtx(studio); labelRegions(); wireKb();
     { const del0 = ACT.delete; ACT.delete = (e) => { const n = S.hpos, r = del0(e); if (r !== false && S.hpos > n && !document.querySelector('.toast .tact')) undoToast(t('Eliminado', 'Deleted')); return r; }; }
     function onKey(e) {
+      if (S.alive && e.key === 'F6') { e.preventDefault(); cycleRegion(e.shiftKey ? -1 : 1); return; }
+      if (S.alive && e.altKey && !e.ctrlKey && !e.metaKey && /^Digit[1-5]$/.test(e.code) && !((e.target && e.target.ownerDocument) || document).querySelector('.scrim, .tour')) { e.preventDefault(); focusRegion(['viewer', 'timeline', 'tools', 'layers', 'props'][+e.code.slice(5) - 1]); return; }
       if (!S.alive || ((e.target && e.target.ownerDocument) || document).querySelector('.scrim, .tour') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Enter' && S.poly) { closePoly(); return; }
       if (e.key === 'Escape' && qAll('.ctxmenu').length) { closeCtx(); return; }

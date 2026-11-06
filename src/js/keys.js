@@ -16,7 +16,7 @@
     { id: 'end', g: 'play', es: 'Ir al final', en: 'Go to end' },
     { id: 'prevShot', g: 'play', es: 'Plano anterior', en: 'Previous shot' },
     { id: 'nextShot', g: 'play', es: 'Plano siguiente', en: 'Next shot' },
-    { id: 'split', g: 'edit', es: 'Dividir el clip de audio en el cabezal', en: 'Split the audio clip at the playhead' },
+    { id: 'split', g: 'edit', es: 'Dividir lo seleccionado en el cabezal', en: 'Split the selection at the playhead' },
     { id: 'delete', g: 'edit', es: 'Eliminar lo seleccionado', en: 'Delete selection' },
     { id: 'undo', g: 'edit', es: 'Deshacer', en: 'Undo' },
     { id: 'redo', g: 'edit', es: 'Rehacer', en: 'Redo' },
