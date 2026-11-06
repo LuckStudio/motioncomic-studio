@@ -11,6 +11,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/LuckStudio/motioncomic-studio">Repositorio en GitHub</a> ·
+  <a href="#instalación">Instalación</a> ·
+  <a href="#primeros-pasos">Primeros pasos</a> ·
+  <a href="#conexión-con-una-ia-mcp">Conexión con IA</a>
+</p>
+
+<p align="center">
   <img src="docs/img/inicio.png" alt="Pantalla de inicio de MotionComic Studio con una escena de cómic en parallax" width="900">
 </p>
 
@@ -27,6 +34,7 @@
 - [Funciones en detalle](#funciones-en-detalle)
 - [Archivos que acepta y que genera](#archivos-que-acepta-y-que-genera)
 - [Atajos de teclado](#atajos-de-teclado)
+- [Conexión con una IA (MCP)](#conexión-con-una-ia-mcp)
 - [Privacidad y datos](#privacidad-y-datos)
 - [Requisitos y límites](#requisitos-y-límites)
 - [Publicarlo en tu propia web](#publicarlo-en-tu-propia-web)
@@ -113,15 +121,15 @@ Subes una tira vertical larga (o varias imágenes, que se apilan en una) y la c�
 
 ## El estudio por dentro
 
-El estudio se organiza en **cinco espacios de trabajo**, cada uno con lo que necesitas para una tarea:
+El estudio se organiza en **tres espacios de trabajo**, cada uno con lo que necesitas para una tarea:
 
 | Espacio | Para qué sirve |
 |---|---|
-| **Montaje** | Ordenar planos o páginas, elegir el estilo de las viñetas y las transiciones, gestionar recursos, formato, aspecto general y «Mi estilo». |
-| **Cámara** | Encuadrar el inicio y el final de cada plano, dibujar trayectorias de cámara o corregir las viñetas de una página. |
-| **Capas y profundidad** | Colocar las capas en profundidad, ajustar el desenfoque y hacer cambios de foco entre capas (*rack focus*). |
-| **Texto, FX y audio** | Bocadillos, subtítulos, efectos de acción y ambiente, sonidos, mezclador e idiomas. |
-| **Exportar** | Elegir plataforma, calidad e idioma y sacar el MP4, la portada o los subtítulos. |
+| **Montaje** | Planos o páginas, viñetas, cámara, curvas, rack focus (cambios de foco entre capas), recursos, biblioteca, proyecto (formato y resumen), aspecto general, estilo y favoritos. |
+| **Efectos y audio** | Texto y bocadillos, subtítulos, efectos, transiciones, sonidos, música, mezclador e idiomas. |
+| **Exportar** | Plataforma, calidad e idioma, y salida a MP4, WebM, GIF, PNG, audio, portada o subtítulos. |
+
+Los paneles se pueden mover, redimensionar, ocultar o sacar a otra ventana, y la disposición se guarda con nombre (**vistas guardadas**).
 
 En la columna derecha, **Capas** y **Propiedades** muestran solo lo que corresponde a lo que tengas seleccionado (proyecto, plano, capa, texto, clip de audio, efecto, viñeta o pausa). Esc quita la selección.
 
@@ -407,6 +415,24 @@ En Mac, Ctrl es ⌘.
 
 ---
 
+## Conexión con una IA (MCP)
+
+Opcional y apagada por defecto. Un asistente de IA (Claude Desktop, Claude Code u otro cliente compatible con MCP) puede **abrir el estudio, crear un proyecto y añadir imágenes, vídeos o audio** de tu ordenador.
+
+1. Instala [Node.js](https://nodejs.org) 18 o superior.
+2. Descarga la carpeta [`tools/mcp`](tools/mcp) de este repositorio (o usa la que viene en el paquete publicado).
+3. Añádela a tu cliente de IA:
+
+```json
+{ "mcpServers": { "motioncomic": { "command": "node", "args": ["/ruta/a/tools/mcp/server.js"] } } }
+```
+
+4. Pide, por ejemplo: «abre MotionComic Studio y crea un proyecto 9:16 con estas imágenes…». Se abre el estudio emparejado y solo tienes que pulsar **Permitir**.
+
+Cómo se protege: el conector escucha solo en `127.0.0.1` con un código de emparejamiento, el estudio no se conecta nunca por sí solo, cada cambio pide permiso y se desconecta en un clic (**Preferencias → Conexión con IA**). Los cambios que hace la IA sobre un proyecto abierto van a una **versión IA** aparte: tu proyecto no se toca hasta que pulses **Aceptar** (y antes se guarda «Antes de la IA» en el historial). Herramientas disponibles: `abrir_estudio`, `estado`, `listar_proyectos`, `nuevo_proyecto`, `abrir_proyecto`, `anadir_recursos` y `crear_planos`.
+
+---
+
 ## Privacidad y datos
 
 - **Tus dibujos no salen de tu equipo.** No hay servidor, cuentas ni analíticas: la importación, la detección de viñetas, el audio y la exportación se hacen en tu navegador.
@@ -487,6 +513,10 @@ Abre `http://localhost:8000`.
 | `src/js/db.js` | Guardado local (IndexedDB) y modelo de proyecto. |
 | `src/js/sample.js` | Proyectos de ejemplo dibujados por código. |
 | `src/js/keys.js`, `help.js`, `prefs.js` | Atajos, ayuda y tutoriales, preferencias. |
+| `src/js/formats.js`, `style.js`, `presets.js` | Formatos y plataformas, «Mi estilo» y presets con nombre. |
+| `src/js/touch.js`, `uiconfig.js`, `update.js` | Modo táctil y gestos, interfaz personalizable y vistas guardadas, avisos de versión nueva. |
+| `src/js/motion.js`, `splash.js` | Animación de entrada y salida del estudio, pantalla de carga. |
+| `src/js/mcp.js`, `tools/mcp/server.js` | Conexión con IA: lado del estudio y conector local (Node.js, sin dependencias). |
 | `sw.js`, `manifest.webmanifest` | Modo sin conexión e instalación. |
 | `tools/` | `pack.js` (publicación), `serve.js` (servidor de prueba), `build.js` (archivo único de previsualización en `dist/`), `share.js` (imagen para compartir el enlace), `icons.js` (iconos PNG). |
 
@@ -511,3 +541,5 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 ## Créditos
 
 Hecho con cariño para mi gran amigo y artista **GotiDraw**.
+
+Código, novedades e incidencias: [github.com/LuckStudio/motioncomic-studio](https://github.com/LuckStudio/motioncomic-studio).

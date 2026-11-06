@@ -3,9 +3,19 @@
   const MC = window.MC;
   const { h, t } = MC;
 
+  const REPO = 'https://github.com/LuckStudio/motioncomic-studio';
+  /* enlace al repositorio: se abre en otra pestaña y avisa de ello a los lectores de pantalla */
+  const repoLink = (label) => {
+    const a = h('a', { class: 'btn btn-g btn-sm', href: REPO, target: '_blank', rel: 'noopener noreferrer', title: t('Código en GitHub (se abre en otra pestaña)', 'Source code on GitHub (opens in a new tab)') });
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.4-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>';
+    a.append(h('span', null, label || 'GitHub')); a.style.gap = '6px'; a.style.display = 'inline-flex'; a.style.alignItems = 'center';
+    return a;
+  };
+  MC.repoLink = repoLink;
+
   MC.topBar = (extra) => h('div', { class: 'top' },
     h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
-    h('div', { class: 'top-actions' }, extra,
+    h('div', { class: 'top-actions' }, extra, repoLink(),
       MC.installEvt && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); await ev.userChoice.catch(() => {}); MC.app.render(); } }, MC.icon('download', 14), t('Instalar la aplicación', 'Install the app')) : null,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), 'aria-label': t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
@@ -230,6 +240,7 @@
       h('footer', { class: 'foot' },
         h('span', null, MC.db.persistent ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.') : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar.', 'This browser does not allow saving here: changes will be lost on close.')),
         h('span', null, usage ? [h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)] : null),
+        repoLink(t('Código en GitHub', 'Source on GitHub')),
         h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('data') }, t('Datos guardados', 'Stored data')),
         h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('install') }, t('Instalar la aplicación', 'Install the app')))));
     drawGrid();

@@ -200,3 +200,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 ## Pantalla de carga
 
 - Tarjeta al abrir la aplicación con la imagen lateral editable (se guarda reducida en este equipo), crédito opcional, opción de ocultarla, vista previa y salto con toque o tecla. Imagen provisional: patrón de viñetas dibujado en un lienzo.
+
+## Bloque 1 del plan: bugs rápidos, enlace a GitHub y README
+
+- Selector de opciones (`ui.seg`): ahora recuerda la opción actual, así que se puede volver a la anterior sin cambiar de pestaña.
+- Doble clic: al escribir en un campo y pulsar otro control, el campo confirmaba al perder el foco, el panel se redibujaba y el clic se perdía. Ahora el redibujado se aplaza hasta soltar el botón (y se libera enseguida si se arrastra).
+- Enlace al repositorio de GitHub en el inicio (barra superior y pie) y en Preferencias → Acerca de.
+- README actualizado: tres espacios de trabajo, sección de conexión con IA, tabla de archivos al día y enlace al repositorio; README propio del conector MCP.

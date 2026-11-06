@@ -844,6 +844,7 @@ html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol
 .sp-set { display: flex; gap: 12px; align-items: flex-start; margin-top: 8px; } .sp-thumb { width: 84px; height: 100px; border-radius: 8px; border: 1px solid var(--line); background-size: cover; background-position: center; flex: none; }
 @media (max-width: 640px) { .sp-card { grid-template-columns: 1fr; grid-template-rows: 36% 1fr; height: min(560px, calc(100vh - 32px)); } .sp-img { order: -1; } .sp-copy { padding: 20px; } .sp-brand { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .splash, .sp-card { transition: none; animation: none; } }
+a.btn { text-decoration: none; }
 
 </style>
 <div id="app"></div>
@@ -27149,14 +27150,18 @@ module.exports = ZStream;
 
   /* Controles reutilizables */
   const ui = (MC.ui = {});
-  ui.seg = (opts, val, onChange, label) =>
-    h('div', { class: 'seg', role: 'group', 'aria-label': label || '' },
+  ui.seg = (opts, val, onChange, label) => {
+    /* el valor actual se lleva aquí: así se puede volver a la opción anterior sin tener que redibujar el panel */
+    let cur = val;
+    return h('div', { class: 'seg', role: 'group', 'aria-label': label || '' },
       opts.map((o) => h('button', { type: 'button', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: (e) => {
-        if (o.v === val) return;
+        if (o.v === cur) return;
+        cur = o.v;
         e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
         e.currentTarget.setAttribute('aria-pressed', 'true');
         onChange(o.v);
       } }, o.l)));
+  };
   ui.chips = (opts, val, onChange) =>
     h('div', { class: 'chips' }, opts.map((o) => h('button', { type: 'button', class: 'chip-b', 'aria-pressed': String(o.v === val), disabled: !!o.off, title: o.title || '', onClick: () => onChange(o.v) }, o.l)));
   ui.slider = (o) => {
@@ -31457,7 +31462,7 @@ module.exports = ZStream;
             h('button', { class: 'btn btn-s', type: 'button', onClick: () => { modal.close(); MC.openHelp('tutorials'); } }, t('Tutoriales cortos', 'Short tutorials'))));
       },
       async about(el) {
-        MC.put(el, h('h3', null, t('Acerca de', 'About')), h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
+        MC.put(el, h('h3', null, t('Acerca de', 'About')), h('div', { class: 'brand' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))), h('p', null, MC.repoLink(t('Código y novedades en GitHub', 'Source code and news on GitHub'))),
           h('p', { class: 'cap' }, t('Versión ', 'Version ') + MC.VERSION + t(' · herramienta gratuita.', ' · free tool.')),
           h('p', null, t('Tus dibujos no salen de tu equipo: no hay cuentas, servidor ni IA que los procese.', 'Your artwork never leaves your device: there are no accounts, servers or AI processing it.')),
           h('p', { class: 'cap' }, t('Hecha con cariño para Goti y para cualquier dibujante. Incluye mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) y las tipografías Bricolage Grotesque, Bangers, Comic Neue y Permanent Marker (OFL).', 'Made with care for Goti and for any artist. Includes mp4-muxer (MIT), ag-psd (MIT), pdf.js (Apache-2.0) and the fonts Bricolage Grotesque, Bangers, Comic Neue and Permanent Marker (OFL).')));
@@ -31876,9 +31881,19 @@ module.exports = ZStream;
   const MC = window.MC;
   const { h, t } = MC;
 
+  const REPO = 'https://github.com/LuckStudio/motioncomic-studio';
+  /* enlace al repositorio: se abre en otra pestaña y avisa de ello a los lectores de pantalla */
+  const repoLink = (label) => {
+    const a = h('a', { class: 'btn btn-g btn-sm', href: REPO, target: '_blank', rel: 'noopener noreferrer', title: t('Código en GitHub (se abre en otra pestaña)', 'Source code on GitHub (opens in a new tab)') });
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.4-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>';
+    a.append(h('span', null, label || 'GitHub')); a.style.gap = '6px'; a.style.display = 'inline-flex'; a.style.alignItems = 'center';
+    return a;
+  };
+  MC.repoLink = repoLink;
+
   MC.topBar = (extra) => h('div', { class: 'top' },
     h('div', { class: 'brand', 'aria-label': 'MotionComic Studio' }, MC.mark(28), h('div', null, 'MotionComic ', h('span', null, 'Studio'))),
-    h('div', { class: 'top-actions' }, extra,
+    h('div', { class: 'top-actions' }, extra, repoLink(),
       MC.installEvt && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: async () => { const ev = MC.installEvt; MC.installEvt = null; ev.prompt(); await ev.userChoice.catch(() => {}); MC.app.render(); } }, MC.icon('download', 14), t('Instalar la aplicación', 'Install the app')) : null,
       MC.ui.seg([{ v: 'es', l: 'ES' }, { v: 'en', l: 'EN' }], MC.lang, (v) => { MC.lang = v; MC.store.set('lang', v); MC.app.render(); }, t('Idioma', 'Language')),
       h('button', { class: 'btn btn-s btn-ic', type: 'button', title: t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), 'aria-label': t('Ayuda, atajos y tutoriales', 'Help, shortcuts and tutorials'), onClick: () => MC.openHelp() }, h('b', { 'aria-hidden': 'true' }, '?')),
@@ -32103,6 +32118,7 @@ module.exports = ZStream;
       h('footer', { class: 'foot' },
         h('span', null, MC.db.persistent ? t('Tus proyectos viven en este navegador. Exporta una copia de vez en cuando.', 'Your projects live in this browser. Export a backup from time to time.') : t('Este navegador no permite guardar aquí: los cambios se perderán al cerrar.', 'This browser does not allow saving here: changes will be lost on close.')),
         h('span', null, usage ? [h('span', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(2, Math.min(100, (usage.used / usage.quota) * 100)) + '%' } })), t('Espacio usado: ', 'Space used: ') + MC.fmtBytes(usage.used)] : null),
+        repoLink(t('Código en GitHub', 'Source on GitHub')),
         h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('data') }, t('Datos guardados', 'Stored data')),
         h('button', { class: 'btn btn-g btn-sm', type: 'button', onClick: () => MC.openPrefs('install') }, t('Instalar la aplicación', 'Install the app')))));
     drawGrid();
@@ -32924,7 +32940,17 @@ module.exports = ZStream;
       const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 64, 64);
       const blob = await new Promise((res) => c.toBlob(res, 'image/png')), a = await MC.assets.add(blob, t('Color ', 'Colour ') + col + '.png'); await assetsToLayers([a.id], S.li >= 0 ? S.li + 1 : null);
     }
+    /* Si se escribe en un campo y se pulsa otro control, el campo "confirma" al perder el foco y el panel se redibuja antes de que llegue el clic:
+       el botón ya no existe y hay que pulsar dos veces. Mientras dura esa pulsación se aplaza el redibujado y se hace justo después. */
+    const RG = { on: false, x: 0, y: 0, pend: new Set() };
+    function rgFlush() { RG.on = false; const list = [renderLayers, renderPanels, renderTimeline].filter((f) => RG.pend.has(f)); RG.pend.clear(); list.forEach((f) => f()); }
+    function rgDefer(fn) { if (!RG.on) return false; RG.pend.add(fn); return true; }
+    function rgDown(e) { const a = document.activeElement; RG.on = !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a !== e.target && !(e.target.closest && e.target.closest('input, textarea, select'))); RG.x = e.clientX; RG.y = e.clientY; }
+    function rgMove(e) { if (RG.on && Math.hypot(e.clientX - RG.x, e.clientY - RG.y) > 6) rgFlush(); }
+    function rgUp() { if (RG.on) setTimeout(() => { if (S.alive) rgFlush(); }, 40); }
+    document.addEventListener('pointerdown', rgDown, true); document.addEventListener('pointermove', rgMove, true); document.addEventListener('pointerup', rgUp, true); document.addEventListener('pointercancel', rgUp, true);
     function renderLayers() {
+      if (rgDefer(renderLayers)) return;
       const b = el.layersBody, sh = shot(); MC.clear(b);
       if (!sh) return;
       const sel = sh.layers[S.li], free = !(sh.page || sh.webtoon);
@@ -34086,6 +34112,7 @@ module.exports = ZStream;
       return { bar, body };
     }
     function renderPanels() {
+      if (rgDefer(renderPanels)) return;
       S.animCtl = []; const DL = buildSections(), DP = buildSections(), tab = curTab();
       /* panel izquierdo */
       const L = {
@@ -34802,6 +34829,7 @@ module.exports = ZStream;
       return n;
     }
     function renderTimeline() {
+      if (rgDefer(renderTimeline)) return;
       const p = S.project, total = MC.totalTime(p), pps = S.pps;
       const cs = getComputedStyle(document.documentElement); WAVE.fg = cs.getPropertyValue('--clip').trim();
       const addBtn = (tr) => h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir audio a esta pista', 'Add audio to this track'), 'aria-label': t('Añadir audio a esta pista', 'Add audio to this track'), onClick: () => { fileAudio.dataset.track = tr; fileAudio.click(); } }, MC.icon('plus', 13));
@@ -36076,7 +36104,7 @@ module.exports = ZStream;
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save); window.addEventListener('pagehide', closePops);
     window.addEventListener('focus', () => { MC.hostDoc = document; });
-    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); }
+    function cleanup() { offCfg(); offUpd(); document.removeEventListener('pointermove', altOn, true); document.removeEventListener('keydown', altOn, true); document.removeEventListener('keyup', altOn, true); document.removeEventListener('pointerup', guideOff, true); document.removeEventListener('pointercancel', guideOff, true); closePops(); window.removeEventListener('pagehide', closePops); clearInterval(verTimer); offJobChip(); MC.audio.stop(); cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); window.removeEventListener('resize', onWinResize); document.removeEventListener('pointerdown', onDocDown); document.removeEventListener('pointerdown', rgDown, true); document.removeEventListener('pointermove', rgMove, true); document.removeEventListener('pointerup', rgUp, true); document.removeEventListener('pointercancel', rgUp, true); }
     MC.studioCleanup = () => { S.alive = false; MC.studioApi = null; cleanup(); };
     MC.studioApi = {
       seek: (tm) => { togglePlay(false); setTime(tm); },
