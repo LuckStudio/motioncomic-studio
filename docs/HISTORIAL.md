@@ -190,3 +190,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 
 - Los cambios de la IA se guardan en una copia de trabajo (registro `ia-<id>` en el almacén de versiones) y el proyecto guardado queda intacto hasta pulsar Aceptar. Barra con Ver la mía / Cambios / Aceptar / Descartar; se guarda «Antes de la IA» en el historial; sigue pendiente al reabrir.
 - Pendiente: aceptar plano a plano.
+
+## Animaciones de entrada y salida: pulido
+
+- Al salir, el marco del estudio (borde, fondo y líneas sueltas) se apaga con el resto y no queda ninguna caja vacía; al entrar, el marco y el área central aparecen con las piezas.
+- El texto «Abriendo el proyecto…» solo aparece si la carga tarda más de 0,9 s; los recursos se cargan mientras el inicio se deshace, así que casi no hay hueco en blanco.
+- El inicio aparece entero (bordes incluidos) y por orden, sin cajas vacías antes del contenido.

@@ -19,7 +19,8 @@
     },
     async openProject(p, fromEl) {
       /* 1) el inicio se deshace, 2) el estudio se construye pieza a pieza */
-      const [full] = await Promise.all([MC.db.get('projects', p.id).then((x) => x || p), MC.motion ? MC.motion.leaveHome(root) : null]);
+      /* los recursos se cargan mientras el inicio se deshace, para que no quede un hueco en blanco antes del estudio */
+      const [full] = await Promise.all([MC.db.get('projects', p.id).then(async (x) => { x = x || p; try { MC.normalizeProject(x); await MC.loadProjectAssets(x); } catch (e) { /* se vuelve a intentar al montar */ } return x; }), MC.motion ? MC.motion.leaveHome(root) : null]);
       await MC.mountStudio(root, full);
     },
   };

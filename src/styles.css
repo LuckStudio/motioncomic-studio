@@ -102,6 +102,9 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .studio.enter { --ez: cubic-bezier(.22,.7,.2,1); }
 @keyframes zoom-in { from { transform: scale(.94); opacity: 0; } }
 @keyframes row-in { from { transform: translateX(-24px); opacity: 0; } }
+.studio.enter { animation: frame-in .7s ease both; }
+.studio.enter .s-main { animation: fade .7s .1s both; }
+@keyframes frame-in { from { background-color: transparent; border-color: transparent; } }
 .studio.enter .s-top { animation: in-top .8s var(--ez) both; }
 .studio.enter .rail { animation: in-left .9s .15s var(--ez) both; } .studio.enter .leftpanel { animation: in-left .9s .28s var(--ez) both; }
 .studio.enter .viewer { animation: zoom-in 1s .4s var(--ez) both; }
@@ -790,3 +793,8 @@ html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol
 .aibar { position: absolute; z-index: 40; top: 60px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent, #7c5cff); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
 .aibar[hidden] { display: none; }
 .aibar .aitag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+
+/* el inicio aparece entero (bordes incluidos) y por orden, sin cajas vacías antes del contenido */
+.home > .hero, .home > .pipeline, .home > section, .home > button, .home > footer { animation: rise .8s both; }
+.home > .hero { animation-delay: .1s; } .home > .pipeline { animation-delay: .22s; } .home > .resume { animation-delay: .3s; } .home > section:nth-of-type(n+3) { animation-delay: .4s; } .home > footer { animation-delay: .5s; }
+@media (prefers-reduced-motion: reduce) { .home > * { animation: none !important; } }

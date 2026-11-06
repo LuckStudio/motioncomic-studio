@@ -131,6 +131,9 @@ kbd.on { border-color: var(--accent); color: var(--accent); }
 .studio.enter { --ez: cubic-bezier(.22,.7,.2,1); }
 @keyframes zoom-in { from { transform: scale(.94); opacity: 0; } }
 @keyframes row-in { from { transform: translateX(-24px); opacity: 0; } }
+.studio.enter { animation: frame-in .7s ease both; }
+.studio.enter .s-main { animation: fade .7s .1s both; }
+@keyframes frame-in { from { background-color: transparent; border-color: transparent; } }
 .studio.enter .s-top { animation: in-top .8s var(--ez) both; }
 .studio.enter .rail { animation: in-left .9s .15s var(--ez) both; } .studio.enter .leftpanel { animation: in-left .9s .28s var(--ez) both; }
 .studio.enter .viewer { animation: zoom-in 1s .4s var(--ez) both; }
@@ -819,6 +822,11 @@ html[data-touch="1"] .sidecol > .pz-l { left: 0; } html[data-touch="1"] .sidecol
 .aibar { position: absolute; z-index: 40; top: 60px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent, #7c5cff); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
 .aibar[hidden] { display: none; }
 .aibar .aitag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+
+/* el inicio aparece entero (bordes incluidos) y por orden, sin cajas vacías antes del contenido */
+.home > .hero, .home > .pipeline, .home > section, .home > button, .home > footer { animation: rise .8s both; }
+.home > .hero { animation-delay: .1s; } .home > .pipeline { animation-delay: .22s; } .home > .resume { animation-delay: .3s; } .home > section:nth-of-type(n+3) { animation-delay: .4s; } .home > footer { animation-delay: .5s; }
+@media (prefers-reduced-motion: reduce) { .home > * { animation: none !important; } }
 
 </style>
 <div id="app"></div>
@@ -31530,6 +31538,9 @@ module.exports = ZStream;
       add(q('.viewer, .vghost'), [{ opacity: 0, transform: 'scale(.96)' }], 270);
       add(q('.s-top'), [{ opacity: 0, transform: 'translateY(-100%)' }], 360);
       add(q('.mtabs'), [{ opacity: 0, transform: 'translateY(40px)' }], 0);
+      /* el marco del estudio (borde, fondo y líneas sueltas) se apaga con el resto, nada se queda colgado */
+      const cs = getComputedStyle(studio);
+      items.push({ el: studio, kf: [{ backgroundColor: cs.backgroundColor, borderColor: cs.borderTopColor, opacity: 1 }, { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'rgba(0,0,0,0)', opacity: 1, offset: .45 }, { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'rgba(0,0,0,0)', opacity: 0 }], o: { duration: 1000, delay: 0, easing: 'linear' } });
       return run(items);
     },
     /* mientras el estudio se construye, un toque o una tecla lo termina al instante */
@@ -32014,7 +32025,8 @@ module.exports = ZStream;
   const VIEW_W = 1.5; // la vista de cámara muestra 1,5 veces el encuadre
 
   MC.mountStudio = async function mountStudio(root, project) {
-    MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…')));
+    /* el aviso solo sale si la carga tarda; así no queda un texto suelto entre las dos animaciones */
+    const openingT = setTimeout(() => MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…'))), 900);
     /* versión IA pendiente de revisar: el proyecto guardado sigue siendo el tuyo, se abre la copia de la IA */
     let aiInit = null;
     try { const r = await MC.db.get('versions', 'ia-' + project.id); if (r && r.kind === 'ia') { aiInit = { base: r.base, t: r.t, log: r.log || [] }; const w = JSON.parse(r.json); w.id = project.id; project = w; } } catch (e) { /* sin versión IA */ }
@@ -35181,6 +35193,7 @@ module.exports = ZStream;
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     S.ai = aiInit; S.aiView = 'ia'; studio.append(el.aibar = h('div', { class: 'aibar', role: 'region', 'aria-label': t('Versión de la IA', 'AI version'), hidden: true })); renderAi();
+    clearTimeout(openingT);
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
@@ -35973,7 +35986,8 @@ module.exports = ZStream;
     },
     async openProject(p, fromEl) {
       /* 1) el inicio se deshace, 2) el estudio se construye pieza a pieza */
-      const [full] = await Promise.all([MC.db.get('projects', p.id).then((x) => x || p), MC.motion ? MC.motion.leaveHome(root) : null]);
+      /* los recursos se cargan mientras el inicio se deshace, para que no quede un hueco en blanco antes del estudio */
+      const [full] = await Promise.all([MC.db.get('projects', p.id).then(async (x) => { x = x || p; try { MC.normalizeProject(x); await MC.loadProjectAssets(x); } catch (e) { /* se vuelve a intentar al montar */ } return x; }), MC.motion ? MC.motion.leaveHome(root) : null]);
       await MC.mountStudio(root, full);
     },
   };

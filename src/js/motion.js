@@ -39,6 +39,9 @@
       add(q('.viewer, .vghost'), [{ opacity: 0, transform: 'scale(.96)' }], 270);
       add(q('.s-top'), [{ opacity: 0, transform: 'translateY(-100%)' }], 360);
       add(q('.mtabs'), [{ opacity: 0, transform: 'translateY(40px)' }], 0);
+      /* el marco del estudio (borde, fondo y líneas sueltas) se apaga con el resto, nada se queda colgado */
+      const cs = getComputedStyle(studio);
+      items.push({ el: studio, kf: [{ backgroundColor: cs.backgroundColor, borderColor: cs.borderTopColor, opacity: 1 }, { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'rgba(0,0,0,0)', opacity: 1, offset: .45 }, { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'rgba(0,0,0,0)', opacity: 0 }], o: { duration: 1000, delay: 0, easing: 'linear' } });
       return run(items);
     },
     /* mientras el estudio se construye, un toque o una tecla lo termina al instante */

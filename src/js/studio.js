@@ -10,7 +10,8 @@
   const VIEW_W = 1.5; // la vista de cámara muestra 1,5 veces el encuadre
 
   MC.mountStudio = async function mountStudio(root, project) {
-    MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…')));
+    /* el aviso solo sale si la carga tarda; así no queda un texto suelto entre las dos animaciones */
+    const openingT = setTimeout(() => MC.put(MC.clear(root), h('div', { class: 'empty', style: { marginTop: '30vh' } }, t('Abriendo el proyecto…', 'Opening the project…'))), 900);
     /* versión IA pendiente de revisar: el proyecto guardado sigue siendo el tuyo, se abre la copia de la IA */
     let aiInit = null;
     try { const r = await MC.db.get('versions', 'ia-' + project.id); if (r && r.kind === 'ia') { aiInit = { base: r.base, t: r.t, log: r.log || [] }; const w = JSON.parse(r.json); w.id = project.id; project = w; } } catch (e) { /* sin versión IA */ }
@@ -3177,6 +3178,7 @@
 
     function renderAll() { renderTop(); renderRail(); renderLayers(); renderPanels(); renderVbar(); renderTimeline(); updateTransport(); updateTime(); }
     S.ai = aiInit; S.aiView = 'ia'; studio.append(el.aibar = h('div', { class: 'aibar', role: 'region', 'aria-label': t('Versión de la IA', 'AI version'), hidden: true })); renderAi();
+    clearTimeout(openingT);
     MC.put(MC.clear(root), studio);
     renderAll(); wire(el.canvas); wireTimeline(); applyLayout();
     const onWinResize = () => applyLayout(); window.addEventListener('resize', onWinResize);
