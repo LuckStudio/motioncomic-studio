@@ -862,3 +862,9 @@ a.btn { text-decoration: none; }
 .sp-ded { display: grid; gap: 2px; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.45; } .sp-ded b { font-size: 14px; }
 .sp-card.static { width: 100%; height: auto; min-height: 330px; box-shadow: none; animation: none; margin: 8px 0; } .sp-card.static .sp-img { min-height: 220px; }
 .fxadv summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+
+/* guía de estilo */
+.sg-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: center; border: 1px solid var(--line); background: var(--panel); padding: 20px 24px; animation: rise .8s .45s both; }
+.sg-card h2 { margin: 0 0 6px; font-size: 20px; } .sg-card p { margin: 4px 0; } .sg-acts { display: grid; gap: 8px; } .sg-snip { opacity: .8; border-left: 3px solid var(--accent); padding-left: 10px; }
+.sg-ta { width: 100%; min-height: 320px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; box-sizing: border-box; }
+@media (max-width: 760px) { .sg-card { grid-template-columns: 1fr; } }
