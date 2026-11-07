@@ -4,7 +4,7 @@
   const TB = [
     ['undo', 'Deshacer', 'Undo'], ['redo', 'Rehacer', 'Redo'], ['sel', 'Selección', 'Select'], ['blade', 'Cuchilla', 'Blade'], ['split', 'Dividir', 'Split'], ['trimL', 'Recortar el principio', 'Trim the start'], ['trimR', 'Recortar el final', 'Trim the end'],
     ['del', 'Eliminar', 'Delete'], ['flipx', 'Reflejar horizontal', 'Flip horizontal'], ['flipy', 'Reflejar vertical', 'Flip vertical'], ['crop', 'Recortar imagen o vídeo', 'Crop image or video'], ['kf', 'Fotograma clave', 'Keyframe'],
-    ['curves', 'Editor de curvas', 'Curve editor'], ['vzin', 'Filas más altas', 'Taller rows'], ['vzout', 'Filas más bajas', 'Shorter rows'], ['marker', 'Marcador', 'Marker'], ['dup', 'Duplicar', 'Duplicate'], ['fine', 'Precisión', 'Precision'], ['snap', 'Imán', 'Magnet'], ['ripple', 'Ripple', 'Ripple'],
+    ['curves', 'Editor de curvas', 'Curve editor'], ['group', 'Agrupar clips', 'Group clips'], ['ungroup', 'Desagrupar', 'Ungroup'], ['vzin', 'Filas más altas', 'Taller rows'], ['vzout', 'Filas más bajas', 'Shorter rows'], ['marker', 'Marcador', 'Marker'], ['dup', 'Duplicar', 'Duplicate'], ['fine', 'Precisión', 'Precision'], ['snap', 'Imán', 'Magnet'], ['ripple', 'Ripple', 'Ripple'],
     ['addshot', 'Añadir planos desde imágenes', 'Add shots from images'], ['addov', 'Añadir superposición', 'Add overlay'], ['addx', 'Plano superpuesto', 'Overlapping shot'], ['addtrack', 'Añadir pista de superposición', 'Add overlay track'], ['zoom', 'Zoom de la línea de tiempo', 'Timeline zoom'],
   ];
   const TB_GROUPS = { zoom: ['zout', 'zoom', 'zin', 'fit'] };

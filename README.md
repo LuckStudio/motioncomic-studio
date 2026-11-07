@@ -611,9 +611,19 @@ En **Por pistas**:
 
 Pendiente (fases H3 a H5): editar capas agrupadas desplegándolas, agrupar y desagrupar clips, efectos sobre clips y capas de ajuste, transiciones entre clips y poner al día el MCP, el curso y la ayuda.
 
+## Capas agrupadas (0.25, fase H3)
+
+En la línea de tiempo **por pistas**, una **capa agrupada** reúne varias capas con profundidad (parallax), con su cámara y sus efectos propios. Se comporta como un clip más: se mueve entre pistas, se estira y se mezcla con imágenes, vídeos y texto.
+
+- **Agrupar**: elige imágenes o vídeos (clic y **Ctrl o Mayús + clic** para varios) y pulsa **Agrupar clips** en la barra de la línea de tiempo, o clic derecho → *Agrupar en una capa agrupada*. Cada clip pasa a ser una capa; **la de la pista más alta queda delante** (más cerca). Cada capa conserva su tramo de tiempo.
+- **Desagrupar**: con la capa agrupada elegida, **Desagrupar** de la barra o clic derecho → *Desagrupar*. Cada capa vuelve a ser un clip suelto, en pistas consecutivas y en el mismo orden de profundidad.
+- **Desplegar**: la flecha ▸ del clip muestra sus capas debajo, dentro de la misma pista; pulsa una para elegirla. Las capas se **ordenan en el panel Capas** (arrastrando o con «Traer adelante», «Al frente de todo»…) y la línea de tiempo y el dibujo se actualizan.
+- Al agrupar y desagrupar la posición y el tamaño de cada clip se reinician (los clips sueltos y las capas usan medidas distintas). Los textos no se agrupan.
+- El panel de propiedades y los avisos llaman a esto «capa agrupada» en la línea de tiempo por pistas (y «plano superpuesto» en la clásica).
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.24): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.25): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

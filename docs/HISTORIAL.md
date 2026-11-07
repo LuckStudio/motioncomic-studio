@@ -340,3 +340,11 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Probado con ratón real: crear el proyecto desde el diálogo, filas de la línea de tiempo, importar con el botón de cada pista, píxeles reales (V2 tapa a V1), texto en V3, capa agrupada con el selector, arrastre de V3 a V1, panel Clips, añadir y quitar pistas, guardado, y que un proyecto por planos sigue igual.
 - Arreglado al probar: las imágenes importadas duraban 1 s (se limitaban al total de un proyecto vacío) y las capas agrupadas caían siempre en la pista 0.
 - Límites: aún se pueden solapar dos clips en la misma pista (se dibujan los dos); el texto del panel de propiedades sigue hablando de «plano superpuesto» (H3); no hay bloqueo de pistas.
+
+## Línea de tiempo libre, H3: capas agrupadas (versión 0.25)
+
+- `groupSelected` y `ungroupSelected` (studio.js): las imágenes y vídeos elegidos se convierten en capas de una capa agrupada (z según el orden de pistas, tramo ts/te de cada capa) y al revés; botones Agrupar y Desagrupar en la barra (solo activos en la línea de tiempo por pistas), menú contextual y selección múltiple conservada al abrir el menú.
+- Capas desplegables dentro de la pista de la capa agrupada (`.clip.xl`, las coloca `layoutLanes`), con selección sincronizada con el panel Capas; textos de la interfaz renombrados («Propiedades de la capa agrupada»).
+- Probado con ratón real y píxeles: tres imágenes en V1, V2 y V3 → una capa agrupada de tres capas (rojo detrás, azul delante, la azul se ve), plegar y desplegar, elegir una capa, «Al frente de todo» (se reordena la línea de tiempo y el dibujo), desagrupar por menú y por botón (mismas pistas y orden), agrupar por el menú con selección múltiple, botones desactivados en proyectos por planos.
+- Arreglado al probar: el menú contextual de un clip deshacía la selección múltiple, así que solo agrupaba uno.
+- Límites: al agrupar y desagrupar se reinician la posición y el tamaño de cada clip; no se agrupan los textos; no se arrastran las capas en la línea de tiempo (se ordenan en el panel Capas).
