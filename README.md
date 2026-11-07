@@ -621,9 +621,20 @@ En la línea de tiempo **por pistas**, una **capa agrupada** reúne varias capas
 - Al agrupar y desagrupar la posición y el tamaño de cada clip se reinician (los clips sueltos y las capas usan medidas distintas). Los textos no se agrupan.
 - El panel de propiedades y los avisos llaman a esto «capa agrupada» en la línea de tiempo por pistas (y «plano superpuesto» en la clásica).
 
+## Efectos, capas de ajuste y transiciones por clip (0.26, fase H4)
+
+En la línea de tiempo **por pistas**:
+
+- **Capa de ajuste**: el botón de reglas de cada pista crea un clip especial cuyos **efectos afectan a todo lo que hay debajo** (en pistas más bajas); lo que está en pistas más altas no se toca. Al crearla se abre la pestaña Efectos: añade ahí Duotono, Pixelado, Glitch, VHS, lluvia, destellos… Es como una capa de ajuste de Premiere.
+- **Efectos de una capa agrupada**: los efectos de una capa agrupada normal (con imágenes) le afectan **solo a ella**, no a lo que tiene debajo. Para aplicar un efecto a una imagen suelta, agrúpala primero (Agrupar con un solo clip elegido).
+- **Barras de efectos**: al desplegar una capa agrupada o de ajuste (flecha ▸) se ven sus efectos como barras de color en su pista. Arrástralas para cambiar cuándo empiezan y estira su borde para cambiar cuánto duran; púlsalas para ajustar sus propiedades en el panel.
+- **Transiciones por clip**: elige una imagen, vídeo, texto o capa agrupada y abre la pestaña **Transiciones**: ahí eliges **Entrada** (al empezar el clip) y **Salida** (al terminar), con el tipo, la duración, la dirección y la curva. Cualquier transición del catálogo sirve (encadenado, empuje, persiana, zoom…). El clip pasa de lo que hay debajo a verse encima con esa transición. Los clips con transición llevan una marca triangular en su borde.
+- La pestaña Efectos sin nada elegido explica que hay que elegir una capa agrupada o de ajuste.
+- Se arregló además un fallo antiguo: al pasar el ratón por un efecto con una capa agrupada elegida, la vista previa se quedaba como efecto de verdad.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.25): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.26): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

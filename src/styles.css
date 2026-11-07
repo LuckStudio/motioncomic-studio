@@ -915,3 +915,10 @@ a.btn { text-decoration: none; }
 
 /* capas de una capa agrupada, desplegadas en su pista */
 .clip.xl { background-color: color-mix(in srgb, var(--accent) 28%, var(--bg)); background-size: auto 100%; background-repeat: repeat-x; border: 1px solid var(--accent); font-size: 11px; } .clip.xl.on { outline: 2px solid var(--accent); outline-offset: 1px; } .clip.xl.hid { opacity: .45; }
+
+/* capa de ajuste, efectos de una capa agrupada y transiciones de clip */
+.clip.xs.adj { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, transparent) 0 8px, transparent 8px 16px); border: 1px dashed var(--accent); }
+.clip.xf { background: color-mix(in srgb, var(--warn) 55%, var(--bg)); border: 1px solid var(--warn); font-size: 11px; } .clip.xf.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.clip[data-tin="1"]::before, .clip[data-tout="1"]::after { content: ''; position: absolute; top: 0; bottom: 0; width: 14px; pointer-events: none; z-index: 2; }
+.clip[data-tin="1"]::before { left: 0; background: linear-gradient(90deg, var(--fg), transparent); opacity: .55; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.clip[data-tout="1"]::after { right: 0; background: linear-gradient(270deg, var(--fg), transparent); opacity: .55; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
