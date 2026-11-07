@@ -943,6 +943,7 @@
         { label: tile.getAttribute('title') || x.v, snap: () => { const o0 = shot().transition; return () => { shot().transition = o0; }; }, win: () => { const st = curStart(), d = Math.max(0.2, Object.assign({ dur: 1 }, shot().transition).dur || 1); return [Math.max(0, st - 0.7), st + d + 0.7]; } });
     }
     function transPanel(onlyFav) {
+      if (S.project.tl === 'free') return onlyFav ? [] : freeTransPanel();
       const p = S.project, sh = shot(), can = S.si > 0;
       const cur = can ? sh.transition : null;
       const out = [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, can ? t('Entrada del plano ', 'Entry of shot ') + (S.si + 1) + ' · ' + sh.name : t('Transiciones', 'Transitions')),
@@ -1298,7 +1299,8 @@
         fxSecs.push(sec('tray', t('Trayectoria de cámara', 'Camera route') + (cp ? ' · ' + cp.pts.length : ''), nodes));
       }
       /* efectos */
-      {
+      if (p.tl === 'free' && !S.xs) fxSecs.push(sec('efectos', t('Efectos', 'Effects'), [h('p', { class: 'cap' }, t('En la línea de tiempo por pistas los efectos van en una capa agrupada (afectan solo a ella) o en una capa de ajuste (afectan a todo lo que hay debajo). Elige una en la línea de tiempo, o crea una capa de ajuste con el botón de reglas de cualquier pista.', 'On the by-tracks timeline, effects go on a grouped layer (they affect only it) or on an adjustment layer (they affect everything below). Pick one on the timeline, or create an adjustment layer with the sliders button of any track.'))]));
+      else {
         const list = sh.fx, selF = list.find((q) => q.id === S.fxsel);
         const fxSl = (f, k, label, min, max, step, fmt, def) => MC.ui.slider({ label, min, max, step, value: f[k] == null ? def : f[k], fmt, onInput: (v) => { f[k] = v; touch(); }, onChange: commit });
         const fxCol = (f, k, label) => h('div', { class: 'field' }, h('label', null, label), h('input', { type: 'color', class: 'input', style: { padding: '2px', height: '34px', width: '90px' }, value: f[k] || '#ffffff', onInput: (e) => { f[k] = e.target.value; touch(); }, onChange: commit }));
@@ -1752,6 +1754,32 @@
     /* ---------- capas agrupadas (línea de tiempo por pistas) ----------
        Agrupar: las imágenes y vídeos elegidos pasan a ser capas de una capa agrupada (la de pista más alta queda más cerca) con su tramo de tiempo.
        Desagrupar: cada capa vuelve a ser un clip suelto, en pistas consecutivas. La posición y el tamaño de cada capa se reinician al agrupar y desagrupar. */
+    /* capa de ajuste: una capa agrupada sin imágenes cuyos efectos afectan a todo lo que hay debajo (en pistas más bajas) */
+    function addAdjustment(track) {
+      const p = S.project, x = MC.newShot(t('Capa de ajuste', 'Adjustment layer'));
+      Object.assign(x, { start: r2(S.time), duration: 4, xtrack: clamp(track, 0, p.otracks.length - 1), fx: [], adj: true }); delete x.transition; MC.applyPreset(x.camera, 'none', 1);
+      p.xshots.push(x); S.expand[x.id] = true; commit(); selectXs(x.id, false); S.multi = [];
+      setWs('creativo'); S.tab.creativo = 'efectos'; renderRail(); renderPanels();
+      MC.toast(t('Capa de ajuste creada: añade efectos en la pestaña Efectos y afectarán a todo lo que haya debajo de ella.', 'Adjustment layer created: add effects in the Effects tab and they will affect everything below it.'));
+    }
+    /* clip elegido al que dar una transición de entrada o de salida (línea de tiempo por pistas) */
+    function freeClip() {
+      const p = S.project;
+      if (S.selKind === 'shot' && S.xs && xById(S.xs)) { const x = xById(S.xs); return { it: x, name: x.name, dur: x.duration }; }
+      if (S.selKind === 'overlay' && S.ov && ovById(S.ov)) { const o = ovById(S.ov); return { it: o, name: o.name, dur: o.dur }; }
+      if (S.selKind === 'text' && S.tx && txById(S.tx) && txById(S.tx).kind !== 'sub') { const q = txById(S.tx), sp = MC.textSpan(q, p); return { it: q, name: (MC.textOf(q, p) || t('Texto', 'Text')).slice(0, 24), dur: sp.dur }; }
+      return null;
+    }
+    function freeTransPanel() {
+      const ct = freeClip(), which = S.trw || 'tin';
+      const head = h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, ct ? t('Transición de ', 'Transition of ') + ct.name : t('Transiciones', 'Transitions')),
+        h('p', { class: 'cap' }, ct ? t('Elige cómo entra o sale este clip sobre lo que hay debajo. La entrada se ve al empezar el clip y la salida al terminar.', 'Choose how this clip comes in or goes out over what is below. The entry shows when the clip starts and the exit when it ends.') : t('Elige un clip en la línea de tiempo (imagen, vídeo, texto o capa agrupada) para darle una transición de entrada o de salida.', 'Pick a clip on the timeline (image, video, text or grouped layer) to give it an entry or exit transition.')));
+      if (!ct) return [head];
+      head.append(MC.ui.seg([{ v: 'tin', l: t('Entrada', 'Entry') }, { v: 'tout', l: t('Salida', 'Exit') }], which, (v) => { S.trw = v; renderPanels(); }, t('Entrada o salida', 'Entry or exit')));
+      if (!ct.it[which]) ct.it[which] = { type: 'cut', dur: Math.min(0.6, Math.max(0.2, ct.dur / 3)) };
+      const holder = { transition: ct.it[which], duration: ct.dur, name: ct.name };
+      return [head, h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Tipo y ajustes', 'Type and settings')), transEditor(holder, false))];
+    }
     const selectedOverlays = () => (S.multi.length > 1 ? S.multi : S.ov ? ['o:' + S.ov] : []).filter((k) => k[0] === 'o').map((k) => ovById(k.slice(2))).filter(Boolean);
     function groupSelected() {
       const p = S.project; if (p.tl !== 'free') { MC.toast(t('Agrupar solo existe en la línea de tiempo por pistas.', 'Grouping only exists in the by-tracks timeline.')); return false; }
@@ -2245,14 +2273,14 @@
     function hoverTag(msg) { if (!el.hovTag) return; el.hovTag.hidden = !msg; el.hovTag.textContent = msg || ''; }
     function hoverStop() {
       if (!hov) return; const h0 = hov; hov = null; clearInterval(h0.iv); clearInterval(h0.wd);
-      const sh = S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fx) sh.fx = JSON.parse(h0.fx); }
+      const sh = (h0.xs && xById(h0.xs)) || S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fx) sh.fx = JSON.parse(h0.fx); }
       if (h0.restore) h0.restore();
       hoverTag(''); S.view = h0.view; setTime(h0.time); renderVbar(); S.dirty = true;
     }
     /* o = { label, snap(): () => restaurar, win(): [desde, hasta] } para las vistas previas de animaciones y transiciones */
     function hoverStart(kind, apply, o) {
       if (S.playing || hov || S.view === 'page' || S.view === 'strip') return; const sh = shot(); if (!sh) return;
-      const st = curStart(); hov = { si: S.si, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view, node: o && o.node };
+      const st = curStart(); hov = { si: S.si, xs: S.xs, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view, node: o && o.node };
       /* si el panel se redibuja y desaparece el botón sobre el que estaba el ratón, la vista previa se cierra sola */
       hov.wd = setInterval(() => { if (hov && hov.node && !hov.node.isConnected) hoverStop(); }, 150);
       if (kind === 'anim' || kind === 'trans') {
@@ -2925,6 +2953,14 @@
         el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
         drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
       });
+      el.tlContent.querySelectorAll('.clip[data-xf]').forEach((el2) => {
+        const [xid, fid] = el2.dataset.xf.split(':'), x = xById(xid), f = x && (x.fx || []).find((q) => q.id === fid); if (!f) return;
+        el2.style.left = (x.start + MC.fxStart(x, f)) * pps + 'px'; el2.style.width = Math.max(8, f.dur * pps - 2) + 'px';
+      });
+      el.tlContent.querySelectorAll('.clip[data-xs], .clip[data-o], .clip[data-x]').forEach((el2) => {
+        const it = el2.dataset.xs ? xById(el2.dataset.xs) : el2.dataset.o ? ovById(el2.dataset.o) : txById(el2.dataset.x); if (!it || S.project.tl !== 'free') return;
+        el2.dataset.tin = it.tin && it.tin.type !== 'cut' ? '1' : '0'; el2.dataset.tout = it.tout && it.tout.type !== 'cut' ? '1' : '0';
+      });
       el.tlContent.querySelectorAll('.clip[data-xl]').forEach((el2) => {
         const [xid, li] = el2.dataset.xl.split(':'), x = xById(xid), l = x && x.layers[+li]; if (!l) return;
         const ts = l.ts || 0, te = l.te == null ? x.duration : l.te; el2.style.left = (x.start + ts) * pps + 'px'; el2.style.width = Math.max(8, (te - ts) * pps - 2) + 'px';
@@ -3108,6 +3144,7 @@
           h('span', { class: 'trb' }, ovBtn(i),
             h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir un texto en esta pista', 'Add a text on this track'), 'aria-label': t('Añadir un texto en ', 'Add a text on ') + ots[i].name, onClick: (e) => { e.stopPropagation(); S.vt = i; addText('box'); } }, MC.icon('text', 13)),
             h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir una capa agrupada en esta pista', 'Add a grouped layer on this track'), 'aria-label': t('Añadir una capa agrupada en ', 'Add a grouped layer on ') + ots[i].name, onClick: (e) => { e.stopPropagation(); openAssetPicker({ title: t('Capa agrupada: elige imágenes', 'Grouped layer: choose images'), onPick: (ids) => addXShots(ids, i, S.time) }); } }, MC.icon('layersx', 13)),
+            h('button', { class: 'btn btn-g', type: 'button', title: t('Añadir una capa de ajuste (sus efectos afectan a lo de debajo)', 'Add an adjustment layer (its effects affect what is below)'), 'aria-label': t('Añadir una capa de ajuste en ', 'Add an adjustment layer on ') + ots[i].name, onClick: (e) => { e.stopPropagation(); addAdjustment(i); } }, MC.icon('sliders', 13)),
             eyeBtn(i), ots.length > 1 && !p.overlays.some((o) => o.track === i) && !p.xshots.some((x) => (x.xtrack || 0) === i) && !p.texts.some((x) => x.kind !== 'sub' && (x.track || 0) === i) ? delBtn(i) : null)); }
         if (/^o\d+$/.test(k)) { const i = +k.slice(1); return h('div', { class: 'trl ot', 'data-k': k }, h('span', { title: t('Doble clic para renombrar', 'Double-click to rename'), onDblclick: () => { const v = prompt(t('Nombre de la pista', 'Track name'), ots[i].name); if (v && v.trim()) { ots[i].name = v.trim(); commit(); } } }, ots[i].name),
           h('span', { class: 'trb' }, ovBtn(i), eyeBtn(i), ots.length > 1 && !p.overlays.some((o) => o.track === i) ? delBtn(i) : null)); }
@@ -3256,7 +3293,7 @@
           if (e.target === rz) return;
           el2.setPointerCapture(e.pointerId);
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
-          el2.classList.add('on'); S.tx = it.id; S.cl = null; S.li = -1;
+          el2.classList.add('on'); S.tx = it.id; S.cl = null; S.li = -1; if (S.project.tl === 'free') { S.xs = null; S.ov = null; }
           const x0 = e.clientX, s0 = it.start; let moved = false;
           const mv = (ev) => { if (it.link) return; if (Math.abs(ev.clientX - x0) > 3) moved = true; if (moved) { it.start = snapMove(s0 + fineDx(ev, x0) / S.pps, it.dur, it.id); if (free && it.kind !== 'sub') { const row = ots.map((q, i) => R['o' + i]).find((r3) => r3 && ev.clientY >= r3.getBoundingClientRect().top && ev.clientY < r3.getBoundingClientRect().bottom); if (row) it.track = +row.dataset.k.slice(1); } layoutClips(); touch(); } };
           const up = () => {
@@ -3281,7 +3318,7 @@
       p.xshots.forEach((x) => {
         let thumbU = ''; try { thumbU = shotThumbURL(x); } catch (e) { thumbU = ''; }
         const hid = ((free ? ots : xts)[x.xtrack || 0] || {}).visible === false;
-        const el2 = h('div', { class: 'clip xs' + (x.id === S.xs ? ' on' : '') + (hid ? ' hid' : ''), 'data-xs': x.id, role: 'button', tabindex: '0', title: x.name + ' · ' + x.duration.toFixed(1) + ' s', 'aria-label': x.name + ', ' + MC.fmtTime(x.start) + ', ' + x.duration.toFixed(1) + ' s', 'aria-pressed': String(x.id === S.xs), style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null,
+        const el2 = h('div', { class: 'clip xs' + (x.adj ? ' adj' : '') + (x.id === S.xs ? ' on' : '') + (hid ? ' hid' : ''), 'data-xs': x.id, role: 'button', tabindex: '0', title: x.name + ' · ' + x.duration.toFixed(1) + ' s', 'aria-label': x.name + ', ' + MC.fmtTime(x.start) + ', ' + x.duration.toFixed(1) + ' s', 'aria-pressed': String(x.id === S.xs), style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null,
           onKeydown: (e) => { if (e.key === 'Enter') { selectXs(x.id, true); } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); x.start = Math.max(0, r2(x.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); commit(); } } },
           free ? h('button', { type: 'button', class: 'cvx', 'aria-expanded': String(!!S.expand[x.id]), title: S.expand[x.id] ? t('Plegar las capas', 'Fold the layers') : t('Ver las capas de esta capa agrupada', 'Show the layers of this grouped layer'), 'aria-label': (S.expand[x.id] ? t('Plegar las capas de ', 'Fold the layers of ') : t('Ver las capas de ', 'Show the layers of ')) + x.name, onPointerdown: (e) => e.stopPropagation(), onClick: (e) => { e.stopPropagation(); S.expand[x.id] = !S.expand[x.id]; renderTimeline(); } }, S.expand[x.id] ? '▾' : '▸') : null,
           h('span', null, x.name), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
@@ -3306,6 +3343,25 @@
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
         (free ? (R['o' + clamp(x.xtrack || 0, 0, ots.length - 1)] || R.o0) : (R['x' + clamp(x.xtrack || 0, 0, xts.length - 1)] || R.x0)).append(el2);
+        if (free && S.expand[x.id]) (x.fx || []).forEach((f) => {
+          const on = x.id === S.xs && f.id === S.fxsel, nm = MC.fxName(f.type);
+          const bar = h('div', { class: 'clip xf' + (on ? ' on' : ''), 'data-xf': x.id + ':' + f.id, role: 'button', tabindex: '0', title: nm + ' · ' + f.dur.toFixed(1) + ' s', 'aria-label': t('Efecto ', 'Effect ') + nm + t(' de ', ' of ') + x.name, 'aria-pressed': String(on) }, h('span', null, nm), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
+          const rzf = bar.querySelector('.rz'), pickF = () => { selectXs(x.id, false); S.fxsel = f.id; renderPanels(); renderInspector(); renderTimeline(); };
+          bar.addEventListener('pointerdown', (e) => {
+            if (e.target === rzf) return; e.stopPropagation(); bar.setPointerCapture(e.pointerId); const x0 = e.clientX, s0 = f.start; let moved = false;
+            const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved) return; f.start = clamp(r2(s0 + fineDx(ev, x0) / S.pps), 0, Math.max(0, x.duration - f.dur)); layoutClips(); S.dirty = true; touch(); };
+            const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); if (moved) commit(); else pickF(); };
+            bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+          });
+          rzf.addEventListener('pointerdown', (e) => {
+            e.stopPropagation(); rzf.setPointerCapture(e.pointerId); const x0 = e.clientX, d0 = f.dur;
+            const mv = (ev) => { f.dur = clamp(r2(d0 + fineDx(ev, x0) / S.pps), 0.1, 60); layoutClips(); S.dirty = true; touch(); };
+            const up = () => { rzf.removeEventListener('pointermove', mv); rzf.removeEventListener('pointerup', up); rzf.removeEventListener('pointercancel', up); commit(); };
+            rzf.addEventListener('pointermove', mv); rzf.addEventListener('pointerup', up); rzf.addEventListener('pointercancel', up);
+          });
+          bar.addEventListener('keydown', (e) => { if (e.key === 'Enter') pickF(); });
+          el2.parentNode.append(bar);
+        });
         if (free && S.expand[x.id]) for (let li = x.layers.length - 1; li >= 0; li--) {
           const l = x.layers[li], a = MC.assets.get(l.assetId), on = x.id === S.xs && li === S.li;
           const bar = h('div', { class: 'clip xl' + (on ? ' on' : '') + (l.visible === false ? ' hid' : ''), 'data-xl': x.id + ':' + li, role: 'button', tabindex: '0', title: l.name + ' · z ' + l.z.toFixed(2), 'aria-label': l.name + ', ' + t('capa ', 'layer ') + (x.layers.length - li) + t(' de ', ' of ') + x.layers.length + t(', de la capa agrupada ', ', of the grouped layer ') + x.name, 'aria-pressed': String(on), style: a && a.thumb ? { backgroundImage: 'url(' + a.thumb + ')' } : null },
@@ -3371,7 +3427,7 @@
           if (e.target === rz) return;
           el2.setPointerCapture(e.pointerId);
           el2.parentNode.parentNode.querySelectorAll('.clip.on').forEach((n) => n.classList.remove('on'));
-          el2.classList.add('on'); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1;
+          el2.classList.add('on'); S.ov = it.id; S.cl = null; S.tx = null; S.li = -1; if (S.project.tl === 'free') S.xs = null;
           const x0 = e.clientX, s0 = it.start, tr0 = it.track; let moved = false, over = null;
           const mv = (ev) => {
             if (Math.abs(ev.clientX - x0) > 3) moved = true; if (!moved && Math.abs(ev.clientY - e.clientY) < 6) return; moved = true;
@@ -4487,7 +4543,7 @@
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
-      learn: () => ({ multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
+      learn: () => ({ selKind: S.selKind, xs: S.xs, ov: S.ov, multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };

@@ -264,13 +264,34 @@
   /* Línea de tiempo LIBRE (project.tl === 'free'): capas agrupadas (xshots), imágenes y vídeos (overlays) y textos comparten un único índice de pista
      (project.otracks) y se componen de abajo arriba, mezclados. El plano base queda oculto debajo; los subtítulos van siempre encima de todo. */
   MC.freeTracks = (p) => Math.max((p.otracks || []).length, 1 + Math.max(-1, ...(p.xshots || []).map((x) => x.xtrack || 0), ...(p.overlays || []).map((q) => q.track || 0), ...(p.texts || []).filter((q) => q.kind !== 'sub').map((q) => q.track || 0)));
+  /* lienzos auxiliares (se reutilizan entre fotogramas) para efectos propios de una capa agrupada y transiciones de clips */
+  const AUX = {};
+  const aux = (key, w, hh) => { let r = AUX[key]; if (!r || r.c.width !== w || r.c.height !== hh) { const c = document.createElement('canvas'); c.width = w; c.height = hh; r = AUX[key] = { c, g: c.getContext('2d') }; } return r; };
   const renderFree = (ctx, project, time, o) => {
     renderBase(ctx, project, time, o);
-    const tr = project.otracks || [], n = MC.freeTracks(project);
+    const { W, H } = o, tr = project.otracks || [], n = MC.freeTracks(project), tx = ctx.getTransform(), pw = Math.max(1, Math.round(W * tx.a)), ph = Math.max(1, Math.round(H * tx.d));
+    const spanOf = (kind, it) => (kind === 'x' ? { st: it.start, en: it.start + it.duration } : kind === 'o' ? { st: it.start, en: it.start + it.dur } : (() => { const sp = MC.textSpan(it, project); return { st: sp.start, en: sp.start + sp.dur }; })());
+    /* dibuja UN clip en g */
+    const draw1 = (g, kind, it) => { const o3 = Object.assign({}, o, { pick: (k, q) => q === it }); if (kind === 'x') MC.renderXShots(g, project, time, o3); else if (kind === 'o') { if (MC.renderOverlays) MC.renderOverlays(g, project, time, o3); } else if (MC.renderTexts) MC.renderTexts(g, project, time, o3); };
+    /* un clip con efectos propios (no es capa de ajuste) se dibuja aparte y luego se pone encima: así sus efectos solo le afectan a él */
+    const drawFx = (g, kind, it) => {
+      if (kind === 'x' && !it.adj && (it.fx || []).length) { const A = aux('fx', pw, ph); A.g.setTransform(1, 0, 0, 1, 0, 0); A.g.clearRect(0, 0, pw, ph); A.g.setTransform(tx.a, 0, 0, tx.d, 0, 0); draw1(A.g, kind, it); g.save(); g.drawImage(A.c, 0, 0, W, H); g.restore(); }
+      else draw1(g, kind, it);
+    };
+    const winOf = (it, st, en) => { const a = time - st, b = en - time; if (it.tin && it.tin.type && it.tin.type !== 'cut' && it.tin.dur > 0 && a >= 0 && a < it.tin.dur) return { tr: it.tin, p: a / it.tin.dur }; if (it.tout && it.tout.type && it.tout.type !== 'cut' && it.tout.dur > 0 && b >= 0 && b < it.tout.dur) return { tr: it.tout, p: b / it.tout.dur }; return null; };
     for (let i = 0; i < n; i++) {
       if ((tr[i] || {}).visible === false) continue;
-      const o2 = Object.assign({}, o, { pick: (k, it) => (k === 'x' ? (it.xtrack || 0) === i : k === 'o' ? (it.track || 0) === i : it.kind !== 'sub' && (it.track || 0) === i) });
-      MC.renderXShots(ctx, project, time, o2); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o2); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o2);
+      const items = [].concat((project.xshots || []).filter((x) => (x.xtrack || 0) === i && (tr[i] || {}).visible !== false).map((q) => ['x', q]), (project.overlays || []).filter((q) => (q.track || 0) === i && q.visible !== false).map((q) => ['o', q]), (project.texts || []).filter((q) => q.kind !== 'sub' && (q.track || 0) === i).map((q) => ['t', q]));
+      items.forEach(([kind, it]) => {
+        const { st, en } = spanOf(kind, it); if (time < st || time >= en) return;
+        const w = winOf(it, st, en);
+        if (w && MC.drawTransition) {
+          /* transición de entrada o de salida: se pasa de lo que ya hay dibujado debajo a eso mismo con el clip encima */
+          const S0 = aux('snap', pw, ph); S0.g.setTransform(1, 0, 0, 1, 0, 0); S0.g.clearRect(0, 0, pw, ph); S0.g.drawImage(ctx.canvas, tx.e, tx.f, pw, ph, 0, 0, pw, ph);
+          const prev = (g) => { g.drawImage(S0.c, 0, 0, W, H); };
+          MC.drawTransition(ctx, w.tr, clamp(w.p, 0, 1), prev, (g) => { prev(g); drawFx(g, kind, it); }, o);
+        } else drawFx(ctx, kind, it);
+      });
     }
     if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o);
     if (MC.renderTexts) MC.renderTexts(ctx, project, time, Object.assign({}, o, { pick: (k, it) => it.kind === 'sub' }));
