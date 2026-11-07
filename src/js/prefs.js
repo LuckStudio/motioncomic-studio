@@ -56,7 +56,7 @@
       return h('div', { class: 'fieldgroup' }, ...out);
     };
     const PANES = {
-      async ai(el) { MC.mcp.pane(el, () => { MC.clear(el); PANES.ai(el); }); },
+      async ai(el) { if (MC.learnEvent) MC.learnEvent('mcp'); MC.mcp.pane(el, () => { MC.clear(el); PANES.ai(el); }); },
       async look(el) {
         const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system';
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),
