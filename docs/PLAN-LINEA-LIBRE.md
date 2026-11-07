@@ -1,6 +1,6 @@
 # Plan: línea de tiempo libre («capas agrupadas») y bibliotecas de sonido
 
-Estado: **fases H1 a H5 hechas (versiones 0.23 a 0.27)**; bloque I (30 efectos) hecho en la 0.28; J1 y J2 (sonidos y packs) hechos en la 0.29; pendiente J3 (Freesound). Se avanza poco a poco; cada fase se prueba, se documenta y se fusiona antes de la siguiente.
+Estado: **fases H1 a H5 hechas (versiones 0.23 a 0.27)**; bloque I (30 efectos) hecho en la 0.28; J1 y J2 (sonidos y packs) hechos en la 0.29; J3 (Freesound opcional) hecho en la 0.30, sin verificar contra freesound.org. Plan completo. Se avanza poco a poco; cada fase se prueba, se documenta y se fusiona antes de la siguiente.
 
 ## Decisiones tomadas con la persona
 

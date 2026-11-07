@@ -377,3 +377,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Probado: los 20 se generan sin error, normalizados y con la duración anunciada, con forma esperada (el riser y el platillo invertido suben, la caída de graves y el espadazo bajan); añadir uno a la línea de tiempo; importar un ZIP real con carpetas y un archivo de texto (se ignora), etiquetas y licencia, la Biblioteca, usarlo en el proyecto, créditos, y el aviso de «solo personal».
 - Arreglado al probar: seis de los sonidos nuevos repetían identificadores de sonidos que ya existían y no se añadían; se rehicieron como sonidos distintos.
 - Límites: la importación admite hasta 600 audios por vez; las fuentes y licencias son un resumen orientativo y las licencias de cada sitio pueden cambiar; los créditos solo incluyen sonidos de la Biblioteca con autor o licencia apuntados (lo que importas sin apuntar nada no aparece).
+
+## Bloque J, J3: Freesound opcional (versión 0.30)
+
+- `src/js/packs.js`: cliente de la API de Freesound (`/search/text/` con la clave como `token`, filtro de duración, campos pedidos), pestaña Freesound con tutorial, clave en `localStorage` (`fskey`; la dirección base puede cambiarse con `fsbase` para pruebas), licencias traducidas desde la URL (CC0, CC-BY, no comercial), añadir con autor, licencia y enlace de origen, y tarjeta de créditos en la pantalla de Exportar.
+- **Probado solo contra un servidor falso** que imita la forma de las respuestas de Freesound (clave buena y mala, 429, sin resultados, sin cabeceras CORS, descarga de las muestras): flujo completo con ratón real. **No se ha probado contra freesound.org**, porque la red de este entorno no llega a él.
+- Sin verificar: que la API de Freesound permita llamadas desde el navegador (CORS) y descargar las muestras desde otro origen; que los nombres de los campos y de la página de credenciales sean los de ahora. Si falla, el programa lo explica («puede que tu navegador o tu red bloqueen la conexión directa») y queda la opción de descargar a mano e importar el pack.
+- Cierre de los bloques I y J.

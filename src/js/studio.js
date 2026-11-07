@@ -2191,6 +2191,8 @@
     function buildExportPanel() {
       MC.clear(el.exportHost);
       el.exportApi = MC.openExport(exportApi(el.exportHost));
+      /* créditos de los sonidos de la Biblioteca que usa el proyecto (hay que cargar antes la Biblioteca) */
+      loadLib(false).then(() => { try { const cc = MC.creditsCard && MC.creditsCard(); const host = el.exportHost; if (cc && host && host.isConnected) host.append(cc); } catch (e) { /* sin créditos */ } });
     }
 
     /* ---------- visor ---------- */
@@ -4552,7 +4554,7 @@
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, linea_de_tiempo: S.project.tl === 'free' ? 'por pistas' : 'por planos', shots: S.project.tl === 'free' ? 0 : S.project.shots.length, clips: S.project.tl === 'free' ? S.project.overlays.length + S.project.xshots.length + S.project.texts.filter((q) => q.kind !== 'sub').length : undefined, pistas: S.project.tl === 'free' ? S.project.otracks.length : undefined, assets: (S.project.assets || []).length }),
-      libItems: () => S.libItems,
+      libItems: () => S.libItems, libReady: () => loadLib(false),
       learn: () => ({ selKind: S.selKind, xs: S.xs, ov: S.ov, multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
