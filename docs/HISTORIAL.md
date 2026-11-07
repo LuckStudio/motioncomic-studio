@@ -319,3 +319,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Módulo 6 «Tu estilo, atajos e IA»: atajos y bases, Mi estilo y guía, trabajar con una IA (3 lecciones, 1 reto, 4 términos). Eventos nuevos `mcp` y `copyai` (prefs.js, styleguide.js).
 - El panel del curso comprueba también sin estudio abierto, para los pasos de la pantalla de inicio.
 - Probado con ratón y teclado reales: cambiar la base de atajos en Ayuda, rombo de fotograma, guardar Mi estilo, abrir Preferencias → IA; y paso de copiar para una IA ya desde la pantalla de inicio.
+
+## Fase G del plan nuevo: cursores personalizados (versión 0.22)
+
+- `src/js/cursors.js`: seis estilos en SVG (cada uno con cursor general y de elementos pulsables), imagen propia reducida a PNG con punto activo, CSS inyectado (`html[data-cur]`), guardado en el equipo y panel en Preferencias → Cursor.
+- Probado con Playwright: los 6 estilos cambian el cursor del cuerpo y el de los botones, un botón desactivado conserva «not-allowed» y un campo de texto conserva «text», persiste tras recargar, imagen propia (subida real de un PNG, punto activo, aplicar, recargar, quitar), volver al sistema, panel en inglés.
+- Límites: solo dentro de la página; los cursores no salen en las capturas; no se ha probado el aspecto real de cada cursor con el puntero físico (se comprueba el CSS aplicado y las miniaturas del panel).
