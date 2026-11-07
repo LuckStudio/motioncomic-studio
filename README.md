@@ -580,9 +580,16 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - **Tercera entrega (0.21):** módulo 6 «Tu estilo, atajos e IA» — atajos de teclado y bases de otros programas, «Mi estilo» y guía de estilo, y trabajar con una IA por MCP (copiar tu guía para un chat) — con su reto y 4 términos más en el glosario. Ya son 6 módulos y 18 lecciones. El panel del curso sigue comprobando los pasos aunque vuelvas a la pantalla de inicio (los que no dependen del proyecto, como escribir la guía o copiar para una IA).
 - Se irá ampliando con más lecciones. Código: `src/js/learn.js` (el curso es una lista de datos: cada paso lleva su texto y su comprobación).
 
+## Cursores personalizados (0.22)
+
+- **Preferencias → Cursor**: el cursor del sistema (el de siempre, por defecto), seis estilos dibujados para la app —**Retro** (flecha de los 90), **Futurista** (neón cian con mira circular), **Pixelado** (píxeles gordos de 8 bits), **De cómic** (trazo grueso y explosión), **Minimalista** (anillo) y **De precisión** (cruz fina)— o **tu propia imagen**.
+- Cada estilo trae dos cursores: uno general y otro para botones y elementos pulsables. Los botones desactivados, los campos de texto y las herramientas con cursor propio (redimensionar, arrastrar…) conservan el suyo.
+- **Tu cursor**: sube un PNG, JPG, WebP o SVG (mejor con fondo transparente), elige el tamaño máximo (24, 32, 48 o 64 px) y el **punto activo** (esquina, centro o punta abajo), pruébalo en el recuadro y pulsa «Usar mi cursor». «Quitar el mío» vuelve al sistema.
+- Se guarda en este equipo y se aplica al abrir la app. Limitación del navegador: solo cambia el cursor **dentro de la página** (no en el resto del sistema) y los cursores no salen en las capturas de pantalla.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.21): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.22): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

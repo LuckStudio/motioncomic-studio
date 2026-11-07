@@ -902,3 +902,9 @@ a.btn { text-decoration: none; }
 .gloss { display: grid; gap: 4px; margin: 0; } .gloss dt { font-weight: 600; margin-top: 6px; } .gloss dd { margin: 0; color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .learn-pulse { animation: none; } }
 .lc-head { cursor: grab; touch-action: none; } .learn-coach.min > :not(.lc-head) { display: none; } .lc-min { width: 28px; padding: 0; }
+
+/* cursores */
+.cur-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.cur-card { display: grid; gap: 6px; align-content: start; border: 1px solid var(--line); background: var(--raised); padding: 10px; border-radius: 10px; } .cur-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.cur-pad { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 64px; border: 1px dashed var(--line); border-radius: 8px; background: var(--stage, var(--bg)); color: var(--muted); font-size: 22px; }
+.cur-pad.cur-big { min-height: 96px; }
