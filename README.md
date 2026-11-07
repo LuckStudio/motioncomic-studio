@@ -651,9 +651,18 @@ En Efectos y audio → **Efectos** hay cuatro grupos nuevos; todos se dibujan co
 - **Imagen y estilo**: Color selectivo ⚙ (blanco y negro salvo un color, con margen) · Película antigua · Foco de luz · Desenfoque de movimiento (ángulo y longitud) · Desenfoque radial ⚙ · Caleidoscopio ⚙ (segmentos) · Contornos de neón ⚙ · Boceto a lápiz.
 - Se arregló además un fallo antiguo del panel de efectos: tras pasar el ratón por un botón y añadir el efecto, los deslizadores dejaban de modificar el efecto (se perdía lo que cambiabas).
 
+## Más sonidos, packs descargados y créditos (0.29, bloque J1 y J2)
+
+- **20 efectos de sonido nuevos**, generados por código (sin archivos ni licencias), en tres categorías nuevas de la pestaña **Efectos de sonido**: *Objetos y cotidiano* (pasar página, roce de papel, pasos en la nieve, máquina de escribir, obturador de cámara, rasgueo de disco, tictac de reloj, timbre de puerta, gota de agua), *Acción* (espadazo, ráfaga láser, disparo de cómic, resorte, golpe de glitch, caída de graves, subida de tensión) y *Transiciones* (barrido, platillo invertido, campanita mágica, zoom rápido). Todos salen con un volumen parecido.
+- **Packs y sonidos libres** (botón en las pestañas de sonidos y en la Biblioteca):
+  - **Importar un pack**: elige un ZIP, una carpeta o varios audios (WAV, MP3, M4A, OGG, AAC, FLAC). Se guardan en la Biblioteca, en una carpeta con el nombre del pack, y **cada subcarpeta pasa a ser una etiqueta** para buscarlos. Apuntas la **licencia** (CC0, libre también comercial, CC-BY, solo personal o educativa, otra) y el **autor o fuente**; ambos se pueden cambiar luego en la ficha del sonido. Nada sale de tu equipo.
+  - **Dónde conseguirlos**: Kenney (CC0), Sonniss GDC Game Audio Bundle, Pixabay, Mixkit, Freesound y BBC Sound Effects, con un resumen de su licencia y enlace (la BBC es solo para uso personal, educativo o de investigación). Es un resumen orientativo: comprueba siempre la licencia de lo que descargas.
+  - **Créditos del proyecto**: lista los sonidos de tu Biblioteca que usa el proyecto y que llevan autor o licencia, lista para copiar y pegar en la descripción del vídeo. Avisa si usas algún sonido «solo de uso personal o educativo». Los sonidos generados por el programa no necesitan créditos.
+- Pendiente (J3): conectar con Freesound de forma opcional, con clave propia.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.28): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.29): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 

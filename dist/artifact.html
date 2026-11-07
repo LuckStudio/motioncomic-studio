@@ -27894,6 +27894,7 @@ module.exports = ZStream;
   const hit = (ac, t0, f, peak, dec, out) => { const g = gainEnv(ac, t0, 0.003, peak, dec, out); osc(ac, 'sine', f, t0, t0 + dec + 0.05, g, f * 0.3); const g2 = gainEnv(ac, t0, 0.001, peak * 0.6, dec * 0.4, out); nz(ac, t0, dec * 0.4, g2, 'lowpass', 1800); };
   const tone = (ac, type, m, t0, len, vol, out) => { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len); g.connect(out || ac.destination); osc(ac, type, hz(m), t0, t0 + len, g); };
 
+  A.kit = { rnd, noiseBuf, gainEnv, osc, flt, nz, hit, tone, hz };
   const S = (id, cat, es, en, dur, gen) => ({ id, kind: 'sfx', cat, es, en, dur, gen });
   const M = (id, es, en, dur, gen) => ({ id, kind: 'music', cat: 'musica', es, en, dur, gen });
 
@@ -27993,6 +27994,147 @@ module.exports = ZStream;
     for (let c = 0; c < buf.numberOfChannels; c++) { const ch = buf.getChannelData(c); for (let i = 0; i < ch.length; i++) ch[i] *= k; }
     done.set(item.id, buf); return buf;
   };
+})();
+
+/* 20 efectos de sonido más, generados por código como los demás (sin archivos ni licencias): objetos y vida cotidiana, acción y transiciones. */
+(function () {
+  'use strict';
+  const MC = window.MC, A = MC.audio;
+  if (!A || !A.kit) return;
+  const { rnd, gainEnv, osc, flt, nz, hit, tone } = A.kit;
+  const S = (id, cat, es, en, dur, gen) => ({ id, kind: 'sfx', cat, es, en, dur, gen });
+  /* ruido con su propia envolvente de volumen (ataque, bajada) a partir de un instante */
+  const puff = (ac, t0, a, peak, dec, type, f, q, f1) => nz(ac, t0, a + dec, gainEnv(ac, t0, a, peak, dec), type, f, q, f1);
+  const ramp = (ac, pts) => { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, 0); pts.forEach((p) => g.gain.linearRampToValueAtTime(p[1], p[0])); g.connect(ac.destination); return g; };
+
+  const SFX = [
+    /* objetos y vida cotidiana */
+    S('pagina', 'objetos', 'Pasar página', 'Page turn', 0.9, (ac) => { puff(ac, 0, 0.09, 0.45, 0.32, 'bandpass', 3200, 0.9, 2500); puff(ac, 0.34, 0.03, 0.25, 0.14, 'lowpass', 1500); }),
+    S('papel', 'objetos', 'Roce de papel', 'Paper rustle', 0.8, (ac) => { for (let i = 0; i < 9; i++) puff(ac, 0.04 + i * 0.075 + rnd() * 0.03, 0.01, 0.2 + rnd() * 0.25, 0.05 + rnd() * 0.05, 'bandpass', 3500 + rnd() * 2500, 1.2); }),
+    S('pasos-nieve', 'objetos', 'Pasos en la nieve', 'Footsteps in snow', 1.8, (ac) => { [0, 0.5, 1, 1.5].forEach((t0, i) => { puff(ac, t0, 0.02, 0.5, 0.2, 'bandpass', 1800 + i * 150, 0.8, 600); puff(ac, t0 + 0.05, 0.005, 0.3, 0.12, 'highpass', 3500); }); }),
+    S('maquina', 'objetos', 'Máquina de escribir', 'Typewriter', 2, (ac) => { let t0 = 0.05; for (let i = 0; i < 12; i++) { puff(ac, t0, 0.002, 0.45, 0.04, 'bandpass', 2200, 1.5); hit(ac, t0, 260, 0.25, 0.05, ac.destination); t0 += 0.09 + rnd() * 0.06; } tone(ac, 'sine', 96, t0 + 0.1, 0.9, 0.35); puff(ac, t0 + 0.55, 0.01, 0.4, 0.2, 'bandpass', 1500, 1); }),
+    S('obturador', 'objetos', 'Obturador de cámara', 'Camera shutter', 0.5, (ac) => { puff(ac, 0, 0.002, 0.6, 0.04, 'bandpass', 2600, 1.4); puff(ac, 0.11, 0.002, 0.45, 0.06, 'bandpass', 1800, 1.4); osc(ac, 'square', 420, 0, 0.05, gainEnv(ac, 0, 0.001, 0.12, 0.04), 180); }),
+    S('scratch', 'objetos', 'Rasgueo de disco', 'Record scratch', 0.8, (ac) => { osc(ac, 'sawtooth', 250, 0, 0.2, gainEnv(ac, 0, 0.01, 0.35, 0.2), 1500); osc(ac, 'sawtooth', 1300, 0.2, 0.45, gainEnv(ac, 0.2, 0.01, 0.35, 0.25), 160); puff(ac, 0, 0.01, 0.2, 0.5, 'highpass', 4500); }),
+    S('tictac', 'objetos', 'Tictac de reloj', 'Clock ticking', 2, (ac) => { for (let i = 0; i < 6; i++) { const t0 = i * 0.33, hi = i % 2; puff(ac, t0, 0.001, 0.6, 0.03, 'bandpass', hi ? 3200 : 2400, 3); osc(ac, 'sine', hi ? 1500 : 1100, t0, t0 + 0.04, gainEnv(ac, t0, 0.001, 0.2, 0.035)); } }),
+    S('timbre', 'objetos', 'Timbre de puerta', 'Doorbell', 1.6, (ac) => { tone(ac, 'sine', 84, 0, 1, 0.4); tone(ac, 'triangle', 96, 0, 0.5, 0.12); tone(ac, 'sine', 79, 0.5, 1.1, 0.4); tone(ac, 'triangle', 91, 0.5, 0.5, 0.12); }),
+    S('gota', 'objetos', 'Gota de agua', 'Water drop', 0.6, (ac) => { osc(ac, 'sine', 1300, 0, 0.14, gainEnv(ac, 0, 0.002, 0.6, 0.12), 320); osc(ac, 'sine', 700, 0.26, 0.38, gainEnv(ac, 0.26, 0.002, 0.25, 0.1), 260); }),
+    /* acción */
+    S('espadazo', 'accion', 'Espadazo', 'Sword slash', 0.9, (ac) => { puff(ac, 0, 0.01, 0.7, 0.32, 'highpass', 2500, 0.6, 9000); osc(ac, 'sine', 2400, 0.02, 0.7, gainEnv(ac, 0.02, 0.002, 0.18, 0.6)); osc(ac, 'sine', 3150, 0.02, 0.6, gainEnv(ac, 0.02, 0.002, 0.1, 0.5)); }),
+    S('rafaga', 'accion', 'Ráfaga láser', 'Laser burst', 0.8, (ac) => { [0, 0.16, 0.32].forEach((t0, i) => { osc(ac, 'sawtooth', 1900 - i * 100, t0, t0 + 0.12, gainEnv(ac, t0, 0.003, 0.4, 0.11), 260); osc(ac, 'square', 1890 - i * 100, t0, t0 + 0.12, gainEnv(ac, t0, 0.003, 0.15, 0.11), 255, 10); }); }),
+    S('pew', 'accion', 'Disparo de cómic', 'Comic shot', 0.5, (ac) => { osc(ac, 'sine', 950, 0, 0.16, gainEnv(ac, 0, 0.002, 0.7, 0.15), 110); puff(ac, 0, 0.002, 0.4, 0.05, 'highpass', 2500); }),
+    S('resorte', 'accion', 'Resorte', 'Spring twang', 1.1, (ac) => { const o = osc(ac, 'triangle', 420, 0, 0.9, gainEnv(ac, 0, 0.003, 0.6, 1), 150), l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 26; lg.gain.setValueAtTime(110, 0); lg.gain.exponentialRampToValueAtTime(4, 1); l.connect(lg); lg.connect(o.frequency); l.start(0); l.stop(1.1); }),
+    S('glitch-hit', 'accion', 'Golpe de glitch', 'Glitch hit', 0.6, (ac) => { let t0 = 0; for (let i = 0; i < 11; i++) { const d = 0.03 + rnd() * 0.05; osc(ac, rnd() > 0.5 ? 'square' : 'sawtooth', 180 + rnd() * 2800, t0, t0 + d, gainEnv(ac, t0, 0.002, 0.3, d)); if (rnd() > 0.55) puff(ac, t0, 0.001, 0.25, d, 'highpass', 4000); t0 += d * (0.6 + rnd() * 0.8); } }),
+    S('bassdrop', 'accion', 'Caída de graves', 'Bass drop', 2, (ac) => { osc(ac, 'sine', 190, 0, 1.3, gainEnv(ac, 0, 0.01, 0.9, 1.8), 34); osc(ac, 'triangle', 380, 0, 1, gainEnv(ac, 0, 0.01, 0.25, 0.7), 60); puff(ac, 0, 0.02, 0.3, 1.2, 'lowpass', 1400, 0.7, 80); }),
+    S('riser', 'accion', 'Subida de tensión', 'Tension riser', 3, (ac) => { osc(ac, 'sawtooth', 110, 0, 2.8, ramp(ac, [[2.8, 0.45], [2.85, 0.0001]]), 1250); const g = ramp(ac, [[2.8, 0.5], [2.85, 0.0001]]); nz(ac, 0, 2.85, g, 'bandpass', 300, 1.5, 6000); }),
+    /* transiciones */
+    S('barrido', 'transicion', 'Barrido de transición', 'Transition sweep', 1.2, (ac) => { const g = ramp(ac, [[0.55, 0.6], [1.15, 0.0001]]); nz(ac, 0, 1.2, g, 'bandpass', 300, 1.6, 5000); }),
+    S('rev-platillo', 'transicion', 'Platillo invertido', 'Reverse cymbal', 2.5, (ac) => { const g = ramp(ac, [[2.2, 0.75], [2.25, 0.0001]]); nz(ac, 0, 2.4, g, 'highpass', 4000, 0.5); }),
+    S('campanita', 'transicion', 'Campanita mágica', 'Magic chime', 1.8, (ac) => { [84, 88, 91, 96].forEach((m, i) => { tone(ac, 'sine', m, i * 0.09, 1.2, 0.26); tone(ac, 'triangle', m + 12, i * 0.09, 0.8, 0.08); }); }),
+    S('zoom-rapido', 'transicion', 'Zoom rápido', 'Quick zoom', 0.6, (ac) => { const g = ramp(ac, [[0.3, 0.55], [0.58, 0.0001]]); nz(ac, 0, 0.6, g, 'bandpass', 500, 1.8, 6500); osc(ac, 'sine', 200, 0, 0.5, gainEnv(ac, 0, 0.02, 0.22, 0.4), 950); }),
+  ];
+  /* nuevas categorías antes de «Músicas» */
+  const mus = A.CATS.findIndex((c) => c[0] === 'musica');
+  A.CATS.splice(mus < 0 ? A.CATS.length : mus, 0, ['objetos', 'Objetos y cotidiano', 'Objects and everyday'], ['accion', 'Acción', 'Action'], ['transicion', 'Transiciones', 'Transitions']);
+  SFX.forEach((it) => { if (!A.LIBRARY.some((x) => x.id === it.id)) A.LIBRARY.push(it); });
+  A.SFX2 = SFX;
+})();
+
+/* Packs de sonidos: importar un ZIP o una carpeta descargada (cada subcarpeta pasa a ser una etiqueta), saber de dónde sacar sonidos libres
+   y generar los créditos de lo que usa el proyecto. Todo ocurre en este equipo. */
+(function () {
+  'use strict';
+  const MC = window.MC, h = MC.h, t = MC.t;
+  const AUD = /\.(wav|mp3|m4a|ogg|aac|flac)$/i, MIME = { wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', aac: 'audio/aac', flac: 'audio/flac' };
+  const LIC = [['cc0', 'CC0 · libre del todo', 'CC0 · completely free'], ['free', 'Libre, también para vídeos comerciales', 'Free, also for commercial videos'], ['ccby', 'CC-BY · hay que citar al autor', 'CC-BY · the author must be credited'], ['personal', 'Solo uso personal o educativo', 'Personal or educational use only'], ['other', 'Otra o no lo sé', 'Other or unknown']];
+  MC.SOUND_LICENSES = LIC;
+  const licName = (v) => { const q = LIC.find((x) => x[0] === v); return q ? t(q[1], q[2]) : ''; };
+  /* de dónde sacar sonidos: resumen orientativo, hay que mirar la licencia de cada descarga */
+  const SOURCES = [
+    ['Kenney', 'https://kenney.nl/assets?q=audio', 'cc0', 'Packs de efectos de interfaz, impactos, sci-fi y más. Todo en dominio público (CC0): se puede usar en cualquier proyecto sin citar.', 'Packs of interface sounds, impacts, sci-fi and more. All public domain (CC0): usable in any project without credit.'],
+    ['Sonniss GDC Game Audio Bundle', 'https://sonniss.com/gameaudiogdc', 'free', 'Miles de efectos profesionales, gratis cada año y con uso comercial permitido. No se pueden volver a repartir como biblioteca: descárgalos tú. Lee la licencia del pack.', 'Thousands of professional effects, free every year and cleared for commercial use. They cannot be redistributed as a library: download them yourself. Read the pack licence.'],
+    ['Pixabay · Efectos de sonido', 'https://pixabay.com/sound-effects/', 'free', 'Sonidos y músicas gratis con la licencia de contenido de Pixabay (uso comercial permitido, sin citar). No tiene API de audio: se descargan a mano.', 'Free sounds and music under the Pixabay content licence (commercial use allowed, no credit). No audio API: download them by hand.'],
+    ['Mixkit · Efectos de sonido', 'https://mixkit.co/free-sound-effects/', 'free', 'Efectos gratuitos con la licencia de Mixkit (uso en vídeos y proyectos, también comerciales). Descarga manual.', 'Free effects under the Mixkit licence (use in videos and projects, also commercial). Manual download.'],
+    ['Freesound', 'https://freesound.org/', 'ccby', 'La mayor biblioteca colaborativa. Cada sonido trae su licencia: CC0, CC-BY (citar al autor) o CC-BY-NC (no vale para monetizar). Mira siempre la de cada archivo.', 'The largest collaborative library. Each sound has its own licence: CC0, CC-BY (credit the author) or CC-BY-NC (not for monetising). Always check each file.'],
+    ['BBC Sound Effects', 'https://sound-effects.bbcrewind.co.uk/', 'personal', 'Más de 30 000 grabaciones, pero su licencia es solo para uso personal, educativo o de investigación: no sirven para vídeos que den dinero.', 'Over 30,000 recordings, but the licence is for personal, educational or research use only: not for videos that earn money.'],
+  ];
+  const safe = (s) => String(s || '').replace(/[<>]/g, '').trim();
+
+  /* lista plana [{ file, path }] a partir de ZIP, carpetas o archivos sueltos */
+  async function entriesOf(files) {
+    const out = []; let pack = '';
+    for (const f of files) {
+      if (/\.zip$/i.test(f.name)) {
+        pack = pack || f.name.replace(/\.zip$/i, '');
+        const ents = (await MC.zip.read(f)).filter((e) => !e.dir && !/(^|\/)(__MACOSX|\.)/.test(e.name) && AUD.test(e.name));
+        for (const e of ents) { const b = await e.blob(), ext = e.name.split('.').pop().toLowerCase(); out.push({ file: new File([b], e.name.split('/').pop(), { type: MIME[ext] || b.type }), path: e.name }); }
+      } else if (AUD.test(f.name)) { const rel = f.webkitRelativePath || f.name; if (f.webkitRelativePath && !pack) pack = f.webkitRelativePath.split('/')[0]; if (!/(^|\/)\./.test(rel)) out.push({ file: f, path: rel }); }
+    }
+    return { out, pack };
+  }
+
+  MC.openSoundPacks = (onDone, tab0) => {
+    const st = { tab: tab0 || 'import', files: [], pack: '', lic: 'other', author: '', busy: false };
+    const body = h('div', { style: { display: 'grid', gap: '12px' } });
+    let modal = null;
+    const fileIn = h('input', { type: 'file', accept: '.zip,audio/*,.wav,.mp3,.m4a,.ogg,.aac,.flac', multiple: true, hidden: true, onChange: async (e) => { const fs = [...e.target.files]; e.target.value = ''; await pick(fs); } });
+    const dirIn = h('input', { type: 'file', webkitdirectory: '', directory: '', multiple: true, hidden: true, onChange: async (e) => { const fs = [...e.target.files]; e.target.value = ''; await pick(fs); } });
+    async function pick(fs) { try { const r = await entriesOf(fs); st.files = r.out; if (!st.pack) st.pack = r.pack || ''; if (!r.out.length) MC.toast(t('No hay audio en esa selección (WAV, MP3, M4A, OGG, AAC o FLAC).', 'No audio in that selection (WAV, MP3, M4A, OGG, AAC or FLAC).')); draw(); } catch (e) { MC.toast(t('No se pudo leer esa selección.', 'Could not read that selection.')); } }
+    async function run() {
+      if (st.busy || !st.files.length) return; st.busy = true; draw();
+      const pack = safe(st.pack) || t('Mi pack', 'My pack'), total = st.files.length; let done = 0, fail = 0;
+      for (const q of st.files.slice(0, 600)) {
+        try {
+          const segs = q.path.split('/').slice(0, -1), tags = ['pack'].concat(segs.slice(segs.length > 1 ? 1 : 0).map((x) => safe(x).toLowerCase()).filter(Boolean)).slice(0, 4);
+          const a = await MC.audio.add(q.file, q.file.name.replace(/\.[a-z0-9]+$/i, ''));
+          await MC.library.add(a.id, { folder: pack, tags: [...new Set(tags)], lic: st.lic, author: safe(st.author), pack });
+          done++;
+        } catch (e) { fail++; }
+        if (done % 5 === 0) { st.msg = t('Importando… ', 'Importing… ') + done + ' / ' + total; const m = body.querySelector('[data-msg]'); if (m) m.textContent = st.msg; await new Promise((r) => setTimeout(r, 0)); }
+      }
+      st.busy = false; st.files = []; st.msg = '';
+      MC.toast(t(done + ' sonidos añadidos a la Biblioteca (carpeta «' + pack + '»)' + (fail ? ' · ' + fail + ' no se pudieron leer' : '') + '.', done + ' sounds added to the Library (folder “' + pack + '”)' + (fail ? ' · ' + fail + ' could not be read' : '') + '.'));
+      if (onDone) onDone(); draw();
+    }
+    const tabImport = () => [
+      h('p', { class: 'cap' }, t('Descarga un pack de sonidos libres (mira «Dónde conseguirlos») y súbelo aquí como ZIP o como carpeta. Se guardan en tu Biblioteca, en una carpeta con el nombre del pack, y cada subcarpeta pasa a ser una etiqueta para buscarlos. No se sube nada a internet.', 'Download a pack of free sounds (see “Where to get them”) and add it here as a ZIP or a folder. They are saved in your Library, in a folder named after the pack, and each subfolder becomes a tag for searching. Nothing is uploaded to the internet.')),
+      h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-p btn-sm', type: 'button', disabled: st.busy, onClick: () => fileIn.click() }, MC.icon('upload', 14), t('Elegir ZIP o audios', 'Choose ZIP or audio')), h('button', { class: 'btn btn-s btn-sm', type: 'button', disabled: st.busy, onClick: () => dirIn.click() }, MC.icon('folder', 14), t('Elegir una carpeta', 'Choose a folder')), fileIn, dirIn),
+      st.files.length ? h('div', { class: 'field' }, h('p', { class: 'cap', role: 'status' }, st.files.length + t(' sonidos encontrados. Dime de dónde vienen para apuntarlo.', ' sounds found. Tell me where they come from so it gets noted.')),
+        MC.ui.field(t('Nombre del pack', 'Pack name'), h('input', { class: 'input', id: 'pk-n', value: st.pack, onInput: (e) => { st.pack = e.target.value; } }), 'pk-n'),
+        h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Licencia', 'Licence')), MC.ui.chips(LIC.map((q) => ({ v: q[0], l: t(q[1], q[2]) })), st.lic, (v) => { st.lic = v; draw(); }),
+          st.lic === 'personal' ? h('p', { class: 'cap warn' }, t('Ojo: no los uses en vídeos que den dinero. El programa te lo recordará al sacar los créditos.', 'Careful: do not use them in videos that earn money. The programme will remind you when you get the credits.')) : null),
+        MC.ui.field(t('Autor o fuente (opcional)', 'Author or source (optional)'), h('input', { class: 'input', id: 'pk-a', value: st.author, placeholder: t('Kenney, Sonniss, el nombre del autor…', 'Kenney, Sonniss, the author’s name…'), onInput: (e) => { st.author = e.target.value; } }), 'pk-a'),
+        h('button', { class: 'btn btn-p', type: 'button', disabled: st.busy, onClick: run }, st.busy ? t('Importando…', 'Importing…') : t('Añadir ', 'Add ') + st.files.length + t(' sonidos a la Biblioteca', ' sounds to the Library')),
+        h('p', { class: 'cap', 'data-msg': '1', role: 'status' }, st.msg || '')) : null,
+    ];
+    const tabSources = () => [
+      h('p', { class: 'cap' }, t('Sitios con sonidos libres. Es un resumen orientativo: las licencias cambian, así que comprueba siempre la de lo que descargas.', 'Sites with free sounds. This is a rough summary: licences change, so always check the one of what you download.')),
+      ...SOURCES.map((s) => h('div', { class: 'layer', style: { cursor: 'default', alignItems: 'start' } }, h('span', { class: 'ln', style: { whiteSpace: 'normal' } }, h('b', null, s[0]), h('span', { class: 'cap', style: { display: 'block', whiteSpace: 'normal' } }, t(s[3], s[4])), h('span', { class: 'cap', style: { display: 'block' } }, t('Licencia: ', 'Licence: ') + licName(s[2]))),
+        h('a', { class: 'btn btn-s btn-sm', href: s[1], target: '_blank', rel: 'noopener noreferrer', style: { textDecoration: 'none' } }, t('Abrir', 'Open')))),
+      h('p', { class: 'cap' }, t('Cuando los tengas descargados, usa «Importar un pack» para guardarlos en tu Biblioteca con su licencia.', 'Once downloaded, use “Import a pack” to save them to your Library with their licence.')),
+    ];
+    const tabCredits = () => {
+      const items = MC.packCreditItems(); const warn = items.some((x) => x.lic === 'personal');
+      const txt = MC.packCredits();
+      return [
+        h('p', { class: 'cap' }, t('Los sonidos de tu Biblioteca que usa este proyecto y que llevan autor o licencia. Los sonidos generados por el programa no necesitan créditos.', 'The sounds from your Library that this project uses and that carry an author or licence. Sounds generated by the programme need no credit.')),
+        warn ? h('p', { class: 'cap warn', role: 'status' }, t('Este proyecto usa sonidos «solo de uso personal o educativo»: no los publiques en vídeos que den dinero.', 'This project uses sounds that are “personal or educational use only”: do not publish them in videos that earn money.')) : null,
+        items.length ? h('textarea', { class: 'input', rows: 8, readonly: true, 'aria-label': t('Créditos', 'Credits'), value: txt }) : h('p', { class: 'cap' }, MC.studioApi ? t('Este proyecto aún no usa sonidos con autor ni licencia apuntados.', 'This project does not use sounds with a noted author or licence yet.') : t('Abre un proyecto para ver sus créditos.', 'Open a project to see its credits.')),
+        items.length ? h('button', { class: 'btn btn-p btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: async () => { try { await navigator.clipboard.writeText(txt); MC.toast(t('Créditos copiados. Pégalos en la descripción del vídeo.', 'Credits copied. Paste them into the video description.')); } catch (e) { MC.toast(t('No se pudo copiar.', 'Could not copy.')); } } }, MC.icon('copy', 14), t('Copiar los créditos', 'Copy the credits')) : null,
+      ];
+    };
+    function draw() { MC.clear(body); MC.put(body, MC.ui.seg([{ v: 'import', l: t('Importar un pack', 'Import a pack') }, { v: 'sources', l: t('Dónde conseguirlos', 'Where to get them') }, { v: 'credits', l: t('Créditos del proyecto', 'Project credits') }], st.tab, (v) => { st.tab = v; draw(); }, t('Sección', 'Section')), ...({ import: tabImport, sources: tabSources, credits: tabCredits }[st.tab]())); }
+    draw();
+    modal = MC.modal(t('Packs y sonidos libres', 'Packs and free sounds'), body, (close) => [h('button', { class: 'btn btn-p', type: 'button', onClick: close }, t('Cerrar', 'Close'))], { wide: true });
+  };
+
+  /* créditos: sonidos de la Biblioteca usados por el proyecto abierto que llevan autor o licencia */
+  MC.packCreditItems = () => {
+    const api = MC.studioApi; if (!api || !api.project || !api.libItems) return [];
+    const p = api.project(), used = new Set([].concat(p.clips || [], p.overlays || []).map((c) => c.assetId));
+    return (api.libItems() || []).filter((x) => x.kind === 'audio' && used.has(x.id) && (x.author || (x.lic && x.lic !== 'other')));
+  };
+  MC.packCredits = () => MC.packCreditItems().map((x) => '«' + x.name + '»' + (x.author ? ' — ' + x.author : '') + (x.lic ? ' (' + licName(x.lic) + ')' : '') + (x.pack ? ' · ' + x.pack : '')).join('\n');
+  MC.soundLicName = licName;
 })();
 
 /* Motor de dibujo 2.5D: cámara, parallax, sobreescalado, huecos y transiciones.
@@ -31807,7 +31949,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.28'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.29'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -35518,9 +35660,9 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
         await loadLib(); MC.toast(t('Añadido a la biblioteca', 'Added to the library'));
       } });
       const editItem = (it) => {
-        const nm = h('input', { class: 'input', value: it.name, id: 'lb-n' }), fo = h('input', { class: 'input', value: it.folder || '', id: 'lb-f', list: 'lb-fl', placeholder: t('Sin carpeta', 'No folder') }), tg = h('input', { class: 'input', value: (it.tags || []).join(', '), id: 'lb-t', placeholder: t('personaje, fondo, noche…', 'character, background, night…') });
-        MC.modal(t('Editar recurso de la biblioteca', 'Edit library asset'), h('div', { style: { display: 'grid', gap: '12px' } }, MC.ui.field(t('Nombre', 'Name'), nm, 'lb-n'), MC.ui.field(t('Carpeta', 'Folder'), fo, 'lb-f'), h('datalist', { id: 'lb-fl' }, folders.map((f) => h('option', { value: f }))), MC.ui.field(t('Etiquetas (separadas por comas)', 'Tags (comma separated)'), tg, 'lb-t')),
-          (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { await MC.library.update(it.id, { name: nm.value.trim() || it.name, folder: fo.value.trim(), tags: tg.value.split(',').map((x) => x.trim()).filter(Boolean) }); close(); loadLib(); } }, t('Guardar', 'Save'))]);
+        const nm = h('input', { class: 'input', value: it.name, id: 'lb-n' }), fo = h('input', { class: 'input', value: it.folder || '', id: 'lb-f', list: 'lb-fl', placeholder: t('Sin carpeta', 'No folder') }), tg = h('input', { class: 'input', value: (it.tags || []).join(', '), id: 'lb-t', placeholder: t('personaje, fondo, noche…', 'character, background, night…') }), lic = { v: it.lic || 'other' }, au = h('input', { class: 'input', value: it.author || '', id: 'lb-a', placeholder: t('Kenney, Sonniss, el nombre del autor…', 'Kenney, Sonniss, the author’s name…') });
+        MC.modal(t('Editar recurso de la biblioteca', 'Edit library asset'), h('div', { style: { display: 'grid', gap: '12px' } }, MC.ui.field(t('Nombre', 'Name'), nm, 'lb-n'), MC.ui.field(t('Carpeta', 'Folder'), fo, 'lb-f'), h('datalist', { id: 'lb-fl' }, folders.map((f) => h('option', { value: f }))), MC.ui.field(t('Etiquetas (separadas por comas)', 'Tags (comma separated)'), tg, 'lb-t'), it.kind === 'audio' ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Licencia del sonido', 'Sound licence')), MC.ui.chips((MC.SOUND_LICENSES || []).map((q) => ({ v: q[0], l: t(q[1], q[2]) })), lic.v, (v) => { lic.v = v; MC.toast(t('Licencia: ', 'Licence: ') + MC.soundLicName(v)); })) : null, it.kind === 'audio' ? MC.ui.field(t('Autor o fuente', 'Author or source'), au, 'lb-a') : null),
+          (close) => [h('button', { class: 'btn btn-s', type: 'button', onClick: close }, t('Cancelar', 'Cancel')), h('button', { class: 'btn btn-p', type: 'button', onClick: async () => { await MC.library.update(it.id, { name: nm.value.trim() || it.name, folder: fo.value.trim(), tags: tg.value.split(',').map((x) => x.trim()).filter(Boolean), lic: it.kind === 'audio' ? lic.v : it.lic, author: it.kind === 'audio' ? au.value.trim() : it.author }); close(); loadLib(); } }, t('Guardar', 'Save'))]);
       };
       const card = (it) => {
         const menu = h('div', { class: 'libact' },
@@ -35529,11 +35671,11 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Carpeta y etiquetas', 'Folder and tags'), 'aria-label': t('Editar ', 'Edit ') + it.name, onClick: () => editItem(it) }, MC.icon('gear', 13)),
           h('button', { class: 'btn btn-g btn-sm', type: 'button', title: t('Quitar de la biblioteca (no borra el archivo de tus proyectos)', 'Remove from the library (does not delete it from your projects)'), 'aria-label': t('Quitar ', 'Remove ') + it.name, onClick: async () => { await MC.library.remove(it.id); loadLib(); } }, MC.icon('trash', 13)));
         return h('div', { class: 'libcard', draggable: 'true', title: t('Arrástralo a la línea de tiempo o a las capas', 'Drag it to the timeline or the layers'), onDragstart: (e) => { e.dataTransfer.setData(MIME_ASSET, JSON.stringify([{ id: it.id, kind: it.kind }])); e.dataTransfer.effectAllowed = 'copy'; } }, it.thumb ? h('img', { class: 'lt', src: it.thumb, alt: '' }) : h('span', { class: 'lt' + (it.kind === 'audio' ? ' au' : '') }, it.kind === 'audio' ? MC.icon('note', 18) : null),
-          h('div', { style: { minWidth: 0 } }, h('b', { class: 'ln' }, it.name), h('span', { class: 'cap' }, ({ image: t('imagen', 'image'), video: t('vídeo', 'video'), audio: t('audio', 'audio') })[it.kind] + (it.folder ? ' · ' + it.folder : '') + ((it.tags || []).length ? ' · #' + it.tags.join(' #') : '')), menu));
+          h('div', { style: { minWidth: 0 } }, h('b', { class: 'ln' }, it.name), h('span', { class: 'cap' }, ({ image: t('imagen', 'image'), video: t('vídeo', 'video'), audio: t('audio', 'audio') })[it.kind] + (it.lic && it.lic !== 'other' && MC.soundLicName ? ' · ' + MC.soundLicName(it.lic) : '') + (it.folder ? ' · ' + it.folder : '') + ((it.tags || []).length ? ' · #' + it.tags.join(' #') : '')), menu));
       };
       return [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca · ', 'Library · ') + items.length),
         h('p', { class: 'cap' }, t('Tus recursos guardados para usar en cualquier proyecto: personajes, fondos, efectos de sonido… Se quedan en este equipo.', 'Your saved assets to use in any project: characters, backgrounds, sound effects… They stay on this device.')),
-        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => libIn.click() }, MC.icon('upload', 14), t('Importar a la biblioteca', 'Import to the library')), libIn),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, h('button', { class: 'btn btn-p btn-sm', type: 'button', onClick: () => libIn.click() }, MC.icon('upload', 14), t('Importar a la biblioteca', 'Import to the library')), h('button', { class: 'btn btn-s btn-sm', type: 'button', onClick: () => MC.openSoundPacks(() => { S.libLoaded = false; loadLib(); }) }, MC.icon('folder', 14), t('Packs de sonidos', 'Sound packs')), libIn),
         h('input', { class: 'input', type: 'search', 'aria-label': t('Buscar en la biblioteca', 'Search the library'), placeholder: t('Buscar por nombre, carpeta o etiqueta', 'Search by name, folder or tag'), value: S.lib.q, onInput: (e) => { S.lib.q = e.target.value; const pos = e.target.selectionStart; renderPanels(); const n = el.leftBody.querySelector('input[type=search]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } } }),
         folders.length ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Carpeta', 'Folder')), MC.ui.chips([{ v: '', l: t('Todas', 'All') }].concat(folders.map((f) => ({ v: f, l: f }))), S.lib.folder, (v) => { S.lib.folder = v; renderPanels(); })) : null,
         tags.length ? h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Etiqueta', 'Tag')), MC.ui.chips([{ v: '', l: t('Todas', 'All') }].concat(tags.map((x) => ({ v: x, l: '#' + x }))), S.lib.tag, (v) => { S.lib.tag = v; renderPanels(); })) : null),
@@ -35754,7 +35896,8 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       if (fav) return shown.length ? [h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('★ Sonidos favoritos', '★ Favourite sounds')), h('div', { style: { display: 'grid', gap: '2px' } }, rows))] : [];
       return [h('div', { class: 'box' }, h('div', { class: 'big-btns' },
         h('button', { class: 'btn btn-s', type: 'button', onClick: () => { fileAudio.dataset.track = 'auto'; fileAudio.click(); } }, MC.icon('upload', 20), t('Importar audio', 'Import audio')),
-        h('button', { class: 'btn btn-s', type: 'button', onClick: recordVoice }, MC.icon('mic', 20), t('Grabar locución', 'Record voice-over')))),
+        h('button', { class: 'btn btn-s', type: 'button', onClick: recordVoice }, MC.icon('mic', 20), t('Grabar locución', 'Record voice-over')),
+        h('button', { class: 'btn btn-s', type: 'button', title: t('Importa un pack de sonidos libres descargado, mira dónde conseguirlos y saca los créditos', 'Import a downloaded pack of free sounds, see where to get them and get the credits'), onClick: () => MC.openSoundPacks(() => { S.libLoaded = false; loadLib(false); }) }, MC.icon('folder', 20), t('Packs y sonidos libres', 'Packs and free sounds')))),
       h('div', { class: 'box' }, h('div', { class: 'eyebrow' }, t('Biblioteca de sonidos · ', 'Sound library · ') + all.length), h('p', { class: 'cap' }, t('Efectos y músicas generados por código, sin licencias. Pulsa + para añadirlos donde está el cabezal, o arrástralos a la línea de tiempo.', 'Effects and music generated by code, no licences. Press + to add them at the playhead, or drag them to the timeline.')),
         h('input', { class: 'input', type: 'search', 'aria-label': t('Buscar un sonido', 'Search for a sound'), placeholder: t('Buscar: lluvia, golpe, láser…', 'Search: rain, hit, laser…'), value: S.snd.q, onInput: (e) => { S.snd.q = e.target.value; const pos = e.target.selectionStart; renderPanels(); const n = el.leftBody.querySelector('input[type=search]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } } }),
         MC.ui.chips(cats.map((c) => ({ v: c[0], l: t(c[1], c[2]) })), S.snd.cat, (v) => { S.snd.cat = v; renderPanels(); }),
@@ -38216,6 +38359,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, linea_de_tiempo: S.project.tl === 'free' ? 'por pistas' : 'por planos', shots: S.project.tl === 'free' ? 0 : S.project.shots.length, clips: S.project.tl === 'free' ? S.project.overlays.length + S.project.xshots.length + S.project.texts.filter((q) => q.kind !== 'sub').length : undefined, pistas: S.project.tl === 'free' ? S.project.otracks.length : undefined, assets: (S.project.assets || []).length }),
+      libItems: () => S.libItems,
       learn: () => ({ selKind: S.selKind, xs: S.xs, ov: S.ov, multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },

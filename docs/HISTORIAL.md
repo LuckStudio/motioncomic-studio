@@ -370,3 +370,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Probado: los 30 se dibujan sin error y cambian la imagen (entre el 4 % y el 90 % de los píxeles), el más lento tarda 8 ms por fotograma a 180×320; hoja de contacto revisada a ojo (se retocaron Latigazo, Onomatopeya, Corte diagonal, Resplandor, Caleidoscopio y Ascuas); botones, texto, selector y color de los ajustes, guardado de los efectos con sus parámetros y los 22 efectos anteriores intactos.
 - Arreglado: la vista previa al pasar el ratón sustituía los objetos de los efectos al soltarla y los deslizadores del panel editaban copias huérfanas (ahora se restaura el mismo array).
 - Límites: «Zoom al ritmo» usa un tempo fijo, no los pulsos del proyecto; «Pausa de impacto» no congela el tiempo, solo el aspecto; los efectos pesados no se midieron a 1080×1920 ni en equipos lentos.
+
+## Bloque J, J1 y J2: sonidos nuevos y packs descargados (versión 0.29)
+
+- `src/js/sounds2.js` (20 efectos: objetos y cotidiano, acción, transiciones; `A.kit` exporta los ayudantes de sounds.js), `src/js/packs.js` (importar ZIP o carpeta con subcarpetas como etiquetas, licencia y autor, fuentes con su licencia, créditos del proyecto). Ficha de la Biblioteca con licencia y autor para los audios.
+- Probado: los 20 se generan sin error, normalizados y con la duración anunciada, con forma esperada (el riser y el platillo invertido suben, la caída de graves y el espadazo bajan); añadir uno a la línea de tiempo; importar un ZIP real con carpetas y un archivo de texto (se ignora), etiquetas y licencia, la Biblioteca, usarlo en el proyecto, créditos, y el aviso de «solo personal».
+- Arreglado al probar: seis de los sonidos nuevos repetían identificadores de sonidos que ya existían y no se añadían; se rehicieron como sonidos distintos.
+- Límites: la importación admite hasta 600 audios por vez; las fuentes y licencias son un resumen orientativo y las licencias de cada sitio pueden cambiar; los créditos solo incluyen sonidos de la Biblioteca con autor o licencia apuntados (lo que importas sin apuntar nada no aparece).

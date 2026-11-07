@@ -12,6 +12,7 @@
   const hit = (ac, t0, f, peak, dec, out) => { const g = gainEnv(ac, t0, 0.003, peak, dec, out); osc(ac, 'sine', f, t0, t0 + dec + 0.05, g, f * 0.3); const g2 = gainEnv(ac, t0, 0.001, peak * 0.6, dec * 0.4, out); nz(ac, t0, dec * 0.4, g2, 'lowpass', 1800); };
   const tone = (ac, type, m, t0, len, vol, out) => { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len); g.connect(out || ac.destination); osc(ac, type, hz(m), t0, t0 + len, g); };
 
+  A.kit = { rnd, noiseBuf, gainEnv, osc, flt, nz, hit, tone, hz };
   const S = (id, cat, es, en, dur, gen) => ({ id, kind: 'sfx', cat, es, en, dur, gen });
   const M = (id, es, en, dur, gen) => ({ id, kind: 'music', cat: 'musica', es, en, dur, gen });
 
