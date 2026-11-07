@@ -325,3 +325,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - `src/js/cursors.js`: seis estilos en SVG (cada uno con cursor general y de elementos pulsables), imagen propia reducida a PNG con punto activo, CSS inyectado (`html[data-cur]`), guardado en el equipo y panel en Preferencias → Cursor.
 - Probado con Playwright: los 6 estilos cambian el cursor del cuerpo y el de los botones, un botón desactivado conserva «not-allowed» y un campo de texto conserva «text», persiste tras recargar, imagen propia (subida real de un PNG, punto activo, aplicar, recargar, quitar), volver al sistema, panel en inglés.
 - Límites: solo dentro de la página; los cursores no salen en las capturas; no se ha probado el aspecto real de cada cursor con el puntero físico (se comprueba el CSS aplicado y las miniaturas del panel).
+
+## Línea de tiempo libre, H1: modelo y dibujo (versión 0.23)
+
+- `project.tl` (`classic` o `free`) en `normalizeProject` y `newProject`; `MC.freeEnd`, `MC.syncFree` y `MC.freeTracks` en db.js y render.js.
+- `renderFree`: composición por pista mezclando planos superpuestos, superposiciones y textos mediante un filtro `o.pick` en los tres dibujantes; el aspecto se aplica después de las pistas y los subtítulos van encima.
+- Probado con píxeles reales: la pista más alta tapa, cambiar de pista cambia el resultado, una pista oculta no se dibuja, un texto en una pista baja queda bajo una imagen de una pista alta (en el modo clásico el texto sigue encima), una capa agrupada se intercala entre imágenes, la duración del plano base sigue al último clip, los proyectos antiguos siguen siendo clásicos. Regresión del modo clásico sin cambios.
+- Siguiente: H2, selector de tipo de línea de tiempo al crear el proyecto y la línea de tiempo libre.

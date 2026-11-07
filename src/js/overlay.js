@@ -176,7 +176,7 @@
   MC.renderOverlays = (ctx, p, time, o) => {
     if (o.overlays === false || !(p.overlays && p.overlays.length)) return;
     const k0 = ctx.getTransform().a;
-    MC.overlaysAt(p, time).forEach((it) => {
+    MC.overlaysAt(p, time).filter((it) => !o.pick || o.pick('o', it)).forEach((it) => {
       const a = o.getImg(it.assetId); if (!a) return;
       let src = a.bitmap;
       if (a.video) { src = V.el(it.id, a); if (src.readyState < 2) return; }

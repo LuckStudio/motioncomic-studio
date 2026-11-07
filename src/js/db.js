@@ -123,6 +123,9 @@
   /* Contenedor de viñeta por defecto (calle, fondo, forma y trazo). En modo libre siempre existe. */
   MC.FRAME_DEF = { on: true, gutter: 0.035, bg: '#ffffff', pattern: 'plain', patColor: '#000000', width: 0.006, color: '#111111', style: 'solid', shape: 'rect', amount: 0.5, shadow: 0, shadowColor: '#000000', radius: 0, bgGrad: 'none', bg2: '#8c7cff', bgAngle: 90, strokeGrad: 'none', color2: '#ffffff', strokeAngle: 0, shadowBlur: 0, shadowAngle: 45 };
   /* Proyectos guardados con una versión anterior: añade los campos nuevos. */
+  /* Línea de tiempo libre: el plano base oculto dura hasta el final del último clip (así la duración total y el audio funcionan sin cambios). */
+  MC.freeEnd = (p) => Math.max(0, ...(p.xshots || []).map((x) => x.start + x.duration), ...(p.overlays || []).map((q) => q.start + q.dur), ...(p.texts || []).filter((q) => q.kind !== 'sub').map((q) => { const sp = MC.textSpan ? MC.textSpan(q, p) : q; return sp.start + sp.dur; }), ...(p.subs || []).map((q) => q.start + q.dur), ...(p.clips || []).map((c) => c.start + c.dur));
+  MC.syncFree = (p) => { if (!p.shots.length) p.shots.push(MC.newShot(MC.t('Base', 'Base'))); const sh = p.shots[0]; sh.hidden = true; while (p.shots.length > 1) p.shots.pop(); sh.duration = Math.max(1, Math.round(MC.freeEnd(p) * 100) / 100); return p; };
   MC.normalizeProject = (p) => {
     p.clips = p.clips || []; p.markers = p.markers || [];
     p.look = Object.assign({ vignette: 0, grain: 0, halftone: 0, tint: null, sat: 1, contrast: 1, bright: 1, warm: 0 }, p.look || {}); p.shots.forEach((sh) => { sh.fx = sh.fx || []; });
@@ -131,6 +134,8 @@
     p.mix = Object.assign({ voz: 1, sfx: 1, musica: 0.6, duck: true }, p.mix || {});
     p.notes = p.notes || []; p.subs = p.subs || []; p.xshots = p.xshots || []; p.xtracks = p.xtracks && p.xtracks.length ? p.xtracks : [{ id: MC.uid(), name: MC.t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }]; p.xshots.forEach((sh) => { sh.fx = sh.fx || []; sh.xtrack = Math.min(sh.xtrack || 0, p.xtracks.length - 1); });
     p.overlays = p.overlays || []; p.otracks = p.otracks && p.otracks.length ? p.otracks : [MC.newOtrack(1)];
+    p.tl = p.tl === 'free' ? 'free' : 'classic'; /* tipo de línea de tiempo: clásica (planos) o libre (pistas mezclables) */
+    if (p.tl === 'free') MC.syncFree(p);
     p.frame = Object.assign({}, MC.FRAME_DEF, { on: (p.mode || 'free') === 'free' }, p.frame || {});
     if ((p.mode || 'free') === 'free') p.frame.on = true;
     return p;
@@ -140,7 +145,7 @@
   MC.newCamera = () => ({ preset: 'zoomin', intensity: 1, curve: 'smooth', from: { x: 0, y: 0, zoom: 1, rot: 0 }, to: { x: 0, y: 0, zoom: 1.25, rot: 0 }, shake: 0 });
   MC.newShot = (name) => ({ id: MC.uid(), name: name || 'Plano', duration: 4, layers: [], fx: [], rack: null, camera: MC.newCamera(), transition: { type: 'cut', dur: 0.6 } });
   MC.newProject = (o) => ({
-    id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
+    id: MC.uid(), name: o.name || 'Proyecto sin título', mode: 'free', tl: o.tl === 'free' ? 'free' : 'classic', ratio: o.ratio || '9:16', res: o.res || '1080p', zoomPlan: o.zoom || 1.5,
     parallax: 'normal', overscan: true, created: Date.now(), updated: Date.now(), shots: [MC.newShot('Plano 1')], thumb: '',
     look: { vignette: 0, grain: 0, halftone: 0, tint: null }, texts: [], fonts: [], langs: ['es'], lang: 'es', sub: { font: 'bric', size: 0.045, color: '#ffffff', bg: true, y: null },
     clips: [], markers: [], mix: { voz: 1, sfx: 1, musica: 0.6, duck: true },
