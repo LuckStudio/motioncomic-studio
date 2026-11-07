@@ -86,14 +86,26 @@
   MC.newProjectDialog = (mode) => {
     const st = { name: '', ratio: mode === 'free' || !mode ? '9:16' : '9:16', res: '1080p', zoom: 1.5, mode: mode || 'free', dir: 'ltr' };
     const nameId = 'np-' + MC.uid();
+    /* tipo de línea de tiempo (solo en el modo Libre): por planos (la de siempre) o por pistas (como Premiere o CapCut) */
+    const tlHost = h('div', { class: 'field' });
+    const drawTl = () => {
+      MC.clear(tlHost); if (st.mode !== 'free') { st.tl = 'classic'; return; }
+      const opt = (v, es, en, ds, de) => h('button', { class: 'mode', type: 'button', 'aria-pressed': String((st.tl || 'classic') === v), onClick: () => { st.tl = v; drawTl(); } }, h('b', null, t(es, en)), h('span', null, t(ds, de)));
+      MC.put(tlHost, h('span', { class: 'eyebrow' }, t('Línea de tiempo', 'Timeline')), h('div', { class: 'modes' },
+        opt('classic', 'Por planos', 'By shots', 'La de siempre: planos seguidos, con sus capas y su cámara. Más sencilla.', 'The usual one: shots in a row, with their layers and camera. Simpler.'),
+        opt('free', 'Por pistas', 'By tracks', 'Como Premiere o CapCut: imágenes, vídeos, texto y capas agrupadas se mezclan en pistas.', 'Like Premiere or CapCut: images, videos, text and grouped layers mix on tracks.')),
+        h('span', { class: 'cap' }, t('Se elige al empezar el proyecto.', 'Chosen when the project starts.')));
+    };
+    drawTl();
     const body = h('div', { style: { display: 'grid', gap: '16px' } },
       MC.ui.field(t('Nombre', 'Name'), h('input', { class: 'input', id: nameId, placeholder: t('Capítulo 1 · Tráiler', 'Chapter 1 · Trailer'), onInput: (e) => { st.name = e.target.value; } }), nameId),
-      modePicker(st), MC.formatPicker(st));
+      modePicker(st, () => { drawTl(); }), tlHost, MC.formatPicker(st));
     MC.modal(t('Proyecto nuevo', 'New project'), body, (close) => [
       h('button', { class: 'btn btn-g', type: 'button', onClick: close }, t('Cancelar', 'Cancel')),
       h('button', { class: 'btn btn-p', type: 'button', onClick: async () => {
-        const p = MC.newProject({ name: st.name.trim() || t('Proyecto sin título', 'Untitled project'), ratio: st.ratio, res: st.res, zoom: st.zoom });
+        const p = MC.newProject({ name: st.name.trim() || t('Proyecto sin título', 'Untitled project'), ratio: st.ratio, res: st.res, zoom: st.zoom, tl: st.mode === 'free' ? st.tl : 'classic' });
         p.mode = st.mode; p.dir = st.dir;
+        if (p.tl === 'free') { p.otracks = [1, 2, 3].map((n) => Object.assign(MC.newOtrack(n), { name: 'V' + n })); MC.syncFree(p); }
         const style = MC.myStyle.get(); if (style) MC.applyStyle(p, style);
         await MC.db.put('projects', p);
         close();

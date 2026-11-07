@@ -908,3 +908,7 @@ a.btn { text-decoration: none; }
 .cur-card { display: grid; gap: 6px; align-content: start; border: 1px solid var(--line); background: var(--raised); padding: 10px; border-radius: 10px; } .cur-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cur-pad { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 64px; border: 1px dashed var(--line); border-radius: 8px; background: var(--stage, var(--bg)); color: var(--muted); font-size: 22px; }
 .cur-pad.cur-big { min-height: 96px; }
+
+/* línea de tiempo por pistas */
+.tl-labels .trl.vt { cursor: pointer; } .tl-labels .trl.vt.sel { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tl-labels .trl.vt .trb .btn { width: 22px; height: 22px; padding: 2px; }
