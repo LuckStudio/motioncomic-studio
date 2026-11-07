@@ -4301,7 +4301,7 @@
       const sec = (title, rows, hot) => h('section', { class: 'kssec' + (hot ? ' hot' : '') }, h('h3', null, title), ...rows);
       const ws = S.ws, tab = curTab();
       const ctxRows = ws === 'creativo' && tab === 'subtitulos' ? [row('Intro', t('Marcar la palabra que se dice en el cabezal', 'Mark the word being said at the playhead')), row('.', t('Marcar un silencio', 'Mark a silence')), row('Retroceso', t('Quitar la última marca', 'Remove the last mark'))]
-        : ws === 'exportar' ? [act('export')] : ws === 'creativo' ? [act('addBubble'), row('Intro o Espacio', t('Pulsar el botón enfocado', 'Press the focused button'))] : ['selectTool', 'blade', 'trimStart', 'trimEnd', 'snap', 'keyframe', 'split', 'marker'].map(act);
+        : ws === 'exportar' ? [act('export')] : ws === 'creativo' ? [act('addBubble'), row('Intro o Espacio', t('Pulsar el botón enfocado', 'Press the focused button'))] : ['selectTool', 'blade', 'trimStart', 'trimEnd', 'snap', 'keyframe', 'groupClips', 'ungroupClips', 'split', 'marker'].map(act);
       const body = h('div', { class: 'ks' },
         sec(ws === 'montaje' ? t('Montaje', 'Edit') : ws === 'creativo' ? t('Efectos y audio', 'Effects and audio') : t('Exportar', 'Export'), ctxRows, true),
         sec(t('Reproducción', 'Playback'), ['play', 'stepBack', 'stepFwd', 'secBack', 'secFwd', 'start', 'end', 'prevShot', 'nextShot', 'back1', 'pause', 'forward'].map(act)),
@@ -4468,7 +4468,7 @@
       viewSwitch: () => { const sh = shot(), next = sh.page ? 'page' : sh.webtoon ? 'strip' : 'cam'; S.view = S.view === 'out' ? next : 'out'; togglePlay(false); renderVbar(); buildSim(); fit(); MC.announce(S.view === 'out' ? t('Vista de salida', 'Output view') : t('Vista de edición', 'Editing view')); },
       zoomIn: () => { S.pps = clamp(S.pps * 1.3, 12, 240); renderTimeline(); }, zoomOut: () => { S.pps = clamp(S.pps / 1.3, 12, 240); renderTimeline(); },
       export: () => openExport(), help: () => shortcutSheet(), keys: () => MC.openHelp('keys'),
-      selectTool: () => setTool('sel'), blade: () => setTool('blade'), trimStart: () => trimEdge('start'), trimEnd: () => trimEdge('end'), snap: () => toggleSnap(), keyframe: () => addKfHere(),
+      selectTool: () => setTool('sel'), blade: () => setTool('blade'), trimStart: () => trimEdge('start'), trimEnd: () => trimEdge('end'), snap: () => toggleSnap(), keyframe: () => addKfHere(), groupClips: () => groupSelected(), ungroupClips: () => ungroupSelected(),
       delete: () => {
         if (S.view === 'page' && S.pn && shot().page) { const pg = shot().page; pg.panels = pg.panels.filter((q) => q.id !== S.pn); S.pn = null; pg.manual = true; commit(); }
         else if (S.view === 'strip' && S.sp && shot().webtoon) { const wt = shot().webtoon; wt.stops = wt.stops.filter((q) => q.id !== S.sp); S.sp = null; commit(); }
@@ -4542,7 +4542,7 @@
       openWs: (v, tab) => { setWs(v); if (tab) { S.tab[v] = tab; renderRail(); renderPanels(); } },
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
-      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
+      importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, linea_de_tiempo: S.project.tl === 'free' ? 'por pistas' : 'por planos', shots: S.project.tl === 'free' ? 0 : S.project.shots.length, clips: S.project.tl === 'free' ? S.project.overlays.length + S.project.xshots.length + S.project.texts.filter((q) => q.kind !== 'sub').length : undefined, pistas: S.project.tl === 'free' ? S.project.otracks.length : undefined, assets: (S.project.assets || []).length }),
       learn: () => ({ selKind: S.selKind, xs: S.xs, ov: S.ov, multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },

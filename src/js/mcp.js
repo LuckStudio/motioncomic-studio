@@ -34,14 +34,15 @@
     async status() { const api = MC.studioApi; return { conectado: true, proyecto: api && api.info ? api.info() : null, pantalla: api ? 'estudio' : 'inicio' }; },
     /* el estilo de la persona: sus notas (guía de estilo en Markdown) y los ajustes guardados en «Mi estilo». Solo lectura. */
     async get_style() { const st = MC.myStyle.get(); return { guia_markdown: MC.styleGuide.full(), mi_estilo_guardado: !!st, guia_escrita: MC.styleGuide.has(), ajustes: st }; },
-    async list_projects() { return (await MC.db.all('projects')).map((p) => ({ id: p.id, nombre: p.name, formato: p.ratio, planos: (p.shots || []).length })); },
+    async list_projects() { return (await MC.db.all('projects')).map((p) => (p.tl === 'free' ? { id: p.id, nombre: p.name, formato: p.ratio, linea_de_tiempo: 'por pistas', pistas: (p.otracks || []).length, clips: (p.overlays || []).length + (p.xshots || []).length + (p.texts || []).filter((q) => q.kind !== 'sub').length } : { id: p.id, nombre: p.name, formato: p.ratio, linea_de_tiempo: 'por planos', planos: (p.shots || []).length })); },
     async new_project(a) {
       if (!(await confirmAction(t('Crear el proyecto «' + a.name + '» (' + a.ratio + ', ' + a.res + ')', 'Create project “' + a.name + '” (' + a.ratio + ', ' + a.res + ')')))) throw new Error('El usuario rechazó la acción.');
-      const p = MC.newProject({ name: a.name, ratio: a.ratio, res: a.res, zoom: 1.5 }); p.mode = a.mode || 'free';
+      const byTracks = a.tl === 'free' && (a.mode || 'free') === 'free'; const p = MC.newProject({ name: a.name, ratio: a.ratio, res: a.res, zoom: 1.5, tl: byTracks ? 'free' : 'classic' }); p.mode = a.mode || 'free';
+      if (byTracks) { p.otracks = [1, 2, 3].map((n) => Object.assign(MC.newOtrack(n), { name: 'V' + n })); MC.syncFree(p); }
       const style = MC.myStyle && MC.myStyle.get(); if (style) MC.applyStyle(p, style);
       await MC.db.put('projects', p); document.querySelectorAll('.scrim').forEach((n) => n.remove());
       await MC.app.openProject(p); await waitStudio(p.id);
-      return { id: p.id, nombre: p.name, mi_estilo_aplicado: !!style };
+      return { id: p.id, nombre: p.name, linea_de_tiempo: p.tl === 'free' ? 'por pistas' : 'por planos', mi_estilo_aplicado: !!style };
     },
     async open_project(a) {
       const all = await MC.db.all('projects'), q = String(a.project).toLowerCase();
@@ -56,7 +57,7 @@
       if (!(await confirmAction(a.as === 'shots' ? t('Crear un plano por cada archivo (' + names.length + ')', 'Create one shot per file (' + names.length + ')') : t('Añadir ' + names.length + ' archivo(s) como recursos', 'Add ' + names.length + ' file(s) as assets'), names.join(', ')))) throw new Error('El usuario rechazó la acción.');
       const before = api.info(); await api.aiBegin((a.as === 'shots' ? 'Planos nuevos: ' : 'Recursos añadidos: ') + names.join(', ')); await api.importFiles(await toFiles(a.files), a.as === 'shots' ? 'shots' : 'layers');
       await new Promise((r) => setTimeout(r, 400)); await api.saveNow(); const now = api.info();
-      return { importados: names, planos: now.shots, planos_antes: before.shots, nota: 'Los cambios están en una «versión IA» que el usuario debe aceptar o descartar en el estudio; su proyecto original no se ha tocado.' };
+      return { importados: names, planos: now.shots, planos_antes: before.shots, linea_de_tiempo: now.linea_de_tiempo, clips: now.clips, clips_antes: before.clips, nota: 'Los cambios están en una «versión IA» que el usuario debe aceptar o descartar en el estudio; su proyecto original no se ha tocado.' };
     },
   };
   async function waitStudio(id) { for (let i = 0; i < 80; i++) { const a = MC.studioApi; if (a && a.info && a.info().id === id) return; await new Promise((r) => setTimeout(r, 100)); } }
@@ -104,7 +105,7 @@
       S.log.length ? h('details', null, h('summary', null, t('Actividad reciente', 'Recent activity')), h('ul', { class: 'cap' }, S.log.map((l) => h('li', null, l)))) : null);
   }
 
-  MC.mcp = { pane, start, disconnect, state: () => S.state };
+  MC.mcp = { pane, start, disconnect, state: () => S.state, handlers: HANDLERS };
   /* enlace desde el conector: ?mcp=PUERTO&code=CODIGO → pide permiso antes de conectar */
   window.addEventListener('load', () => {
     const q = new URLSearchParams(location.search), port = q.get('mcp'), code = q.get('code');

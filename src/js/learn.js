@@ -17,6 +17,12 @@
   const clipsOf = (p, tr) => (p.clips || []).filter((c) => tr.includes(c.track)).length;
   const lookKey = (p) => JSON.stringify(p.look || {});
 
+  const clipsN = (p) => (p.overlays || []).length + (p.xshots || []).length + (p.texts || []).filter((q) => q.kind !== 'sub').length;
+  const trackSig = (p) => (p.overlays || []).map((q) => q.track).join() + '|' + (p.xshots || []).map((q) => q.xtrack || 0).join() + '|' + (p.texts || []).filter((q) => q.kind !== 'sub').map((q) => q.track || 0).join();
+  const tinAny = (p) => [].concat(p.overlays || [], p.xshots || [], (p.texts || []).filter((q) => q.kind !== 'sub')).some((q) => (q.tin && q.tin.type !== 'cut') || (q.tout && q.tout.type !== 'cut'));
+  const layerSig = (p) => ((p.xshots || [])[0] ? p.xshots[0].layers.map((l) => l.id).join() : '');
+  const isFree = (c) => !!(c.p && c.p.tl === 'free');
+
   const COURSE = [
     { id: 'm1', title: 'Tu primer vídeo', intro: 'De tus ilustraciones a un vídeo que se mueve: importar, dar profundidad, mover la cámara, montar planos, poner texto y exportar.',
       lessons: [
@@ -114,6 +120,26 @@
           { text: 'En la tarjeta «Mi guía de estilo» de la pantalla de inicio (o en su editor) pulsa «Copiar para una IA»: así cualquier chat sabe cómo trabajas.', where: '.s-top', check: (c) => c.ev.copyai > 0 },
         ] },
       ], challenge: { title: 'Reto: tu sello personal', text: 'Guarda tu estilo y escribe tu guía de estilo.', check: () => MC.myStyle.savedAt() > 0 && MC.styleGuide.savedAt() > 0 } },
+    { id: 'm7', title: 'Línea de tiempo por pistas', intro: 'Para editar como en Premiere o CapCut: pistas V que se mezclan, capas agrupadas con parallax, capas de ajuste y transiciones por clip. Necesitas un proyecto creado con la línea de tiempo «Por pistas».',
+      lessons: [
+        { id: 'm7l1', title: 'Pistas y clips', why: 'En una línea de tiempo por pistas todo son clips colocados en pistas V1, V2, V3… Lo que está en una pista más alta tapa a lo de abajo, y las imágenes, vídeos y textos se mezclan libremente.', steps: [
+          { text: 'Abre «Proyecto nuevo», elige en «Línea de tiempo» la opción «Por pistas» y crea el proyecto. (Este panel te sigue mientras vuelves al inicio.)', where: '.s-top', check: (c) => isFree(c) },
+          { text: 'Pulsa el nombre de una pista (por ejemplo V1) para elegirla y añade una imagen con su botón «+».', where: '.tl-labels', init: (c) => { c.mem.n = c.p ? c.p.overlays.length : 0; }, check: (c) => isFree(c) && c.p.overlays.length > c.mem.n },
+          { text: 'Añade un texto en OTRA pista con el botón «T» de esa pista: texto e imagen se mezclan en la misma línea de tiempo.', where: '.tl-labels', init: (c) => { c.mem.n = c.p ? c.p.texts.filter((q) => q.kind !== 'sub').length : 0; }, check: (c) => isFree(c) && c.p.texts.filter((q) => q.kind !== 'sub').length > c.mem.n },
+          { text: 'Arrastra uno de los clips a otra pista para cambiar qué tapa a qué.', where: '.tl-track', init: (c) => { c.mem.s = c.p ? trackSig(c.p) : ''; }, check: (c) => isFree(c) && trackSig(c.p) !== c.mem.s },
+        ] },
+        { id: 'm7l2', title: 'Capas agrupadas', why: 'Una capa agrupada reúne varias capas con profundidad: es donde se aplica el parallax. Se mueve y se mezcla en las pistas como cualquier clip.', steps: [
+          { text: 'Elige dos o más imágenes (clic y Ctrl o Mayús + clic) y pulsa «Agrupar clips» en la barra de la línea de tiempo (o Ctrl+G).', where: '[data-tb="group"]', init: (c) => { c.mem.n = c.p ? c.p.xshots.length : 0; }, check: (c) => isFree(c) && c.p.xshots.length > c.mem.n },
+          { text: 'Despliega la capa agrupada con la flecha ▸ de su clip para ver sus capas en la propia pista.', where: '.clip.xs', check: () => !!document.querySelector('.clip.xl') },
+          { text: 'En el panel Capas, cambia el orden de una capa (por ejemplo, «Al frente de todo»): la de delante tapa a las demás.', where: '.p-layers', init: (c) => { c.mem.l = c.p ? layerSig(c.p) : ''; }, check: (c) => isFree(c) && layerSig(c.p) !== c.mem.l },
+          { text: 'Con la capa agrupada elegida pulsa «Desagrupar» (o Ctrl+Mayús+G) para volver a tener clips sueltos.', where: '[data-tb="ungroup"]', init: (c) => { c.mem.n = c.p ? c.p.xshots.length : 0; }, check: (c) => isFree(c) && c.p.xshots.length < c.mem.n },
+        ] },
+        { id: 'm7l3', title: 'Ajustes, efectos y transiciones por clip', why: 'Una capa de ajuste aplica sus efectos a todo lo que hay debajo. Los clips también pueden entrar y salir con una transición.', steps: [
+          { text: 'Crea una capa de ajuste con el botón de reglas de una pista que esté por encima de tus clips.', where: '.tl-labels', check: (c) => isFree(c) && c.p.xshots.some((x) => x.adj) },
+          { text: 'En la pestaña Efectos (se abre sola) añade un efecto de estilo, como Duotono o Pixelado, a la capa de ajuste.', where: '.leftpanel', check: (c) => isFree(c) && c.p.xshots.some((x) => x.adj && (x.fx || []).length > 0) },
+          { text: 'Elige un clip suelto, abre la pestaña Transiciones (Efectos y audio) y dale una transición de entrada o de salida.', open: ['creativo', 'transiciones'], where: '.leftpanel', init: (c) => { c.mem.t = c.p ? tinAny(c.p) : false; }, check: (c) => isFree(c) && tinAny(c.p) && !c.mem.t },
+        ] },
+      ], challenge: { title: 'Reto: una composición por pistas', text: 'En un proyecto por pistas, ten al menos 4 clips (con una capa agrupada) y una capa de ajuste con un efecto.', check: (c) => isFree(c) && clipsN(c.p) >= 4 && c.p.xshots.some((x) => !x.adj) && c.p.xshots.some((x) => x.adj && (x.fx || []).length > 0) } },
   ];
 
   const GLOSSARY = [
@@ -128,6 +154,7 @@
     ['Mezclador', 'Donde se ajusta el volumen de cada pista de sonido.'], ['SFX', 'Efectos de sonido: golpes, viento, pasos…'], ['Pista', 'Una fila de la línea de tiempo con su tipo de contenido: planos, texto, voz, música…'],
     ['Viñeta (aspecto)', 'Oscurecimiento de los bordes de la imagen para dirigir la mirada al centro.'], ['Grano', 'Ruido fino que da textura de película.'], ['Trama de puntos', 'Efecto de cómic impreso: la imagen se ve hecha de puntos.'], ['Simulador', 'Vista del vídeo con la interfaz de una red social encima para ver qué tapa.'], ['Idioma del proyecto', 'Cada idioma tiene su propio texto y se exporta por separado.'],
     ['Base de atajos', 'Conjunto de atajos inspirado en un programa conocido (Premiere, After Effects, CapCut, DaVinci Resolve, Blender…).'], ['Mi estilo', 'Tus ajustes de montaje guardados para aplicarlos a proyectos nuevos.'], ['Guía de estilo', 'Tus notas en Markdown sobre cómo trabajas; sirve de referencia para ti y para una IA.'], ['MCP', 'Forma estándar de conectar una IA con una herramienta. Aquí la conexión es local, en tu equipo.'],
+    ['Pista V', 'Una fila de la línea de tiempo por pistas (V1, V2…) donde caben imágenes, vídeos, textos y capas agrupadas mezclados.'], ['Capa de ajuste', 'Clip cuyos efectos afectan a todo lo que hay debajo de él.'], ['Transición de entrada o salida', 'Cómo aparece un clip al empezar o desaparece al terminar sobre lo que hay debajo.'],
     ['Exportar', 'Convertir el proyecto en un archivo de vídeo, imagen o audio.'], ['Transición', 'El paso de un plano a otro: corte, fundido, deslizamiento…'], ['Rack focus', 'Cambio de enfoque entre capas para dirigir la mirada.'],
   ];
 

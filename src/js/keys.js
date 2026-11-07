@@ -35,6 +35,8 @@
     { id: 'trimStart', g: 'tools', es: 'Recortar el principio hasta el cabezal', en: 'Trim the start to the playhead' },
     { id: 'trimEnd', g: 'tools', es: 'Recortar el final desde el cabezal', en: 'Trim the end from the playhead' },
     { id: 'snap', g: 'tools', es: 'Activar o desactivar el imán', en: 'Turn the magnet on or off' },
+    { id: 'groupClips', g: 'tools', es: 'Agrupar los clips elegidos en una capa agrupada (línea de tiempo por pistas)', en: 'Group the picked clips into a grouped layer (by-tracks timeline)' },
+    { id: 'ungroupClips', g: 'tools', es: 'Desagrupar la capa agrupada elegida', en: 'Ungroup the picked grouped layer' },
     { id: 'keyframe', g: 'tools', es: 'Añadir un fotograma clave en el cabezal', en: 'Add a keyframe at the playhead' },
     { id: 'export', g: 'app', es: 'Exportar', en: 'Export' },
     { id: 'help', g: 'app', es: 'Abrir la ayuda', en: 'Open help' },
@@ -47,7 +49,7 @@
       play: ['Space'], pause: ['K'], forward: ['L'], back1: ['J'], stepBack: ['ArrowLeft'], stepFwd: ['ArrowRight'], secBack: ['Shift+ArrowLeft'], secFwd: ['Shift+ArrowRight'],
       start: ['Home'], end: ['End'], prevShot: ['['], nextShot: [']'], split: ['S'], delete: ['Delete', 'Backspace'], undo: ['Ctrl+Z'], redo: ['Ctrl+Shift+Z', 'Ctrl+Y'],
       addBubble: ['T'], save: ['Ctrl+S'], duplicate: ['Ctrl+D', 'Ctrl+J'], selectAll: ['Ctrl+A'], marker: ['M'], tapBeat: ['B'], viewSwitch: ['C'], fullscreen: ['F'], zoomIn: ['=', 'Plus'], zoomOut: ['-'], export: ['Ctrl+E'], help: ['?'], keys: ['Ctrl+/'],
-      selectTool: ['V'], blade: ['X'], trimStart: ['Q'], trimEnd: ['W'], snap: ['N'], keyframe: ['I'],
+      selectTool: ['V'], blade: ['X'], trimStart: ['Q'], trimEnd: ['W'], snap: ['N'], keyframe: ['I'], groupClips: ['Ctrl+G'], ungroupClips: ['Ctrl+Shift+G'],
     },
   };
   /* Premiere: J K L, Ctrl+K para cortar, flechas arriba y abajo entre cortes, Ctrl+M para exportar. */
