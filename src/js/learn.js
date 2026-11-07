@@ -117,7 +117,7 @@
   ];
 
   const GLOSSARY = [
-    ['Capa', 'Una imagen del proyecto. Varias capas forman un plano.'], ['Plano', 'Un tramo del vídeo con su propia cámara. Los planos se suceden en la línea de tiempo.'],
+    ['Capa', 'Una imagen del proyecto. Varias capas forman un plano.'], ['Capa agrupada', 'En la línea de tiempo por pistas, un clip que reúne varias capas con profundidad (parallax).'], ['Plano', 'Un tramo del vídeo con su propia cámara. Los planos se suceden en la línea de tiempo.'],
     ['Parallax', 'Efecto de profundidad: lo cercano se mueve más que lo lejano cuando se mueve la cámara.'], ['Profundidad (z)', 'Qué tan cerca o lejos está una capa. Define cuánto se mueve en el parallax.'],
     ['Cámara', 'Encuadre y movimiento del plano: acercar, alejar, desplazar.'], ['Cabezal', 'La barra vertical de la línea de tiempo que marca el instante que ves.'],
     ['Línea de tiempo', 'Dónde se colocan en el tiempo los planos, textos, subtítulos, efectos y sonidos.'], ['Fotograma clave', 'Un valor guardado en un instante. Entre dos fotogramas, la propiedad cambia sola.'],

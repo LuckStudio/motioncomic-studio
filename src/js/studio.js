@@ -972,7 +972,8 @@
         (() => { let rp = null, d0 = sh.duration; return MC.ui.slider({ label: t('Duración', 'Duration'), min: 0.5, max: 20, step: 0.1, value: sh.duration, fmt: (v) => v.toFixed(1) + ' s', onInput: (v) => { if (S.ripple && !rp) rp = rippleBegin(curStart() + d0); sh.duration = v; if (rp) rippleApply(rp, v - d0); layoutClips(); touch(); }, onChange: () => { rp = null; commit(); } }); })(),
       ];
       const isX = !!(S.xs && xById(S.xs));
-      if (isX) planoNodes.push(h('p', { class: 'cap' }, t('Plano superpuesto: suena y se ve a la vez que el plano principal, encima de él. Tiene su propia cámara, capas y efectos. Las zonas vacías son transparentes.', 'Overlapping shot: it plays at the same time as the main shot, on top of it. It has its own camera, layers and effects. Empty areas are transparent.')),
+      if (isX && p.tl === 'free') planoNodes.push(h('p', { class: 'cap' }, t('Capa agrupada: reúne varias capas con profundidad (parallax). Tiene su propia cámara, capas y efectos. Las zonas vacías son transparentes. Despliégala en la línea de tiempo con la flecha y ordena sus capas en el panel Capas.', 'Grouped layer: bundles several layers with depth (parallax). It has its own camera, layers and effects. Empty areas are transparent. Unfold it on the timeline with the arrow and order its layers in the Layers panel.')));
+      else if (isX) planoNodes.push(h('p', { class: 'cap' }, t('Plano superpuesto: suena y se ve a la vez que el plano principal, encima de él. Tiene su propia cámara, capas y efectos. Las zonas vacías son transparentes.', 'Overlapping shot: it plays at the same time as the main shot, on top of it. It has its own camera, layers and effects. Empty areas are transparent.')),
         MC.ui.slider({ label: t('Empieza en', 'Starts at'), min: 0, max: Math.max(MC.totalTime(p), sh.start + 1), step: 0.05, value: sh.start, fmt: (v) => v.toFixed(2) + ' s', onInput: (v) => { sh.start = v; layoutClips(); S.dirty = true; touch(); }, onChange: commit }),
         h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Pista', 'Track')), MC.ui.chips(p.xtracks.map((q, i) => ({ v: i, l: q.name })), sh.xtrack || 0, (v) => { sh.xtrack = v; commit(); })));
       if (!isX && S.si > 0) { const ti = MC.trInfo(sh.transition.type); planoNodes.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Transición de entrada', 'Entry transition')), h('button', { class: 'btn btn-s btn-sm', type: 'button', style: { justifySelf: 'start' }, onClick: () => { S.open.transicion = true; renderPanels(); const n = el.inspBody.querySelector('[data-id="transicion"]'); if (n) n.scrollIntoView({ block: 'nearest' }); } }, MC.icon('cut', 14), t(ti.es, ti.en)))); }
@@ -1748,11 +1749,32 @@
         S.project.xshots.length ? h('div', { style: { display: 'grid', gap: '2px' } }, S.project.xshots.map((x) => h('div', { class: 'layer' + (x.id === S.xs ? ' on' : ''), role: 'button', tabindex: '0', onClick: () => selectXs(x.id, true), onKeydown: (e) => { if (e.key === 'Enter') selectXs(x.id, true); } }, h('span', { class: 'lt' }, MC.icon('layersx', 16)), h('span', { class: 'ln' }, x.name), h('span', { class: 'lz' }, MC.fmtTime(x.start))))) : null)] : []);
     }
     async function addXShotFromPicker() { await openAssetPicker({ title: t('Plano superpuesto: elige imágenes', 'Overlapping shot: choose images'), onPick: (ids) => addXShots(ids, S.project.tl === 'free' ? curVt() : 0, S.time) }); }
+    /* ---------- capas agrupadas (línea de tiempo por pistas) ----------
+       Agrupar: las imágenes y vídeos elegidos pasan a ser capas de una capa agrupada (la de pista más alta queda más cerca) con su tramo de tiempo.
+       Desagrupar: cada capa vuelve a ser un clip suelto, en pistas consecutivas. La posición y el tamaño de cada capa se reinician al agrupar y desagrupar. */
+    const selectedOverlays = () => (S.multi.length > 1 ? S.multi : S.ov ? ['o:' + S.ov] : []).filter((k) => k[0] === 'o').map((k) => ovById(k.slice(2))).filter(Boolean);
+    function groupSelected() {
+      const p = S.project; if (p.tl !== 'free') { MC.toast(t('Agrupar solo existe en la línea de tiempo por pistas.', 'Grouping only exists in the by-tracks timeline.')); return false; }
+      const list = selectedOverlays(); if (!list.length) { MC.toast(t('Elige primero imágenes o vídeos (Ctrl o Mayús + clic para elegir varios).', 'Pick images or videos first (Ctrl or Shift + click to pick several).')); return false; }
+      list.sort((a, b) => a.track - b.track || p.overlays.indexOf(a) - p.overlays.indexOf(b));
+      const start = Math.min(...list.map((o) => o.start)), end = Math.max(...list.map((o) => o.start + o.dur)), x = MC.newShot(list.length === 1 ? list[0].name : t('Capa agrupada', 'Grouped layer'));
+      Object.assign(x, { start: r2(start), duration: r2(Math.max(0.5, end - start)), xtrack: Math.min(...list.map((o) => o.track)), fx: [] }); delete x.transition; MC.applyPreset(x.camera, 'none', 1);
+      list.forEach((o, i) => { const a = MC.assets.get(o.assetId); if (!a) return; const L = MC.newLayer(a, { z: 0.5, role: '' }); L.z = list.length > 1 ? Math.round((0.15 + (0.7 * i) / (list.length - 1)) * 100) / 100 : 0.5; L.name = o.name; if (a.video) L.vloop = true; L.ts = r2(o.start - start); L.te = r2(o.start + o.dur - start); x.layers.push(L); });
+      p.overlays = p.overlays.filter((o) => !list.includes(o)); p.xshots.push(x); S.multi = []; S.ov = null; S.expand[x.id] = true; commit(); selectXs(x.id, true);
+      MC.toast(t('Agrupado en una capa agrupada (' + list.length + ' capas). Desplégala con la flecha ▸ y ordena sus capas en el panel Capas.', 'Grouped into one grouped layer (' + list.length + ' layers). Unfold it with the ▸ arrow and order its layers in the Layers panel.')); return true;
+    }
+    function ungroupSelected() {
+      const p = S.project, x = S.xs && xById(S.xs); if (p.tl !== 'free' || !x) { MC.toast(t('Elige primero una capa agrupada.', 'Pick a grouped layer first.')); return false; }
+      const tr0 = x.xtrack || 0; while (p.otracks.length < tr0 + x.layers.length) p.otracks.push(Object.assign(MC.newOtrack(p.otracks.length + 1), { name: 'V' + (p.otracks.length + 1) }));
+      const made = []; x.layers.forEach((l, i) => { const a = MC.assets.get(l.assetId); if (!a) return; const ts = l.ts || 0, te = l.te == null ? x.duration : l.te, o = MC.newOverlay(a, { track: tr0 + i, start: r2(x.start + ts), dur: r2(Math.max(0.2, te - ts)) }); o.scale = 1; o.name = l.name || o.name; made.push(o); });
+      p.xshots = p.xshots.filter((q) => q !== x); p.overlays.push(...made); S.xs = null; S.li = -1; S.multi = made.length > 1 ? made.map((o) => 'o:' + o.id) : []; S.selKind = made.length > 1 ? 'multi' : 'overlay'; S.ov = made.length ? made[made.length - 1].id : null; commit();
+      MC.toast(t('Desagrupada: ' + made.length + ' clips sueltos, uno por pista.', 'Ungrouped: ' + made.length + ' loose clips, one per track.')); return true;
+    }
     /* crea planos superpuestos a partir de recursos */
     async function addXShots(ids, track, at) {
       const p = S.project; let last = null, t0 = at;
       for (const id of ids) { const a = await MC.assets.load(id); if (!a) continue; const x = MC.newShot(a.name.replace(/\.[a-z0-9]+$/i, '')); const L = MC.newLayer(a, { z: 0.5, role: '' }); L.z = 0.5; if (a.video) { L.vloop = true; x.duration = clamp(Math.round(a.dur * 10) / 10, 1, 30); } else x.duration = 4; x.layers.push(L); MC.applyPreset(x.camera, 'none', 1); x.start = r2(t0); x.xtrack = p.tl === 'free' ? clamp(track, 0, p.otracks.length - 1) : clamp(track, 0, p.xtracks.length - 1); x.fx = []; delete x.transition; p.xshots.push(x); last = x; t0 += x.duration; }
-      if (last) { commit(); selectXs(last.id, true); MC.toast(t('Plano superpuesto creado: se ve a la vez que el principal.', 'Overlapping shot created: it shows at the same time as the main one.')); }
+      if (last) { commit(); selectXs(last.id, true); MC.toast(p.tl === 'free' ? t('Capa agrupada creada. Despliégala con la flecha ▸ para ver sus capas.', 'Grouped layer created. Unfold it with the ▸ arrow to see its layers.') : t('Plano superpuesto creado: se ve a la vez que el principal.', 'Overlapping shot created: it shows at the same time as the main one.')); }
     }
     function resourcesPanel() {
       const p = S.project, ids = [...new Set(p.shots.flatMap((sh) => sh.layers.map((l) => l.assetId)))], aud = [...new Set(p.clips.map((c) => c.assetId))];
@@ -2120,7 +2142,7 @@
       const kind = selection(), top = el.inspBody.scrollTop, sh = shot();
       const pick = { project: () => summaryPanel().map((n) => n), shot: () => [DP.plano].concat(S.si > 0 ? [DP.transicion] : [], [DP.vineta], sh.page ? [DP.pagina] : sh.webtoon ? [DP.tira] : [DP.camara, DP.tray]).filter(Boolean).map(secDom),
         layer: () => [secDom(DP.capa), secDom(DP.capa_anim), secDom(DP.capa_rig), secDom(DP.capa_3d), secDom(DP.capa_look), secDom(DP.capa_time), secDom(DP.capa_pivot), secDom(DP.capa_crop), secDom(DP.capa_kf)], text: () => (DP.texto ? [secDom(DP.texto)].concat(DP.texto_kf ? [secDom(DP.texto_kf)] : []) : []), clip: () => (DP.audio ? [secDom(DP.audio)] : []), overlay: () => [secDom(DP.overlay), secDom(DP.overlay_anim), secDom(DP.overlay_3d), secDom(DP.overlay_look), secDom(DP.overlay_crop), secDom(DP.overlay_kf)], multi: () => [secDom(DP.multi)], marker: () => [secDom(DP.marker)], subs: () => [secDom(DP.subs)], fx: () => [secDom(DP.efecto)], panel: () => [secDom(DP.pagina_sel)], stop: () => [secDom(DP.tira_sel)] };
-      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
+      el.propsTitle.textContent = { project: t('Resumen', 'Summary'), shot: S.project.tl === 'free' && S.xs ? t('Propiedades de la capa agrupada', 'Grouped layer properties') : t('Propiedades del plano', 'Shot properties'), layer: t('Propiedades de la capa', 'Layer properties'), text: t('Propiedades del texto', 'Text properties'), clip: t('Propiedades del audio', 'Audio properties'), overlay: t('Propiedades de la superposición', 'Overlay properties'), multi: t('Selección múltiple', 'Multiple selection'), marker: t('Marcador', 'Marker'), subs: t('Subtítulos', 'Subtitles'), fx: t('Propiedades del efecto', 'Effect properties'), panel: t('Propiedades de la viñeta', 'Panel properties'), stop: t('Propiedades de la pausa', 'Pause properties') }[kind];
       { const KH = { project: 'proyecto', shot: 'plano', layer: 'capa', text: 'texto', clip: 'audio', overlay: 'overlay', fx: 'efecto', panel: 'pagina', stop: 'tira', subs: 'subs' };
         if (MC.helpClose) MC.helpClose();
         MC.clear(el.leftHelp); if (tab && MC.HELP.has(tab)) el.leftHelp.append(MC.helpBtn(tab));
@@ -2903,6 +2925,10 @@
         el2.style.left = c.start * pps + 'px'; el2.style.width = Math.max(8, c.dur * pps - 2) + 'px';
         drawWave(el2.querySelector('canvas'), c, c.dur * pps - 2);
       });
+      el.tlContent.querySelectorAll('.clip[data-xl]').forEach((el2) => {
+        const [xid, li] = el2.dataset.xl.split(':'), x = xById(xid), l = x && x.layers[+li]; if (!l) return;
+        const ts = l.ts || 0, te = l.te == null ? x.duration : l.te; el2.style.left = (x.start + ts) * pps + 'px'; el2.style.width = Math.max(8, (te - ts) * pps - 2) + 'px';
+      });
       el.tlContent.querySelectorAll('.clip[data-xs]').forEach((el2) => { const x = xById(el2.dataset.xs); if (!x) return; el2.style.left = x.start * pps + 'px'; el2.style.width = Math.max(8, x.duration * pps - 2) + 'px'; });
       el.tlContent.querySelectorAll('.clip[data-s]').forEach((el2) => {
         const it = subById(el2.dataset.s); if (!it) return;
@@ -3257,6 +3283,7 @@
         const hid = ((free ? ots : xts)[x.xtrack || 0] || {}).visible === false;
         const el2 = h('div', { class: 'clip xs' + (x.id === S.xs ? ' on' : '') + (hid ? ' hid' : ''), 'data-xs': x.id, role: 'button', tabindex: '0', title: x.name + ' · ' + x.duration.toFixed(1) + ' s', 'aria-label': x.name + ', ' + MC.fmtTime(x.start) + ', ' + x.duration.toFixed(1) + ' s', 'aria-pressed': String(x.id === S.xs), style: thumbU ? { backgroundImage: 'url(' + thumbU + ')' } : null,
           onKeydown: (e) => { if (e.key === 'Enter') { selectXs(x.id, true); } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); x.start = Math.max(0, r2(x.start + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1))); commit(); } } },
+          free ? h('button', { type: 'button', class: 'cvx', 'aria-expanded': String(!!S.expand[x.id]), title: S.expand[x.id] ? t('Plegar las capas', 'Fold the layers') : t('Ver las capas de esta capa agrupada', 'Show the layers of this grouped layer'), 'aria-label': (S.expand[x.id] ? t('Plegar las capas de ', 'Fold the layers of ') : t('Ver las capas de ', 'Show the layers of ')) + x.name, onPointerdown: (e) => e.stopPropagation(), onClick: (e) => { e.stopPropagation(); S.expand[x.id] = !S.expand[x.id]; renderTimeline(); } }, S.expand[x.id] ? '▾' : '▸') : null,
           h('span', null, x.name), h('div', { class: 'rz', 'aria-label': t('Cambiar duración', 'Change length') }));
         const rz = el2.querySelector('.rz');
         el2.addEventListener('pointerdown', (e) => {
@@ -3279,6 +3306,15 @@
           rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up); rz.addEventListener('pointercancel', up);
         });
         (free ? (R['o' + clamp(x.xtrack || 0, 0, ots.length - 1)] || R.o0) : (R['x' + clamp(x.xtrack || 0, 0, xts.length - 1)] || R.x0)).append(el2);
+        if (free && S.expand[x.id]) for (let li = x.layers.length - 1; li >= 0; li--) {
+          const l = x.layers[li], a = MC.assets.get(l.assetId), on = x.id === S.xs && li === S.li;
+          const bar = h('div', { class: 'clip xl' + (on ? ' on' : '') + (l.visible === false ? ' hid' : ''), 'data-xl': x.id + ':' + li, role: 'button', tabindex: '0', title: l.name + ' · z ' + l.z.toFixed(2), 'aria-label': l.name + ', ' + t('capa ', 'layer ') + (x.layers.length - li) + t(' de ', ' of ') + x.layers.length + t(', de la capa agrupada ', ', of the grouped layer ') + x.name, 'aria-pressed': String(on), style: a && a.thumb ? { backgroundImage: 'url(' + a.thumb + ')' } : null },
+            h('span', null, l.name));
+          const pick = () => { selectXs(x.id, false); S.li = li; S.selKind = 'layer'; renderLayers(); renderInspector(); renderTimeline(); };
+          bar.addEventListener('pointerdown', (e) => { e.stopPropagation(); pick(); });
+          bar.addEventListener('keydown', (e) => { if (e.key === 'Enter') pick(); });
+          el2.parentNode.append(bar);
+        }
       });
       /* capas de subtítulos: un clip con sus líneas dentro */
       p.subs.forEach((it) => {
@@ -3790,7 +3826,7 @@
       set('undo', (b) => { b.disabled = S.hpos <= 0; }); set('redo', (b) => { b.disabled = S.hpos >= S.hist.length - 1; });
       set('sel', (b) => b.setAttribute('aria-pressed', String(S.tool === 'sel'))); set('blade', (b) => b.setAttribute('aria-pressed', String(S.tool === 'blade')));
       set('snap', (b) => b.setAttribute('aria-pressed', String(!!S.snapOn))); set('fine', (b) => b.setAttribute('aria-pressed', String(!!S.fine))); set('ripple', (b) => b.setAttribute('aria-pressed', String(!!S.ripple)));
-      set('flipx', (b) => { b.disabled = !canFlip; }); set('flipy', (b) => { b.disabled = !canFlip; }); set('crop', (b) => { b.disabled = !canCrop; }); set('kf', (b) => { b.disabled = !canKf; });
+      set('flipx', (b) => { b.disabled = !canFlip; }); set('flipy', (b) => { b.disabled = !canFlip; }); set('crop', (b) => { b.disabled = !canCrop; }); set('kf', (b) => { b.disabled = !canKf; }); set('group', (b) => { b.disabled = S.project.tl !== 'free' || !selectedOverlays().length; }); set('ungroup', (b) => { b.disabled = S.project.tl !== 'free' || !(S.xs && xById(S.xs)); });
       set('vzin', (b) => { b.disabled = S.rowK >= 2.59; }); set('vzout', (b) => { b.disabled = S.rowK <= 0.61; });
       set('zoom', (b) => { b.value = String(Math.round(Math.log(S.pps / 6) / Math.log(400 / 6) * 100)); });
       const lab = el.tlBar.querySelector('[data-tb="target"]'); if (lab) lab.textContent = T ? ({ clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), layer: t('Capa', 'Layer'), shot: t('Plano', 'Shot') })[T.k] : '';
@@ -3819,6 +3855,7 @@
         B('ripple', 'ripple', 'Ripple: al cambiar la duración de un plano, lo de detrás lo sigue', 'Ripple: when a shot’s length changes, everything after follows', () => { S.ripple = !S.ripple; MC.store.set('ripple', S.ripple ? '1' : '0'); refreshTlBar(); MC.toast(S.ripple ? t('Ripple activado: lo de detrás sigue al plano', 'Ripple on: later items follow the shot') : t('Ripple desactivado', 'Ripple off')); }, { 'aria-pressed': String(!!S.ripple) }), sep(),
         B('addshot', 'plus', 'Planos desde imágenes', 'Shots from images', () => fileShots.click()),
         B('addov', 'layersx', 'Añadir una imagen o un vídeo encima de la ilustración, en su propia pista', 'Add an image or video above the artwork, on its own track', () => { fileOv.dataset.track = 0; fileOv.click(); }),
+        B('group', 'layersx', 'Agrupar los clips elegidos en una capa agrupada (línea de tiempo por pistas)', 'Group the picked clips into a grouped layer (by-tracks timeline)', groupSelected), B('ungroup', 'layers', 'Desagrupar la capa agrupada elegida', 'Ungroup the picked grouped layer', ungroupSelected),
         B('addx', 'film', 'Plano superpuesto: otro plano a la vez que el principal', 'Overlapping shot: another shot at the same time as the main one', () => { if (S.project.xtracks.length < 1) S.project.xtracks.push({ id: MC.uid(), name: t('Planos superpuestos 1', 'Overlapping shots 1'), visible: true }); addXShotFromPicker(); }),
         B('addtrack', 'layers', 'Añadir otra pista de superposición (hasta 6)', 'Add another overlay track (up to 6)', () => { const o2 = S.project.otracks; if (o2.length >= 6) { MC.toast(t('Máximo 6 pistas de superposición.', 'At most 6 overlay tracks.')); return; } o2.push(MC.newOtrack(o2.length + 1)); commit(); }),
         B('more', 'dots', 'Más herramientas', 'More tools', (e) => moreTools(e.currentTarget), { 'aria-haspopup': 'menu' }),
@@ -3974,7 +4011,7 @@
       if ((n = n0.closest('.lrow2'))) { S.li = +n.dataset.idx; S.selKind = 'layer'; S.tx = S.cl = S.ov = null; return { k: 'layer', tm: S.time, bar: false }; }
       if ((n = n0.closest('.clip[data-c]'))) { S.cl = n.dataset.c; S.selKind = 'clip'; S.tx = S.ov = null; S.li = -1; S.multi = []; return { k: 'clip', tm }; }
       if ((n = n0.closest('.clip[data-x]'))) { S.tx = n.dataset.x; S.selKind = 'text'; S.cl = S.ov = null; S.li = -1; S.multi = []; return { k: 'text', tm }; }
-      if ((n = n0.closest('.clip[data-o]'))) { S.ov = n.dataset.o; S.selKind = 'overlay'; S.cl = S.tx = null; S.li = -1; S.multi = []; return { k: 'overlay', tm }; }
+      if ((n = n0.closest('.clip[data-o]'))) { if (!(S.multi.length > 1 && S.multi.includes('o:' + n.dataset.o))) { S.ov = n.dataset.o; S.selKind = 'overlay'; S.cl = S.tx = null; S.li = -1; S.multi = []; } return { k: 'overlay', tm }; }
       if ((n = n0.closest('.clip[data-xs]'))) { selectXs(n.dataset.xs, false); return { k: 'xshot', tm }; }
       if ((n = n0.closest('.clip[data-s]'))) { S.sb = n.dataset.s; S.selKind = 'subs'; return { k: 'subs', tm }; }
       if ((n = n0.closest('.clip[data-i]'))) { selectShot(+n.dataset.i, false); S.selKind = 'shot'; return { k: 'shot', tm }; }
@@ -3991,7 +4028,9 @@
       if (c.k === 'layer') { const l = layer(), sh = shot(); return [split, I('image', t('Reemplazar la ilustración de este tramo', 'Replace this part’s illustration'), () => pickReplace(l, S.sg || 0), !!(l && l.locked)), '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, '-', I('copy', t('Duplicar la capa', 'Duplicate the layer'), dupLayer), I('edit', t('Renombrar', 'Rename'), () => askName(t('Nombre de la capa', 'Layer name'), l.name, (v) => { l.name = v; commit(); })), I(l && l.locked ? 'unlock' : 'lock', l && l.locked ? t('Desbloquear', 'Unlock') : t('Bloquear', 'Lock'), () => { l.locked = !l.locked; commit(); }), '-', I('trash', t('Eliminar la capa', 'Delete the layer'), () => { if (l.locked) MC.toast(t('La capa está bloqueada. Desbloquéala para borrarla.', 'The layer is locked. Unlock it to delete it.')); else { delLayer(S.li); } })]; }
       if (c.k === 'clip') return [split, I('trimL', t('Recortar el principio hasta aquí', 'Trim the start to here'), () => { at(); trimEdge('start'); }), I('trimR', t('Recortar el final desde aquí', 'Trim the end from here'), () => { at(); trimEdge('end'); }), I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
       if (c.k === 'text') return [split, kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
-      if (c.k === 'overlay') return [split, '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
+      const grp = S.project.tl === 'free' ? [I('layersx', t('Agrupar en una capa agrupada', 'Group into a grouped layer'), groupSelected), '-'] : [];
+      if (c.k === 'overlay') return [...grp, split, '-', ...flips, I('crop', t('Recortar…', 'Crop…'), openCrop), kf, I('copy', t('Duplicar', 'Duplicate'), dupSelection), '-', del];
+      if (c.k === 'xshot' && S.project.tl === 'free') return [I('layers', t('Desagrupar', 'Ungroup'), ungroupSelected), I('edit', t('Renombrar', 'Rename'), () => { const x = xById(S.xs); if (x) askName(t('Nombre de la capa agrupada', 'Grouped layer name'), x.name, (v) => { x.name = v; commit(); }); }), '-', del];
       if (c.k === 'xshot' || c.k === 'subs') return [del];
       if (c.k === 'kf') { const kt = kfTarget(), q = kt && (kt.it.kf || []).find((z) => z.id === S.kfid); return [I('play', t('Ir a este fotograma clave', 'Go to this keyframe'), () => { if (q) setTime(kt.start + clamp(q.t, 0, Math.max(0, kt.dur - 0.001))); }), I('curve', t('Movimiento suave hasta el siguiente', 'Smooth motion to the next'), () => { if (q) { q.ease = 'smooth'; commit(); } }), I('minus', t('Movimiento lineal', 'Linear motion'), () => { if (q) { q.ease = 'linear'; commit(); } }), '-', ...(S.kfpd ? [I('trash', t('Eliminar solo ', 'Delete only ') + kfPropName(S.kfpd), () => { if (kt && q) { kfDelProp(kt.it, q, S.kfpd); S.kfid = null; commit(); } })] : []), I('trash', S.kfpd ? t('Eliminar el fotograma clave entero', 'Delete the whole keyframe') : t('Eliminar el fotograma clave', 'Delete the keyframe'), () => { if (kt && q) { kt.it.kf = kt.it.kf.filter((z) => z.id !== q.id); S.kfid = null; commit(); } })]; }
       if (c.k === 'kftrack') return [I('diamond', t('Fotograma clave aquí', 'Keyframe here'), () => { setTime(clamp(tm, 0, MC.totalTime(p) - 0.001)); addKfHere(); })];
@@ -4054,7 +4093,7 @@
       const c = ctxFor(e); if (!c) return uiCtx(e, host);
       renderPanels(); renderLayers(); renderTimeline();
       const items = ctxItems(c); if (!items.length) return false;
-      const ttl = { shot: t('Plano', 'Shot'), layer: t('Capa', 'Layer'), clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), xshot: t('Plano superpuesto', 'Overlapping shot'), subs: t('Subtítulo', 'Subtitle'), kf: t('Fotograma clave', 'Keyframe'), kftrack: t('Fotogramas clave', 'Keyframes'), otrack: t('Pista', 'Track') }[c.k];
+      const ttl = { shot: t('Plano', 'Shot'), layer: t('Capa', 'Layer'), clip: t('Audio', 'Audio'), text: t('Texto', 'Text'), overlay: t('Superposición', 'Overlay'), xshot: S.project.tl === 'free' ? t('Capa agrupada', 'Grouped layer') : t('Plano superpuesto', 'Overlapping shot'), subs: t('Subtítulo', 'Subtitle'), kf: t('Fotograma clave', 'Keyframe'), kftrack: t('Fotogramas clave', 'Keyframes'), otrack: t('Pista', 'Track') }[c.k];
       ctxMenu(host, e.clientX, e.clientY, ttl, items); return true;
     }
     /* clic derecho y pulsación larga */
@@ -4448,7 +4487,7 @@
       proyectoTab: () => { setWs('montaje'); S.tab.montaje = 'proyecto'; renderRail(); renderPanels(); },
       openExportWs: () => { setWs('exportar'); }, platformPreview: () => openPlatformPreview(),
       importFiles: (files, mode) => importFiles(files, mode), aiBegin, ai: () => !!S.ai, project: () => S.project, time: () => S.time, cropHandles: () => { const cb = cropTargetBox(); if (!cb) return null; const c = el.canvas, r = c.getBoundingClientRect(), k = r.width / c.width; return cropHandles(cb.b).map((q) => ({ h: q.h, x: r.left + q.X * k, y: r.top + q.Y * k })); }, info: () => ({ id: S.project.id, name: S.project.name, shots: S.project.shots.length, assets: (S.project.assets || []).length }),
-      learn: () => ({ tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
+      learn: () => ({ multi: S.multi.length, tab: S.tab && S.tab[S.ws], shot: S.si, sim: !!S.sim, li: S.li, tx: S.tx, ov: S.ov, sb: S.sb, ws: S.ws, view: S.view, safe: !!S.safe, kfAdv: !!S.kfAdv, autoKf: !!S.autoKf, time: S.time, playing: !!S.playing }),
       refit: () => { fit(); }, saveNow: () => save(), redraw: () => { S.dirty = true; renderPanels(); renderTimeline(); }, setLayout,
       applyQuality: () => { const pq = MC.store.get('pq', 'auto'); S.quality = pq === 'media' || pq === 'full' ? pq : (innerWidth < 900 || (navigator.deviceMemory && navigator.deviceMemory <= 2)) ? 'media' : 'full'; renderVbar(); fit(); },
     };

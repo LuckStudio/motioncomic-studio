@@ -912,3 +912,6 @@ a.btn { text-decoration: none; }
 /* línea de tiempo por pistas */
 .tl-labels .trl.vt { cursor: pointer; } .tl-labels .trl.vt.sel { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tl-labels .trl.vt .trb .btn { width: 22px; height: 22px; padding: 2px; }
+
+/* capas de una capa agrupada, desplegadas en su pista */
+.clip.xl { background-color: color-mix(in srgb, var(--accent) 28%, var(--bg)); background-size: auto 100%; background-repeat: repeat-x; border: 1px solid var(--accent); font-size: 11px; } .clip.xl.on { outline: 2px solid var(--accent); outline-offset: 1px; } .clip.xl.hid { opacity: .45; }
