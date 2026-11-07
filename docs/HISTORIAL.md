@@ -332,3 +332,11 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - `renderFree`: composición por pista mezclando planos superpuestos, superposiciones y textos mediante un filtro `o.pick` en los tres dibujantes; el aspecto se aplica después de las pistas y los subtítulos van encima.
 - Probado con píxeles reales: la pista más alta tapa, cambiar de pista cambia el resultado, una pista oculta no se dibuja, un texto en una pista baja queda bajo una imagen de una pista alta (en el modo clásico el texto sigue encima), una capa agrupada se intercala entre imágenes, la duración del plano base sigue al último clip, los proyectos antiguos siguen siendo clásicos. Regresión del modo clásico sin cambios.
 - Siguiente: H2, selector de tipo de línea de tiempo al crear el proyecto y la línea de tiempo libre.
+
+## Línea de tiempo libre, H2: pistas mezclables en la interfaz (versión 0.24)
+
+- Selector «Línea de tiempo: Por planos / Por pistas» al crear un proyecto en modo Libre (en la interfaz se llaman así para no confundirse con el modo de trabajo «Libre»); los proyectos por pistas nacen con V1, V2 y V3.
+- `renderTimeline` en modo `free`: subtítulos arriba, pistas V de la más alta a la más baja con clips mezclados (capas agrupadas = planos superpuestos, imágenes y vídeos = superposiciones, textos), sin filas de planos, texto ni efectos; arrastre de clips entre pistas para los cuatro tipos; pista elegida (`S.vt`) donde cae lo nuevo; botones por pista para imagen o vídeo, texto y capa agrupada; panel Clips; importar a la pista elegida; `commit` mantiene la duración del plano base oculto.
+- Probado con ratón real: crear el proyecto desde el diálogo, filas de la línea de tiempo, importar con el botón de cada pista, píxeles reales (V2 tapa a V1), texto en V3, capa agrupada con el selector, arrastre de V3 a V1, panel Clips, añadir y quitar pistas, guardado, y que un proyecto por planos sigue igual.
+- Arreglado al probar: las imágenes importadas duraban 1 s (se limitaban al total de un proyecto vacío) y las capas agrupadas caían siempre en la pista 0.
+- Límites: aún se pueden solapar dos clips en la misma pista (se dibujan los dos); el texto del panel de propiedades sigue hablando de «plano superpuesto» (H3); no hay bloqueo de pistas.

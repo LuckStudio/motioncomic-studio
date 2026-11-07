@@ -595,9 +595,25 @@ Primer paso del modo **Libre** (ver `docs/PLAN-LINEA-LIBRE.md`). **Aún no se ve
 - En `free`, las capas agrupadas, las imágenes y vídeos y los textos comparten un único índice de pista y se dibujan **de abajo arriba, mezclados** (en el modo clásico, los textos siempre quedan encima de las superposiciones). Una pista oculta no se dibuja; los subtítulos van siempre encima de todo. Esto vale también para la exportación.
 - Un proyecto libre lleva un único plano base oculto cuya duración se ajusta al final del último clip, para que la duración total y el audio sigan funcionando.
 
+## Línea de tiempo por pistas (0.24, fase H2)
+
+Al crear un proyecto en modo **Libre** eliges la **línea de tiempo**:
+- **Por planos**: la de siempre, con planos seguidos y sus capas y su cámara. Es la que sale por defecto, y la de todos los proyectos que ya existen.
+- **Por pistas**: como Premiere o CapCut. Se elige al empezar el proyecto y no se cambia después.
+
+En **Por pistas**:
+- La línea de tiempo tiene los **Subtítulos arriba del todo**, luego las pistas **V3, V2, V1** (la de arriba tapa a la de abajo) y el audio. No hay filas de planos, texto ni efectos aparte.
+- En una misma pista conviven **imágenes, vídeos, texto y capas agrupadas**.
+- Pulsa el **nombre** de una pista para elegirla (se resalta): ahí caen lo que importes, el texto nuevo y las capas agrupadas nuevas. Doble clic en el nombre para renombrarla. Cada pista tiene botones para añadir imagen o vídeo, **T** para añadir texto, la **capa agrupada** (varias imágenes con profundidad, como un plano superpuesto), ocultar y quitar (si está vacía).
+- **Arrastra** un clip a otra pista con el ratón (texto, imagen, vídeo y capa agrupada) o suelta archivos sobre una pista.
+- La pestaña **Clips** del panel izquierdo sustituye a Planos: añade imágenes, texto, capas agrupadas y pistas, y lista los clips de cada pista.
+- La duración total sigue al final del último clip.
+
+Pendiente (fases H3 a H5): editar capas agrupadas desplegándolas, agrupar y desagrupar clips, efectos sobre clips y capas de ajuste, transiciones entre clips y poner al día el MCP, el curso y la ayuda.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.23): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.24): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
