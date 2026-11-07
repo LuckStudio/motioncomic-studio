@@ -356,3 +356,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Probado con píxeles reales: ajuste sobre un rojo (cambia), clip verde encima del ajuste (no cambia), el mismo efecto sin ser ajuste (no toca lo de debajo), arrastrar y estirar la barra de un efecto con el ratón, elegir «Encadenado» desde el panel y comprobar el progreso de la entrada (rojo, mezcla, verde) y de la salida (verde, mezcla, rojo).
 - Arreglado al probar: la vista previa al pasar el ratón por un efecto con una capa agrupada elegida (también en la línea de tiempo clásica) se quedaba aplicada porque se restauraba el plano base en lugar de la capa; las superposiciones y los textos elegidos dejaban seleccionada una capa agrupada anterior.
 - Límites: no hay vista previa al pasar el ratón por las transiciones por clip; los efectos de partículas y de ambiente de una capa agrupada se recortan al lienzo de la capa; cada transición se calcula sobre lo dibujado debajo, no sobre un clip concreto.
+
+## Línea de tiempo libre, H5: integración (versión 0.27)
+
+- MCP: `linea_de_tiempo` en `nuevo_proyecto`, información de tipo, pistas y clips en `estado` y `listar_proyectos`, `MC.mcp.handlers` expuesto (para pruebas); servidor y navegador actualizados.
+- Atajos `groupClips` (Ctrl+G) y `ungroupClips` (Ctrl+Mayús+G) en las bases; ayuda contextual con alias en la línea de tiempo por pistas (`clips`, `agrupada`); recorrido `pistas` (solo con un proyecto por pistas); módulo 7 del curso con tres lecciones y un reto; tres términos más del glosario.
+- Probado: esquema real del servidor MCP por stdio, creación de un proyecto por pistas con el manejador del navegador (con el permiso pedido en un diálogo), Ctrl+G y Ctrl+Mayús+G con clips reales, ayuda, recorrido (incluido el aviso en un proyecto por planos) y todas las lecciones del módulo 7 (con ratón real para crear el proyecto, añadir imagen y texto, arrastrar entre pistas y agrupar).
+- Cierre de las fases H1 a H5. Pendiente del plan: bloque I (30 efectos nuevos) y bloque J (sonidos, packs descargados y Freesound opcional).

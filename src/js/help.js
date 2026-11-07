@@ -2,7 +2,7 @@
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.26'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.27'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -94,6 +94,12 @@
       { sel: '[data-id="mezcla"]', es: ['Ajustar planos a la voz', '«Ajustar planos a la voz» reparte la duración de cada plano según las pausas. Después puedes retocar a mano.'], en: ['Fit shots to voice', '“Fit shots to voice” splits each shot’s length using the pauses. You can fine-tune by hand afterwards.'] },
       { sel: '.vbar', es: ['Texto con la voz', 'Coloca el cabezal sobre la locución y añade un bocadillo: queda vinculado, aparece cuando suena su línea y se va cuando termina.'], en: ['Text with the voice', 'Place the playhead over the voice-over and add a bubble: it stays linked, appears when its line plays and leaves when it ends.'] },
     ] },
+    { id: 'pistas', needsFree: true, es: ['Línea de tiempo por pistas', 'Pistas V mezclables, capas agrupadas y capas de ajuste'], en: ['By-tracks timeline', 'Mixable V tracks, grouped layers and adjustment layers'], steps: [
+      { sel: '.tl-labels .trl.vt', es: ['Pistas V', 'Cada fila V es una pista. Lo que está en una pista más alta tapa a lo de abajo. Pulsa el nombre de una pista para elegirla: ahí caen lo que importes y lo que añadas. Doble clic para renombrarla.'], en: ['V tracks', 'Each V row is a track. What is on a higher track covers what is below. Click a track name to pick it: what you import and add lands there. Double-click to rename it.'] },
+      { sel: '.tl-labels .trl.vt .trb', es: ['Qué añadir a una pista', 'Los botones de cada pista añaden una imagen o vídeo, un texto, una capa agrupada (varias capas con parallax) o una capa de ajuste cuyos efectos afectan a lo de debajo.'], en: ['What to add to a track', 'Each track’s buttons add an image or video, a text, a grouped layer (several layers with parallax) or an adjustment layer whose effects affect what is below.'] },
+      { sel: '.tl-track[data-k="subs"]', es: ['Subtítulos arriba', 'Los subtítulos tienen su pista propia, siempre arriba del todo y por encima de cualquier clip.'], en: ['Subtitles on top', 'Subtitles have their own track, always at the very top and above any clip.'] },
+      { sel: '[data-tb="group"]', es: ['Agrupar clips', 'Elige varias imágenes con Ctrl o Mayús + clic y agrúpalas en una capa agrupada: la pista más alta queda delante. Desde la flecha del clip las despliegas y desde el panel Capas ordenas sus capas.'], en: ['Group clips', 'Pick several images with Ctrl or Shift + click and group them into a grouped layer: the highest track ends up in front. Unfold it with the clip arrow and order its layers in the Layers panel.'] },
+    ] },
     { id: 'exportar', es: ['Exportar', 'Del montaje al vídeo listo para subir'], en: ['Export', 'From the edit to a ready-to-post video'], steps: [
       { sel: '.vbar', es: ['Simulador', 'Con «Simulador» ves el vídeo con una interfaz de red social encima para comprobar qué tapa. Las zonas seguras también ayudan.'], en: ['Simulator', 'With “Simulator” you see the video under a social app interface to check what it covers. Safe zones help too.'] },
       { sel: '.s-tabs button:last-child', act: 'openExportWs', es: ['Exportar', 'La pestaña Exportar es un espacio propio. Elige plataforma o varios formatos a la vez, calidad e idioma. También saca la portada y los subtítulos en SRT. Puedes seguir editando mientras exporta.'], en: ['Export', 'The Export tab is its own workspace. Pick a platform or several formats at once, quality and language. It also gives you the cover and SRT subtitles. You can keep editing while it exports.'] },
@@ -144,6 +150,7 @@
   MC.startTour = (id) => {
     const tour = TOURS.find((x) => x.id === id);
     if (!tour) return;
+    if (tour.needsFree && !(MC.studioApi && MC.studioApi.project && MC.studioApi.project().tl === 'free')) { MC.toast(t('Este recorrido necesita un proyecto con la línea de tiempo «Por pistas»: créalo con «Proyecto nuevo».', 'This tour needs a project with the “By tracks” timeline: create one with “New project”.')); return; }
     if (!MC.studioApi) { MC.pendingTour = id; MC.app.openSample(); return; }
     MC.endTour();
     let i = 0;

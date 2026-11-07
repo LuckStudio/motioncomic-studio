@@ -632,9 +632,18 @@ En la línea de tiempo **por pistas**:
 - La pestaña Efectos sin nada elegido explica que hay que elegir una capa agrupada o de ajuste.
 - Se arregló además un fallo antiguo: al pasar el ratón por un efecto con una capa agrupada elegida, la vista previa se quedaba como efecto de verdad.
 
+## La línea de tiempo por pistas, completa (0.27, fase H5)
+
+Con esta entrega la línea de tiempo **por pistas** queda integrada con el resto del estudio:
+- **Conector con IA (MCP)**: `nuevo_proyecto` admite `linea_de_tiempo` («planos» por defecto o «pistas»); `estado` y `listar_proyectos` dicen el tipo de línea de tiempo de cada proyecto y cuántas pistas y clips tiene; en un proyecto por pistas las imágenes y vídeos que añade la IA caen como clips en la pista elegida.
+- **Atajos**: **Ctrl+G** agrupa los clips elegidos en una capa agrupada y **Ctrl+Mayús+G** la desagrupa (configurables en Ayuda → Atajos; las ocho bases los traen).
+- **Ayuda**: la pestaña «Clips» y la capa agrupada tienen su propio «?» y un recorrido nuevo, **Línea de tiempo por pistas** (en Ayuda → Tutoriales, necesita un proyecto por pistas).
+- **Curso Aprender**: módulo 7 **Línea de tiempo por pistas** (3 lecciones y un reto): pistas y clips, capas agrupadas, y ajustes, efectos y transiciones por clip. Ya son 7 módulos y 21 lecciones.
+- Los clips que se solapan en una misma pista se ven apilados en carriles dentro de esa pista y se dibujan los dos; si no lo quieres, ponlos en pistas distintas.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.26): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.27): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
