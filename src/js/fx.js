@@ -21,16 +21,16 @@
   ];
   /* efectos de estilo: retocan la imagen ya dibujada del plano */
   const STYLE = new Set(['pixelate', 'posterize', 'duotone', 'glitch', 'vhs', 'edges', 'htone']);
-  MC.isStyleFx = (v) => STYLE.has(v);
+  MC.isStyleFx = (v) => STYLE.has(v) || !!(MC.FX2 && MC.FX2.styleSet.has(v));
   const DEF_PARAMS = { pixelate: { size: 16 }, posterize: { lv: 4 }, duotone: { color2: '#ffd36e', mix: 1 }, glitch: { shift: 0.06, split: 0.012, rate: 14 }, vhs: { lines: 3, noise: 0.5, wobble: 0.5, bleed: 0.5 }, edges: { thresh: 0.25, thick: 1.5, mix: 1, only: false }, htone: { size: 10, mix: 1 } };
   MC.FX_PARAMS = DEF_PARAMS;
   const ANIM = new Set(['shake', 'impact', 'pulse', 'vibrate']);
   const DEF_COLOR = { duotone: '#1b1464', edges: '#0b0b10', htone: '#111111', speed: '#ffffff', focus: '#14141c', flash: '#ffffff', rain: '#bcd4ff', dust: '#ffe9b0', sparks: '#ffb040', snow: '#ffffff', smoke: '#9aa0a8', impact: '#ffffff', fog: '#cfd6e6', beam: '#fff1bf' };
   MC.fxName = (v) => { const f = MC.FX.find((x) => x.v === v); return f ? MC.t(f.es, f.en) : v; };
-  MC.isAnimFx = (v) => ANIM.has(v);
+  MC.isAnimFx = (v) => ANIM.has(v) || !!(MC.FX2 && MC.FX2.anim[v]);
   MC.newFx = (type, start) => {
     const d = MC.FX.find((x) => x.v === type);
-    return Object.assign({ id: MC.uid(), type, start: Math.max(0, Math.round(start * 100) / 100), dur: d.dur, intensity: 1, layer: null, panel: null, color: DEF_COLOR[type] || '#ffffff', angle: 0 }, DEF_PARAMS[type] || {});
+    return Object.assign({ id: MC.uid(), type, start: Math.max(0, Math.round(start * 100) / 100), dur: d.dur, intensity: 1, layer: null, panel: null, color: DEF_COLOR[type] || '#ffffff', angle: 0 }, DEF_PARAMS[type] || {}, (MC.FX2 && MC.FX2.defaults[type]) || {});
   };
 
   /* Momento del plano en que empieza un efecto. Si apunta a una viñeta, cuenta desde que la cámara llega a ella. */
@@ -48,7 +48,7 @@
     const add = (o, st) => { if (!o) return Object.assign({}, st); o.dx += st.dx; o.dy += st.dy; o.rot += st.rot; o.sc *= st.sc; return o; };
     let any = false;
     list.forEach((f) => {
-      if (!ANIM.has(f.type)) return;
+      if (!ANIM.has(f.type) && !(MC.FX2 && MC.FX2.anim[f.type])) return;
       const a = tl - MC.fxStart(shot, f);
       if (a < 0 || a >= f.dur) return;
       any = true;
@@ -59,6 +59,7 @@
         st.dx = (nz(k) - 0.5) * 2 * amp; st.dy = (nz(k + 50) - 0.5) * 2 * amp; st.sc = 1 + 0.07 * I * e;
         out.flash.push({ color: f.color || '#ffffff', alpha: Math.exp(-a * 16) * clamp(I, 0, 1) * 0.9 });
       } else if (f.type === 'pulse') { st.sc = 1 + 0.05 * I * Math.sin(a * 6.2832 * 2.5) * Math.sin((Math.PI * a) / f.dur); }
+      else if (MC.FX2 && MC.FX2.anim[f.type]) { SEED = f.seed || 0; Object.assign(st, MC.FX2.anim[f.type](f, a * (f.speed == null ? 1 : f.speed), I, env)); }
       else if (f.type === 'vibrate') { const k = Math.floor(a * 45), amp = 0.004 * I; st.dx = (nz(k) - 0.5) * 2 * amp; st.dy = (nz(k + 50) - 0.5) * 2 * amp; }
       if (f.layer) out.layers[f.layer] = add(out.layers[f.layer], st); else out.cam = add(out.cam, st);
     });
@@ -210,6 +211,7 @@
     }
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip(); ctx.globalAlpha = clamp(alpha, 0, 1); ctx.drawImage(res, x0, y0); ctx.restore();
   }
+  MC.fxKit = { mk, regionOf, hexN, lumAt, nz };
   /* ajustes comunes a todos los efectos: velocidad, tamaño, opacidad, entrada y salida, mezcla y variación */
   const fxTime = (f, a) => a * (f.speed == null ? 1 : f.speed);
   MC.fxOverlays = (ctx, shot, tl, o, anim) => {
@@ -221,11 +223,13 @@
     });
     list.forEach((f) => {
       if (ANIM.has(f.type) || f.type === 'aberration') return;
+      if (MC.FX2 && MC.FX2.anim[f.type] && !MC.FX2.has(f.type)) return;
       const a0 = tl - MC.fxStart(shot, f);
       if (a0 < 0 || a0 >= f.dur) return;
       SEED = f.seed || 0;
       const a = fxTime(f, a0), fadeIn = clamp(a0 / Math.max(0.01, f.fadeIn == null ? 0.12 : f.fadeIn), 0, 1), fadeOut = clamp((f.dur - a0) / Math.max(0.01, f.fadeOut == null ? 0.2 : f.fadeOut), 0, 1);
       if (STYLE.has(f.type)) { styleFx(ctx, o, f, a, fadeIn * fadeOut * (f.opacity == null ? 1 : f.opacity)); return; }
+      if (MC.FX2 && MC.FX2.has(f.type)) { const kk = fadeIn * fadeOut * (f.opacity == null ? 1 : f.opacity); ctx.save(); if (f.blend && !MC.FX2.post[f.type]) ctx.globalCompositeOperation = f.blend; (MC.FX2.post[f.type] || MC.FX2.draw[f.type])(ctx, o, f, a, kk); ctx.restore(); return; }
       FXA = fadeIn * fadeOut * (f.opacity == null ? 1 : f.opacity);
       ctx.save(); ctx.globalAlpha = FXA; if (f.blend) ctx.globalCompositeOperation = f.blend;
       if (f.scale && f.scale !== 1) { ctx.translate(W / 2, H / 2); ctx.scale(f.scale, f.scale); ctx.translate(-W / 2, -H / 2); }

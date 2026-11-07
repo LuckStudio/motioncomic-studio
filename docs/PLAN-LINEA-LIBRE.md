@@ -1,6 +1,6 @@
 # Plan: línea de tiempo libre («capas agrupadas») y bibliotecas de sonido
 
-Estado: **fases H1 a H5 hechas (versiones 0.23 a 0.27)**; pendientes los bloques I y J. Se avanza poco a poco; cada fase se prueba, se documenta y se fusiona antes de la siguiente.
+Estado: **fases H1 a H5 hechas (versiones 0.23 a 0.27)**; bloque I (30 efectos) hecho en la 0.28; pendiente el bloque J. Se avanza poco a poco; cada fase se prueba, se documenta y se fusiona antes de la siguiente.
 
 ## Decisiones tomadas con la persona
 

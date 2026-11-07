@@ -1317,6 +1317,13 @@
             h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!f.only, onChange: (e) => { f.only = e.target.checked; commit(); } }), h('span', null, t('Solo las líneas, sobre papel blanco', 'Lines only, on white paper'))));
           if (f.type === 'htone') n.push(fxSl(f, 'size', t('Tamaño de los puntos', 'Dot size'), 3, 40, 1, (v) => v + ' px', 10), fxSl(f, 'mix', t('Mezcla con la imagen', 'Mix with the image'), 0, 1, 0.01, pc, 1));
           if (f.type === 'aberration') n.push(fxSl(f, 'opacity', t('Fuerza final', 'Final strength'), 0, 1.5, 0.05, pc, 1));
+          if (MC.FX2 && MC.FX2.params[f.type]) MC.FX2.params[f.type].forEach((q) => {
+            const kd = MC.FX2.kindOf(q), fid = 'fp-' + f.id + q[0];
+            if (kd === 'text') n.push(h('div', { class: 'field' }, h('label', { for: fid }, t(q[1], q[2])), h('input', { id: fid, class: 'input', value: f[q[0]] == null ? q[3] : f[q[0]], maxlength: 24, onInput: (e) => { f[q[0]] = e.target.value; touch(); }, onChange: commit })));
+            else if (kd === 'select') n.push(h('div', { class: 'field' }, h('span', { class: 'cap' }, t(q[1], q[2])), MC.ui.chips(q[3].map((o2) => ({ v: o2[0], l: t(o2[1], o2[2]) })), f[q[0]] == null ? q[4] : f[q[0]], (v) => { f[q[0]] = v; commit(); })));
+            else n.push(fxSl(f, q[0], t(q[1], q[2]), q[3], q[4], q[5], (v) => (q[5] < 1 ? v.toFixed(2) : String(v)), q[6]));
+          });
+          if (f.type === 'motionblur' || f.type === 'slash') n.push(fxSl(f, 'angle', t('Ángulo', 'Angle'), -90, 90, 1, (v) => v + '°', f.type === 'slash' ? -25 : 0));
           const anim = MC.isAnimFx(f.type), adv = [];
           if (!anim && f.type !== 'aberration' && !MC.isStyleFx(f.type)) adv.push(fxSl(f, 'scale', t('Escala del efecto', 'Effect scale'), 0.5, 2.5, 0.05, (v) => '×' + v.toFixed(2), 1));
           if (!anim && f.type !== 'aberration') adv.push(fxSl(f, 'speed', t('Velocidad', 'Speed'), 0.2, 3, 0.05, (v) => '×' + v.toFixed(2), 1), fxSl(f, 'opacity', t('Opacidad', 'Opacity'), 0, 1, 0.01, pc, 1), fxSl(f, 'fadeIn', t('Aparece en', 'Fades in over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.12), fxSl(f, 'fadeOut', t('Desaparece en', 'Fades out over'), 0, 2, 0.05, (v) => v.toFixed(2) + ' s', 0.2), fxSl(f, 'seed', t('Variación', 'Variation'), 0, 20, 1, (v) => String(v), 0));
@@ -1329,12 +1336,13 @@
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Animación dentro de la viñeta', 'Animation inside the panel')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'anim').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Acción y ambiente', 'Action and ambience')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'fx').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
           h('div', { class: 'field' }, h('span', { class: 'cap' }, t('Estilo de imagen', 'Image style')), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === 'style').map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en)), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); })))),
+          ...(MC.FX2 ? MC.FX2.groups.map((g) => h('div', { class: 'field' }, h('span', { class: 'cap' }, t(g[1], g[2])), h('div', { class: 'chips' }, MC.FX.filter((x) => x.g === g[0]).map((x) => hoverable(h('button', { type: 'button', class: 'chip-b', title: MC.FX2.heavy.has(x.v) ? t('Más pesado: puede ir lento en equipos modestos', 'Heavier: may be slow on modest computers') : '', onClick: () => { hoverStop(); addFx(x.v); } }, '+ ' + t(x.es, x.en) + (MC.FX2.heavy.has(x.v) ? ' ⚙' : '')), 'fx', (sh, st) => { const f = MC.newFx(x.v, clamp(S.time - st, 0, Math.max(0, sh.duration - 0.1))); sh.fx = (sh.fx || []).concat([f]); }))))) : []),
           h('div', { style: { display: 'grid', gap: '2px' } }, list.slice().sort((a, b) => MC.fxStart(sh, a) - MC.fxStart(sh, b)).map((f) => h('div', { class: 'layer' + (f.id === S.fxsel ? ' on' : ''), onClick: () => { S.fxsel = f.id; renderInspector(); } }, h('span', { class: 'ln' }, MC.fxName(f.type)), h('span', { class: 'lz' }, MC.fxStart(sh, f).toFixed(1) + ' s')))),
         ];
         nodes.splice(2, 0, presetBox('fx', () => MC.captureFx(sh, selF || null), (q) => { MC.applyFx(sh, q.data, localT); commit(); MC.announce(t('Efectos aplicados: ', 'Effects applied: ') + q.name); }, false, selF ? t('Guardar este efecto', 'Save this effect') : t('Guardar los efectos del plano', 'Save this shot’s effects')));
         const propNodes = [];
         if (selF) {
-          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam', 'duotone', 'edges', 'htone'].includes(selF.type), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
+          const anim = MC.isAnimFx(selF.type), colored = ['speed', 'focus', 'flash', 'rain', 'dust', 'sparks', 'snow', 'smoke', 'impact', 'fog', 'beam', 'duotone', 'edges', 'htone'].includes(selF.type) || !!(MC.FX2 && MC.FX2.colored.has(selF.type)), selT = 'ft-' + MC.uid(), selA = 'fa-' + MC.uid();
           const targets = [{ v: '', l: t('Todo el plano', 'Whole shot') }].concat(anim ? sh.layers.map((l) => ({ v: 'l:' + l.id, l: t('Capa: ', 'Layer: ') + l.name })) : []);
           propNodes.push(
             h('div', { class: 'field' }, h('label', { for: selT }, anim ? t('Se aplica a', 'Applies to') : t('Zona', 'Area')), h('select', { id: selT, class: 'input', disabled: !anim, onChange: (e) => { selF.layer = e.target.value.startsWith('l:') ? e.target.value.slice(2) : null; commit(); } }, targets.map((q) => h('option', { value: q.v, selected: q.v === (selF.layer ? 'l:' + selF.layer : '') }, q.l)))),
@@ -2273,14 +2281,14 @@
     function hoverTag(msg) { if (!el.hovTag) return; el.hovTag.hidden = !msg; el.hovTag.textContent = msg || ''; }
     function hoverStop() {
       if (!hov) return; const h0 = hov; hov = null; clearInterval(h0.iv); clearInterval(h0.wd);
-      const sh = (h0.xs && xById(h0.xs)) || S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fx) sh.fx = JSON.parse(h0.fx); }
+      const sh = (h0.xs && xById(h0.xs)) || S.project.shots[h0.si]; if (sh) { if (h0.cam) sh.camera = JSON.parse(h0.cam); if (h0.fxRef) sh.fx = h0.fxRef; else if (h0.fx) sh.fx = JSON.parse(h0.fx); }
       if (h0.restore) h0.restore();
       hoverTag(''); S.view = h0.view; setTime(h0.time); renderVbar(); S.dirty = true;
     }
     /* o = { label, snap(): () => restaurar, win(): [desde, hasta] } para las vistas previas de animaciones y transiciones */
     function hoverStart(kind, apply, o) {
       if (S.playing || hov || S.view === 'page' || S.view === 'strip') return; const sh = shot(); if (!sh) return;
-      const st = curStart(); hov = { si: S.si, xs: S.xs, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, time: S.time, view: S.view, node: o && o.node };
+      const st = curStart(); hov = { si: S.si, xs: S.xs, cam: kind === 'cam' ? JSON.stringify(sh.camera) : null, fx: kind === 'fx' ? JSON.stringify(sh.fx) : null, fxRef: kind === 'fx' ? sh.fx : null, time: S.time, view: S.view, node: o && o.node };
       /* si el panel se redibuja y desaparece el botón sobre el que estaba el ratón, la vista previa se cierra sola */
       hov.wd = setInterval(() => { if (hov && hov.node && !hov.node.isConnected) hoverStop(); }, 150);
       if (kind === 'anim' || kind === 'trans') {

@@ -363,3 +363,10 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Atajos `groupClips` (Ctrl+G) y `ungroupClips` (Ctrl+Mayús+G) en las bases; ayuda contextual con alias en la línea de tiempo por pistas (`clips`, `agrupada`); recorrido `pistas` (solo con un proyecto por pistas); módulo 7 del curso con tres lecciones y un reto; tres términos más del glosario.
 - Probado: esquema real del servidor MCP por stdio, creación de un proyecto por pistas con el manejador del navegador (con el permiso pedido en un diálogo), Ctrl+G y Ctrl+Mayús+G con clips reales, ayuda, recorrido (incluido el aviso en un proyecto por planos) y todas las lecciones del módulo 7 (con ratón real para crear el proyecto, añadir imagen y texto, arrastrar entre pistas y agrupar).
 - Cierre de las fases H1 a H5. Pendiente del plan: bloque I (30 efectos nuevos) y bloque J (sonidos, packs descargados y Freesound opcional).
+
+## Bloque I: 30 efectos nuevos (versión 0.28)
+
+- `src/js/fx2.js`: catálogo de 30 efectos en cuatro grupos (movimiento, cómic y manga, luz y atmósfera, imagen y estilo) enganchado a fx.js mediante `MC.fxKit` y `MC.FX2` (movimientos de cámara en `anim`, retoques de imagen en `post`, dibujados encima en `draw`, ajustes propios con deslizador, texto o selector). Panel de Efectos con grupos y marca ⚙ en los pesados.
+- Probado: los 30 se dibujan sin error y cambian la imagen (entre el 4 % y el 90 % de los píxeles), el más lento tarda 8 ms por fotograma a 180×320; hoja de contacto revisada a ojo (se retocaron Latigazo, Onomatopeya, Corte diagonal, Resplandor, Caleidoscopio y Ascuas); botones, texto, selector y color de los ajustes, guardado de los efectos con sus parámetros y los 22 efectos anteriores intactos.
+- Arreglado: la vista previa al pasar el ratón sustituía los objetos de los efectos al soltarla y los deslizadores del panel editaban copias huérfanas (ahora se restaura el mismo array).
+- Límites: «Zoom al ritmo» usa un tempo fijo, no los pulsos del proyecto; «Pausa de impacto» no congela el tiempo, solo el aspecto; los efectos pesados no se midieron a 1080×1920 ni en equipos lentos.

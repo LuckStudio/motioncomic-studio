@@ -641,9 +641,19 @@ Con esta entrega la línea de tiempo **por pistas** queda integrada con el resto
 - **Curso Aprender**: módulo 7 **Línea de tiempo por pistas** (3 lecciones y un reto): pistas y clips, capas agrupadas, y ajustes, efectos y transiciones por clip. Ya son 7 módulos y 21 lecciones.
 - Los clips que se solapan en una misma pista se ven apilados en carriles dentro de esa pista y se dibujan los dos; si no lo quieres, ponlos en pistas distintas.
 
+## 30 efectos nuevos (0.28)
+
+En Efectos y audio → **Efectos** hay cuatro grupos nuevos; todos se dibujan con código (sin archivos ni licencias), funcionan en cualquier clip con efectos y comparten los ajustes comunes (cuándo empieza, cuánto dura, intensidad, velocidad, opacidad, entrada y salida, mezcla, variación). Los marcados con ⚙ deforman o recorren cada píxel y pueden ir más lentos en equipos modestos.
+
+- **Movimiento**: Zoom de golpe · Zoom al ritmo (con tempo propio, en pulsos por minuto) · Cámara en mano · Latigazo de cámara (con dirección) · Giro rápido (vueltas) · Pausa de impacto (blanco y negro con contraste; es un efecto visual, no congela el tiempo del vídeo).
+- **Cómic y manga**: Onomatopeya (texto editable, color y posición) · Estallido de color (rayos) · Símbolo de emoción (exclamación, duda, gota de sudor, vena de enfado, corazón, estrella, puntos) · Silueta de impacto ⚙ · Corte diagonal (ángulo y separación) · Tinta que se extiende · Trama de tensión.
+- **Luz y atmósfera**: Destello de lente · Resplandor · Parpadeo de vela · Relámpago · Ascuas · Pétalos u hojas (rosas, verdes o de otoño) · Destellos mágicos · Ondas de calor ⚙ · Bajo el agua ⚙.
+- **Imagen y estilo**: Color selectivo ⚙ (blanco y negro salvo un color, con margen) · Película antigua · Foco de luz · Desenfoque de movimiento (ángulo y longitud) · Desenfoque radial ⚙ · Caleidoscopio ⚙ (segmentos) · Contornos de neón ⚙ · Boceto a lápiz.
+- Se arregló además un fallo antiguo del panel de efectos: tras pasar el ratón por un botón y añadir el efecto, los deslizadores dejaban de modificar el efecto (se perdía lo que cambiabas).
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.27): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.28): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
