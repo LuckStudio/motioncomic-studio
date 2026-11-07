@@ -101,6 +101,7 @@
     const { W, H } = o, lang = o.lang || p.lang || 'es';
     for (const it of items) {
       if (it.kind === 'sub' && o.subs === false) continue;
+      if (o.pick && !o.pick('t', it)) continue;
       const sp = MC.textSpan(it, p), a = time - sp.start;
       if (a < 0 || a >= sp.dur) continue;
       const str = MC.textOf(it, p, lang);

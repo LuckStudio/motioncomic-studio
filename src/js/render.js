@@ -259,9 +259,24 @@
   MC.renderXShots = (ctx, project, time, o) => {
     const list = project.xshots || []; if (!list.length || o.xshots === false) return;
     const tr = project.xtracks || [];
-    list.filter((x) => time >= x.start && time < x.start + x.duration && (tr[x.xtrack || 0] || {}).visible !== false).sort((a, b) => (a.xtrack || 0) - (b.xtrack || 0)).forEach((x) => MC.renderShot(ctx, x, time - x.start, Object.assign({}, o, { transparent: true, project })));
+    list.filter((x) => time >= x.start && time < x.start + x.duration && (tr[x.xtrack || 0] || {}).visible !== false && (!o.pick || o.pick('x', x))).sort((a, b) => (a.xtrack || 0) - (b.xtrack || 0)).forEach((x) => MC.renderShot(ctx, x, time - x.start, Object.assign({}, o, { transparent: true, project })));
   };
-  MC.renderFrame = (ctx, project, time, o) => { renderBase(ctx, project, time, o); MC.renderXShots(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
+  /* Línea de tiempo LIBRE (project.tl === 'free'): capas agrupadas (xshots), imágenes y vídeos (overlays) y textos comparten un único índice de pista
+     (project.otracks) y se componen de abajo arriba, mezclados. El plano base queda oculto debajo; los subtítulos van siempre encima de todo. */
+  MC.freeTracks = (p) => Math.max((p.otracks || []).length, 1 + Math.max(-1, ...(p.xshots || []).map((x) => x.xtrack || 0), ...(p.overlays || []).map((q) => q.track || 0), ...(p.texts || []).filter((q) => q.kind !== 'sub').map((q) => q.track || 0)));
+  const renderFree = (ctx, project, time, o) => {
+    renderBase(ctx, project, time, o);
+    const tr = project.otracks || [], n = MC.freeTracks(project);
+    for (let i = 0; i < n; i++) {
+      if ((tr[i] || {}).visible === false) continue;
+      const o2 = Object.assign({}, o, { pick: (k, it) => (k === 'x' ? (it.xtrack || 0) === i : k === 'o' ? (it.track || 0) === i : it.kind !== 'sub' && (it.track || 0) === i) });
+      MC.renderXShots(ctx, project, time, o2); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o2); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o2);
+    }
+    if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o);
+    if (MC.renderTexts) MC.renderTexts(ctx, project, time, Object.assign({}, o, { pick: (k, it) => it.kind === 'sub' }));
+    if (MC.renderSubs) MC.renderSubs(ctx, project, time, o);
+  };
+  MC.renderFrame = (ctx, project, time, o) => { if (project.tl === 'free') { renderFree(ctx, project, time, o); return; } renderBase(ctx, project, time, o); MC.renderXShots(ctx, project, time, o); if (MC.renderOverlays) MC.renderOverlays(ctx, project, time, o); if (MC.renderLook && !o.noLook) MC.renderLook(ctx, project, time, o); if (MC.renderTexts) MC.renderTexts(ctx, project, time, o); if (MC.renderSubs) MC.renderSubs(ctx, project, time, o); };
 
   MC.renderOpts = (project, extra) => {
     const s = MC.frameSize(project.ratio, project.res);

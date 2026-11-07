@@ -587,9 +587,17 @@ Las tipografías incluidas tienen licencia SIL Open Font License (OFL).
 - **Tu cursor**: sube un PNG, JPG, WebP o SVG (mejor con fondo transparente), elige el tamaño máximo (24, 32, 48 o 64 px) y el **punto activo** (esquina, centro o punta abajo), pruébalo en el recuadro y pulsa «Usar mi cursor». «Quitar el mío» vuelve al sistema.
 - Se guarda en este equipo y se aplica al abrir la app. Limitación del navegador: solo cambia el cursor **dentro de la página** (no en el resto del sistema) y los cursores no salen en las capturas de pantalla.
 
+## Línea de tiempo libre: base (0.23, fase H1)
+
+Primer paso del modo **Libre** (ver `docs/PLAN-LINEA-LIBRE.md`). **Aún no se ve en la interfaz**: es el motor sobre el que se construirá.
+
+- Cada proyecto tiene un tipo de línea de tiempo (`tl`): `classic` (la de siempre, sin cambios, también para todos los proyectos que ya existen) o `free`.
+- En `free`, las capas agrupadas, las imágenes y vídeos y los textos comparten un único índice de pista y se dibujan **de abajo arriba, mezclados** (en el modo clásico, los textos siempre quedan encima de las superposiciones). Una pista oculta no se dibuja; los subtítulos van siempre encima de todo. Esto vale también para la exportación.
+- Un proyecto libre lleva un único plano base oculto cuya duración se ajusta al final del último clip, para que la duración total y el audio sigan funcionando.
+
 ## Versión
 
-La herramienta está en la **versión 0.x** (ahora 0.22): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
+La herramienta está en la **versión 0.x** (ahora 0.23): el número sube una unidad con cada bloque de mejoras que se fusiona, y la **1.0** llegará cuando todo esté como se quiere. El número está en `src/js/help.js` (`MC.VERSION`) y se ve en Preferencias → Acerca de, en Ayuda → Acerca de y en la pantalla de carga.
 
 ---
 
