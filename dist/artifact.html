@@ -30548,7 +30548,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       ta.remove();
     }
   };
-  MC.copyForAI = () => copy(MC.styleGuide.full());
+  MC.copyForAI = () => { if (MC.learnEvent) MC.learnEvent('copyai'); return copy(MC.styleGuide.full()); };
 
   /* editor de la guía */
   MC.styleGuideDialog = () => {
@@ -31489,7 +31489,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
 (function () {
   const MC = window.MC;
   const { h, t, clamp } = MC;
-  MC.VERSION = '0.20'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
+  MC.VERSION = '0.21'; /* versión 0.x: sube una unidad con cada bloque fusionado; la 1.0 llegará cuando todo esté como se quiere */
 
   /* ---------- temas: del sistema, oscuros, claros, de alto contraste y uno personalizado ---------- */
   MC.THEMES = [
@@ -31942,7 +31942,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
       return h('div', { class: 'fieldgroup' }, ...out);
     };
     const PANES = {
-      async ai(el) { MC.mcp.pane(el, () => { MC.clear(el); PANES.ai(el); }); },
+      async ai(el) { if (MC.learnEvent) MC.learnEvent('mcp'); MC.mcp.pane(el, () => { MC.clear(el); PANES.ai(el); }); },
       async look(el) {
         const z = MC.store.get('uizoom', '1'), mo = MC.store.get('motion', 'auto'), th = MC.store.get('theme', '') || 'system';
         MC.put(el, h('h3', null, t('Apariencia', 'Appearance')),
@@ -32743,6 +32743,22 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
           { text: 'Pulsa «Tabla de traducción» y escribe la traducción de un texto.', where: '.leftpanel', init: (c) => { c.mem.t = JSON.stringify(c.p.texts.map((q) => q.t)); }, check: (c) => JSON.stringify(c.p.texts.map((q) => q.t)) !== c.mem.t },
         ] },
       ], challenge: { title: 'Reto: listo para publicar', text: 'Proyecto con al menos 2 idiomas y un texto traducido.', check: (c) => c.p.langs.length >= 2 && c.p.texts.some((q) => Object.values(q.t || {}).filter((v) => String(v || '').trim()).length >= 2) } },
+    { id: 'm6', title: 'Tu estilo, atajos e IA', intro: 'Trabajar más rápido con atajos, guardar tu forma de montar como «Mi estilo» y dejar que una IA te ayude con las mismas reglas que tú.',
+      lessons: [
+        { id: 'm6l1', title: 'Atajos de teclado', why: 'Los atajos te ahorran miles de clics. Puedes usar los de MotionComic o los de programas que ya conoces, como Premiere, After Effects, CapCut, DaVinci Resolve o Blender.', steps: [
+          { text: 'Abre Ayuda (el «?» de la barra superior) → Atajos y mira la lista. Elige otra base de atajos (por ejemplo, la de un programa que ya uses).', where: '.s-top', init: (c) => { c.mem.b = MC.keys.base(); }, check: (c) => MC.keys.base() !== c.mem.b },
+          { text: 'Selecciona una capa, mueve el cabezal y añade un fotograma clave con su atajo (en la base MotionComic es la tecla I; en otras bases mira la lista).', where: '.tl-ruler', init: (c) => { c.mem.k = sumKf(c.p); }, check: (c) => sumKf(c.p) > c.mem.k },
+          { text: 'Vuelve a la base MotionComic en Ayuda → Atajos si prefieres mantener los de siempre. Cuando lo hayas hecho, este paso se marca solo.', where: '.s-top', check: (c) => MC.keys.base() === 'motioncomic' },
+        ] },
+        { id: 'm6l2', title: 'Mi estilo y mi guía', why: '«Mi estilo» guarda cómo montas (transiciones, cámara, ritmo, aspecto) y se aplica a los proyectos nuevos. La guía de estilo son tus notas escritas.', steps: [
+          { text: 'Abre la pestaña «Estilo» (Montaje), ajusta lo que quieras y pulsa «Guardar como Mi estilo».', open: ['montaje', 'estilo'], where: '.leftpanel', init: (c) => { c.mem.a = MC.myStyle.savedAt(); }, check: (c) => MC.myStyle.savedAt() > c.mem.a },
+          { text: 'En la pantalla de inicio, tarjeta «Mi guía de estilo», escribe unas líneas sobre cómo trabajas (ritmo, transiciones, lo que nunca haces). Se guarda sola.', where: '.s-top', init: (c) => { c.mem.g = MC.styleGuide.savedAt(); }, check: (c) => MC.styleGuide.savedAt() > c.mem.g },
+        ] },
+        { id: 'm6l3', title: 'Trabajar con una IA', why: 'Tu IA de confianza puede ayudarte sin salir del equipo: lee tu guía y tu estilo y monta como tú lo harías. Tú decides qué se comparte.', steps: [
+          { text: 'Abre Preferencias → «IA» y mira cómo se conecta una IA por MCP: tus proyectos y tu voz no salen del equipo salvo lo que tú elijas.', where: '.s-top', check: (c) => c.ev.mcp > 0 },
+          { text: 'En la tarjeta «Mi guía de estilo» de la pantalla de inicio (o en su editor) pulsa «Copiar para una IA»: así cualquier chat sabe cómo trabajas.', where: '.s-top', check: (c) => c.ev.copyai > 0 },
+        ] },
+      ], challenge: { title: 'Reto: tu sello personal', text: 'Guarda tu estilo y escribe tu guía de estilo.', check: () => MC.myStyle.savedAt() > 0 && MC.styleGuide.savedAt() > 0 } },
   ];
 
   const GLOSSARY = [
@@ -32756,6 +32772,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     ['Proporción', 'La relación ancho:alto del vídeo (9:16 vertical, 16:9 horizontal, 1:1 cuadrado).'], ['Resolución', 'El tamaño en píxeles del vídeo exportado.'], ['FPS', 'Fotogramas por segundo: 24 es cine, 30 y 60 son fluidos.'],
     ['Mezclador', 'Donde se ajusta el volumen de cada pista de sonido.'], ['SFX', 'Efectos de sonido: golpes, viento, pasos…'], ['Pista', 'Una fila de la línea de tiempo con su tipo de contenido: planos, texto, voz, música…'],
     ['Viñeta (aspecto)', 'Oscurecimiento de los bordes de la imagen para dirigir la mirada al centro.'], ['Grano', 'Ruido fino que da textura de película.'], ['Trama de puntos', 'Efecto de cómic impreso: la imagen se ve hecha de puntos.'], ['Simulador', 'Vista del vídeo con la interfaz de una red social encima para ver qué tapa.'], ['Idioma del proyecto', 'Cada idioma tiene su propio texto y se exporta por separado.'],
+    ['Base de atajos', 'Conjunto de atajos inspirado en un programa conocido (Premiere, After Effects, CapCut, DaVinci Resolve, Blender…).'], ['Mi estilo', 'Tus ajustes de montaje guardados para aplicarlos a proyectos nuevos.'], ['Guía de estilo', 'Tus notas en Markdown sobre cómo trabajas; sirve de referencia para ti y para una IA.'], ['MCP', 'Forma estándar de conectar una IA con una herramienta. Aquí la conexión es local, en tu equipo.'],
     ['Exportar', 'Convertir el proyecto en un archivo de vídeo, imagen o audio.'], ['Transición', 'El paso de un plano a otro: corte, fundido, deslizamiento…'], ['Rack focus', 'Cambio de enfoque entre capas para dirigir la mirada.'],
   ];
 
@@ -32767,14 +32784,14 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
   const pct = () => { const d = load().done || {}; return Math.round((lessons.filter((l) => d[l.id]).length / lessons.length) * 100); };
 
   /* contadores de acciones del estudio (los avisa studio.js) */
-  const ev = { align: 0, snap: 0, played: 0 };
+  const ev = { align: 0, snap: 0, played: 0, mcp: 0, copyai: 0 };
   MC.learnEvent = (n) => { if (n in ev) ev[n]++; };
 
   let cur = null; const closeCur = () => { try { if (cur && cur.close) cur.close(); } catch (e) { /* ya cerrado */ } cur = null; };
 
   /* ---------- panel del curso dentro del estudio ---------- */
   let coach = null, timer = 0, run = null; // run: { lesson, i, ok, mem }
-  const ctx = () => ({ p: MC.studioApi.project(), st: MC.studioApi.learn(), ev, mem: run.mem });
+  const ctx = () => ({ p: MC.studioApi ? MC.studioApi.project() : null, st: MC.studioApi ? MC.studioApi.learn() : {}, ev, mem: run.mem }); /* sin estudio abierto (pantalla de inicio) solo valen los pasos que no usan el proyecto */
   function place(x, y) { if (!coach) return; const w = coach.offsetWidth || 360, hh = coach.offsetHeight || 120; coach.style.right = 'auto'; coach.style.bottom = 'auto'; coach.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; coach.style.top = Math.max(4, Math.min(innerHeight - 40, y)) + 'px'; }
   function stopCoach() { clearInterval(timer); timer = 0; if (coach) { coach.remove(); coach = null; } run = null; }
   function pulse(sel) {
@@ -32808,7 +32825,7 @@ Escribe aquí cómo trabajas, para que tú (y cualquier IA que te ayude) sigáis
     MC.toast(skipped ? 'Lección saltada.' : '¡Lección completada! ' + (nxt ? 'Siguiente: ' + nxt.title : 'Has terminado el curso.'));
     MC.openLearn();
   }
-  function tick() { if (!run || !MC.studioApi) return; try { if (MC.studioApi.learn().playing) ev.played++; const ok = !!run.lesson.steps[run.i].check(ctx()); if (ok !== run.ok) { run.ok = ok; if (ok) MC.announce('Paso completado'); draw(); } } catch (e) { /* aún no hay datos */ } }
+  function tick() { if (!run) return; try { if (MC.studioApi && MC.studioApi.learn().playing) ev.played++; const ok = !!run.lesson.steps[run.i].check(ctx()); if (ok !== run.ok) { run.ok = ok; if (ok) MC.announce('Paso completado'); draw(); } } catch (e) { /* aún no hay datos */ } }
   function openLesson(id, i) {
     const L = find(id); if (!L) return;
     const go = () => {

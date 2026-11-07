@@ -313,3 +313,9 @@ Pendiente conocido: las capas de un PSD en modo Página entran aplanadas, el efe
 - Recorrido completo de todos los pasos: los de datos (clips, efectos, transiciones, aspecto, idiomas, textos, subtítulos…) se prueban cambiando el proyecto y comprobando que el paso se marca hecho; los de interfaz (grabar fotogramas, imán, botón Centro, zonas seguras, simulador, Espacio, abrir pestañas) con ratón y teclado reales.
 - Arreglado al probar: el paso de escribir texto se daba por hecho con el texto por defecto (ahora exige un cambio); el botón «Centro» no contaba si la capa ya estaba centrada (ahora siempre cuenta); «Zonas seguras» solo existe en vertical y el paso lo avisa.
 - Límite: el reto del módulo 3 (sonido) se probó dentro de la prueba de esos pasos; el resto de la regresión de los retos de los módulos 1 y 2 se comprobó con fotogramas y subtítulos añadidos a mano.
+
+## Aprender, tercera entrega (versión 0.21)
+
+- Módulo 6 «Tu estilo, atajos e IA»: atajos y bases, Mi estilo y guía, trabajar con una IA (3 lecciones, 1 reto, 4 términos). Eventos nuevos `mcp` y `copyai` (prefs.js, styleguide.js).
+- El panel del curso comprueba también sin estudio abierto, para los pasos de la pantalla de inicio.
+- Probado con ratón y teclado reales: cambiar la base de atajos en Ayuda, rombo de fotograma, guardar Mi estilo, abrir Preferencias → IA; y paso de copiar para una IA ya desde la pantalla de inicio.

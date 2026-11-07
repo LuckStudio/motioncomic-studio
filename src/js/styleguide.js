@@ -12,7 +12,7 @@
       ta.remove();
     }
   };
-  MC.copyForAI = () => copy(MC.styleGuide.full());
+  MC.copyForAI = () => { if (MC.learnEvent) MC.learnEvent('copyai'); return copy(MC.styleGuide.full()); };
 
   /* editor de la guía */
   MC.styleGuideDialog = () => {
